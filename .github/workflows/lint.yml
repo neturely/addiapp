@@ -1,0 +1,29 @@
+name: Lint code checks on develop branch
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions: read-all
+
+jobs:
+  build:
+    name: Lint check files
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # To report GitHub Actions status checks
+      statuses: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Super-linter
+        uses: super-linter/super-linter/slim@v7.4.0 # x-release-please-version
+        env:
+          # To report GitHub Actions status checks
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
