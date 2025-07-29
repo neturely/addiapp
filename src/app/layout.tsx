@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 // The Google font download step fails in this environment due to blocked
 // network requests. Use system fonts instead of downloading fonts.
 import "./globals.css";
-import SessionProviderWrapper from "./SessionProviderWrapper"; // <-- import the wrapper
 
 
 export const metadata: Metadata = {
@@ -17,11 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        <SessionProviderWrapper>
-          {children}
-        </SessionProviderWrapper>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

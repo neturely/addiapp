@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
@@ -17,7 +16,15 @@ export default function RegisterPage() {
       setError(error.message)
       return
     }
-    await signIn('credentials', { email, password, callbackUrl: '/' })
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    if (signInError) {
+      setError(signInError.message)
+      return
+    }
+    window.location.href = '/'
   }
 
   return (

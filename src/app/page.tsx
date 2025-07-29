@@ -1,28 +1,39 @@
 'use client'
 
-import { useSession, signIn, signOut } from 'next-auth/react'
 import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { AddiApp } from '@/types/addiapp'
 
 export default function HomePage() {
-  const { data: session, status } = useSession()
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const [addiapps, setAddiapps] = useState<AddiApp[]>([])
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Redirect to login if unauthenticated
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      signIn() // shows the Auth.js sign-in modal/page
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      setLoading(false)
+    })
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => {
+      subscription.unsubscribe()
     }
-  }, [status])
+  }, [])
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (!loading && user) {
       fetchAddiapps()
+    } else if (!loading && !user) {
+      window.location.href = '/signin'
     }
-  }, [status])
+  }, [loading, user])
 
   const fetchAddiapps = async () => {
     try {
@@ -66,13 +77,13 @@ export default function HomePage() {
     }
   }
 
-  if (status === 'loading') return <p className="p-4">Loading session...</p>
+  if (loading) return <p className="p-4">Loading session...</p>
 
   return (
     <main className="max-w-md mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">📝 My AddiApp</h1>
-        <button onClick={() => signOut()} className="text-sm text-blue-600 hover:underline">
+        <button onClick={() => supabase.auth.signOut()} className="text-sm text-blue-600 hover:underline">
           Logout
         </button>
       </div>

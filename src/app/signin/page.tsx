@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -11,12 +11,11 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const res = await signIn('credentials', {
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      redirect: false,
     })
-    if (res?.error) {
+    if (error) {
       setError('Invalid credentials')
     } else {
       window.location.href = '/'
