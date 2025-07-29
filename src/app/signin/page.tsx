@@ -2,23 +2,41 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+
+  const validate = () => {
+    if (!email || !password) {
+      setError('Email and password are required')
+      return false
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return false
+    }
+    return true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!validate()) return
+    setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
+    setLoading(false)
     if (error) {
-      setError('Invalid credentials')
+      setError(error.message)
     } else {
-      window.location.href = '/'
+      router.push('/')
     }
   }
 
@@ -42,8 +60,12 @@ export default function SignInPage() {
             placeholder="Password"
           />
           {error && <p className="text-red-600">{error}</p>}
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">
-            Sign In
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 disabled:bg-gray-400 text-white py-2 rounded"
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
         <p className="text-center text-sm mt-4">
