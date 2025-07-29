@@ -11,8 +11,7 @@ Next create a `.env.local` file with the following variables:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=<your Supabase url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
-GITHUB_ID=<GitHub OAuth app id>
-GITHUB_SECRET=<GitHub OAuth secret>
+SUPABASE_SERVICE_ROLE_KEY=<your Supabase service role key>
 NEXTAUTH_SECRET=<random string>
 ```
 
