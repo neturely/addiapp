@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-// The Google font download step fails in this environment due to blocked
-// network requests. Use system fonts instead of downloading fonts.
 import "./globals.css";
 
 
@@ -16,7 +14,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <head>
+        {/* Google Fonts Nunito */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;700;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-nunito antialiased">{children}</body>
     </html>
   );
 }
