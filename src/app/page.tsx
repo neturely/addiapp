@@ -9,6 +9,7 @@ export default function HomePage() {
   const { data: session, status } = useSession()
   const [addiapps, setAddiapps] = useState<AddiApp[]>([])
   const [title, setTitle] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   // Redirect to login if unauthenticated
   useEffect(() => {
@@ -24,23 +25,45 @@ export default function HomePage() {
   }, [status])
 
   const fetchAddiapps = async () => {
-    const { data } = await supabase
-      .from('addiapps')
-      .select('*')
-      .order('inserted_at', { ascending: false })
-    setAddiapps(data || [])
+    try {
+      setError(null)
+      const { data, error } = await supabase
+        .from('addiapp')
+        .select('*')
+        .order('inserted_at', { ascending: false })
+      if (error) throw error
+      setAddiapps(data || [])
+    } catch (err) {
+      console.error('Error fetching tasks:', err)
+      setError('Failed to load tasks')
+    }
   }
 
   const addAddiapp = async () => {
     if (!title.trim()) return
-    await supabase.from('addiapps').insert({ title })
-    setTitle('')
-    fetchAddiapps()
+    try {
+      const { error } = await supabase.from('addiapp').insert({ title })
+      if (error) throw error
+      setTitle('')
+      fetchAddiapps()
+    } catch (err) {
+      console.error('Error adding task:', err)
+      setError('Failed to add task')
+    }
   }
 
   const toggleAddiapp = async (id: string, completed: boolean) => {
-    await supabase.from('addiapps').update({ completed: !completed }).eq('id', id)
-    fetchAddiapps()
+    try {
+      const { error } = await supabase
+        .from('addiapp')
+        .update({ completed: !completed })
+        .eq('id', id)
+      if (error) throw error
+      fetchAddiapps()
+    } catch (err) {
+      console.error('Error updating task:', err)
+      setError('Failed to update task')
+    }
   }
 
   if (status === 'loading') return <p className="p-4">Loading session...</p>
@@ -65,6 +88,8 @@ export default function HomePage() {
           Add
         </button>
       </div>
+
+      {error && <p className="mb-4 text-red-600">{error}</p>}
 
       <ul>
         {addiapps.map(app => (
