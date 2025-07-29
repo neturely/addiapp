@@ -1,29 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AddiApp
 
-## Getting Started
-
+Simple task tracker built with [Next.js](https://nextjs.org) and Supabase.
 
 ## Setup
 
 Run `./scripts/setup.sh` to install dependencies before running other npm commands.
 
-First, run the development server:
+Next create a `.env.local` file with the following variables:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=<your Supabase url>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
+GITHUB_ID=<GitHub OAuth app id>
+GITHUB_SECRET=<GitHub OAuth secret>
+NEXTAUTH_SECRET=<random string>
+```
+
+Once configured, start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
 
