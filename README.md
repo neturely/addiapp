@@ -2,6 +2,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+
+## Setup
+
+Run `./scripts/setup.sh` to install dependencies before running other npm commands.
+
 First, run the development server:
 
 ```bash
