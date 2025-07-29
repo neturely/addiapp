@@ -1,8 +1,28 @@
 # AddiApp
 
-Simple task tracker built with [Next.js](https://nextjs.org) and Supabase.
+Web deployment file repository for addiapp.com - In progress task tracker built with [Next.js](https://nextjs.org) and Supabase.
+
+## Features
+
+- User authentication with Supabase
+- Task creation, completion, and management
+- Responsive UI with Tailwind CSS
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or newer recommended)
+- [npm](https://www.npmjs.com/) (v9 or newer recommended)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Supabase account](https://supabase.com/)
+- [Vercel Platform Recommended](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme)
 
 ## Setup
+
+Clone the repository using the command below:
+
+```console
+you@console:~$ git clone git@github.com:neturely/addiapp.git
+```
 
 Run `./scripts/setup.sh` to install dependencies before running other npm commands.
 
@@ -19,17 +39,10 @@ Once configured, start the development server:
 npm run dev
 ```
 
-## Learn More
+## Contributing
 
-To learn more about Next.js, take a look at the following resources:
+Pull requests and issues are welcome. If you spot a problem or have a suggestion, feel free to open a discussion.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License.
