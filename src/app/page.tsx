@@ -28,7 +28,7 @@ export default function HomePage() {
     try {
       setError(null)
       const { data, error } = await supabase
-        .from('addiapps')
+        .from('addiapp')
         .select('*')
         .order('inserted_at', { ascending: false })
       if (error) throw error
@@ -42,7 +42,7 @@ export default function HomePage() {
   const addAddiapp = async () => {
     if (!title.trim()) return
     try {
-      const { error } = await supabase.from('addiapps').insert({ title })
+      const { error } = await supabase.from('addiapp').insert({ title })
       if (error) throw error
       setTitle('')
       fetchAddiapps()
@@ -55,7 +55,7 @@ export default function HomePage() {
   const toggleAddiapp = async (id: string, completed: boolean) => {
     try {
       const { error } = await supabase
-        .from('addiapps')
+        .from('addiapp')
         .update({ completed: !completed })
         .eq('id', id)
       if (error) throw error
