@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
@@ -9,15 +8,20 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
+    setSuccess(null)
     const { error } = await supabase.auth.signUp({ email, password })
     if (error) {
       setError(error.message)
       return
     }
-    await signIn('credentials', { email, password, callbackUrl: '/' })
+    setSuccess('Registration successful! Please check your email to confirm your account.')
+    setEmail('')
+    setPassword('')
   }
 
   return (
@@ -31,6 +35,7 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
+            required
           />
           <input
             className="w-full p-2 border rounded"
@@ -38,8 +43,10 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
+            required
           />
           {error && <p className="text-red-600">{error}</p>}
+          {success && <p className="text-green-600">{success}</p>}
           <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">
             Register
           </button>

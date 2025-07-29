@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 
 export default function SignInPage() {
   const [email, setEmail] = useState('')
@@ -11,12 +11,9 @@ export default function SignInPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const res = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    })
-    if (res?.error) {
+    setError(null)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
       setError('Invalid credentials')
     } else {
       window.location.href = '/'
@@ -34,6 +31,7 @@ export default function SignInPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
+            required
           />
           <input
             className="w-full p-2 border rounded"
@@ -41,17 +39,13 @@ export default function SignInPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
+            required
           />
           {error && <p className="text-red-600">{error}</p>}
           <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">
             Sign In
           </button>
         </form>
-        <div className="mt-4 text-center">
-          <button onClick={() => signIn('github')} className="text-sm text-gray-600 underline">
-            Sign in with GitHub
-          </button>
-        </div>
         <p className="text-center text-sm mt-4">
           Don&apos;t have an account? <Link href="/register" className="text-blue-600">Register</Link>
         </p>
