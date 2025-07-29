@@ -8,23 +8,38 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const validate = () => {
+    if (!email || !password) {
+      setError('Email and password are required')
+      return false
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return false
+    }
+    return true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase.auth.signUp({ email, password })
+    if (!validate()) return
+    setLoading(true)
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    })
+    setLoading(false)
     if (error) {
       setError(error.message)
       return
     }
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (signInError) {
-      setError(signInError.message)
-      return
-    }
-    window.location.href = '/'
+    setSuccess('Check your email for a confirmation link.')
+    setEmail('')
+    setPassword('')
   }
 
   return (
@@ -47,8 +62,13 @@ export default function RegisterPage() {
             placeholder="Password"
           />
           {error && <p className="text-red-600">{error}</p>}
-          <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded">
-            Register
+          {success && <p className="text-green-600">{success}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 disabled:bg-gray-400 text-white py-2 rounded"
+          >
+            {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
         <p className="text-center text-sm mt-4">

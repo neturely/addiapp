@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { AddiApp } from '@/types/addiapp'
@@ -11,6 +12,7 @@ export default function HomePage() {
   const [addiapps, setAddiapps] = useState<AddiApp[]>([])
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -31,9 +33,9 @@ export default function HomePage() {
     if (!loading && user) {
       fetchAddiapps()
     } else if (!loading && !user) {
-      window.location.href = '/signin'
+      router.push('/signin')
     }
-  }, [loading, user])
+  }, [loading, router, user])
 
   const fetchAddiapps = async () => {
     try {
