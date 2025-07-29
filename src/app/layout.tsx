@@ -1,17 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// The Google font download step fails in this environment due to blocked
+// network requests. Use system fonts instead of downloading fonts.
 import "./globals.css";
-import SessionProviderWrapper from "./SessionProviderWrapper"; // <-- import the wrapper
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -25,11 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SessionProviderWrapper>
-          {children}
-        </SessionProviderWrapper>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
