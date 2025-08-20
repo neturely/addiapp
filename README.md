@@ -39,6 +39,11 @@ Once configured, start the development server:
 npm run dev
 ```
 
+## Web URLs
+
+- [Production] (https://addiapp.vercel.app)
+- [Development] (http://localhost:3000/)
+
 ## Contributing
 
 Pull requests and issues are welcome. If you spot a problem or have a suggestion, feel free to open a discussion.
