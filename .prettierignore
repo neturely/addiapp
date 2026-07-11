@@ -1,0 +1,15 @@
+# Dependencies & build output
+node_modules
+**/dist
+package-lock.json
+
+# Hand-authored spec / context docs — not prettier-managed
+CLAUDE.md
+PROJECT_SPEC.md
+OLD_SPEC.md
+
+# Tooling / generated / pre-existing config (not part of the app)
+.claude
+.mcp.json
+.github
+public

@@ -1,53 +1,77 @@
 # AddiApp
 
-Web deployment file repository for addiapp.com - In progress task tracker built with [Next.js](https://nextjs.org) and Supabase.
+Gamified task app — a mascot-led "Play" flow guides you to one task at a time, and completing
+tasks earns points with speed and daily-volume bonuses. A separate Dashboard gives a clean admin
+view for managing tasks.
 
-## Features
+> **Full rebuild in progress.** The original Next.js/Supabase app was discarded. See
+> [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) for the current design and [`CLAUDE.md`](./CLAUDE.md) for
+> project context and decisions. [`OLD_SPEC.md`](./OLD_SPEC.md) is retained as historical reference
+> only.
 
-- User authentication with Supabase
-- Task creation, completion, and management
-- Responsive UI with Tailwind CSS
+## Stack
+
+- **Client** — React + Vite (SPA), React Router, Tailwind CSS, TypeScript
+- **Server** — Node.js + Express, TypeScript
+- **Database** — MySQL/MariaDB (not yet wired up — see issue #25)
+- **Auth** — custom (bcrypt + sessions/JWT — issue #26)
+- **Hosting** — KnownHost shared (cPanel/LiteSpeed), FTP deploy via GitHub Actions
+
+## Repository layout
+
+```
+addiapp/
+├── client/          # React + Vite SPA (TypeScript)
+├── server/          # Node.js + Express API (TypeScript)
+├── public/fonts/    # Nunito web fonts (kept from the original project)
+├── CLAUDE.md        # project context + decisions (authoritative)
+├── PROJECT_SPEC.md  # rebuild spec (authoritative)
+└── OLD_SPEC.md      # historical / superseded
+```
+
+This is an npm-workspaces monorepo. `client` and `server` are independent workspaces.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or newer recommended)
-- [npm](https://www.npmjs.com/) (v9 or newer recommended)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Supabase account](https://supabase.com/)
-- [Vercel Platform Recommended](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme)
+- Node.js **20+** (see `.nvmrc`)
+- npm **9+**
 
 ## Setup
 
-Clone the repository using the command below:
-
-```console
-you@console:~$ git clone git@github.com:neturely/addiapp.git
+```bash
+git clone git@github.com:neturely/addiapp.git
+cd addiapp
+npm install          # installs all workspaces
+cp server/.env.example server/.env
 ```
 
-Run `./scripts/setup.sh` to install dependencies before running other npm commands.
-
-Next create a `.env.local` file with the following variables:
+## Development
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=<your Supabase url>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon key>
+npm run dev          # runs client (Vite) and server (Express) together
 ```
 
-Once configured, start the development server:
+- Client dev server: http://localhost:5173
+- API: http://localhost:3001 (the Vite dev server proxies `/api/*` to it)
+
+Run a single side if you prefer:
 
 ```bash
-npm run dev
+npm run dev:client
+npm run dev:server
 ```
 
-## Web URLs
+## Useful scripts (run from the repo root)
 
-- [Production] (https://addiapp.vercel.app)
-- [Development] (http://localhost:3000/)
-
-## Contributing
-
-Pull requests and issues are welcome. If you spot a problem or have a suggestion, feel free to open a discussion.
+| Script              | Description                               |
+| ------------------- | ----------------------------------------- |
+| `npm run dev`       | Run client + server in watch mode         |
+| `npm run build`     | Build client, then compile the server     |
+| `npm run start`     | Start the compiled server (`server/dist`) |
+| `npm run typecheck` | Type-check both workspaces                |
+| `npm run lint`      | ESLint across the monorepo                |
+| `npm run format`    | Prettier write                            |
 
 ## License
 
-This project is licensed under the MIT License.
+MIT
