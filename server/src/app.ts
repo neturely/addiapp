@@ -1,8 +1,9 @@
-import express, { type Express } from 'express'
+import express, { type Express, type NextFunction, type Request, type Response } from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import { healthRouter } from './routes/health.js'
 import { authRouter } from './routes/auth.js'
+import { tasksRouter } from './routes/tasks.js'
 
 /**
  * Build the Express application. Kept separate from server startup (index.ts)
@@ -21,6 +22,13 @@ export function createApp(): Express {
   // API routes are mounted under /api
   app.use('/api', healthRouter)
   app.use('/api/auth', authRouter)
+  app.use('/api/tasks', tasksRouter)
+
+  // Fallback error handler — async route errors are forwarded here via asyncHandler.
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('[addiapp-server] unhandled error:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  })
 
   return app
 }

@@ -10,6 +10,14 @@ export default tseslint.config(
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    rules: {
+      // Allow intentionally-unused args/vars when prefixed with _ (e.g. Express
+      // error handlers, which must keep a 4th `next` param to be recognized).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
   },
   // Client (browser + React)
   {
