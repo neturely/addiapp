@@ -13,6 +13,11 @@ import { pointsRouter } from './routes/points.js'
 export function createApp(): Express {
   const app = express()
 
+  // One proxy hop in both environments (Vite dev proxy / LiteSpeed in prod) —
+  // lets express-rate-limit read the real client IP from X-Forwarded-For.
+  // Revisit the hop count when the deploy pipeline lands (#39).
+  app.set('trust proxy', 1)
+
   // In dev the Vite proxy makes requests same-origin; in prod the SPA is served
   // from the same host. `origin: true` + credentials keeps the session cookie
   // working if the API is ever hit cross-origin.

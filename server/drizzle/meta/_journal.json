@@ -15,6 +15,13 @@
       "when": 1783792333356,
       "tag": "0001_parallel_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1783794760422,
+      "tag": "0002_overrated_triathlon",
+      "breakpoints": true
     }
   ]
 }

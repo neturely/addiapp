@@ -1,58 +1,58 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { apiRequest } from '@/lib/api'
 import { AuthContext, type AuthUser } from './authContext'
-
-async function readError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string }
-    return data.error ?? 'Something went wrong'
-  } catch {
-    return 'Something went wrong'
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then((res) => (res.ok ? (res.json() as Promise<{ user: AuthUser }>) : null))
-      .then((data) => setUser(data?.user ?? null))
+    apiRequest<{ user: AuthUser }>('/auth/me')
+      .then((data) => setUser(data.user))
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
 
   async function login(email: string, password: string) {
-    const res = await fetch('/api/auth/login', {
+    const data = await apiRequest<{ user: AuthUser }>('/auth/login', {
       method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     })
-    if (!res.ok) throw new Error(await readError(res))
-    const data = (await res.json()) as { user: AuthUser }
     setUser(data.user)
   }
 
   async function register(email: string, password: string, displayName?: string) {
-    const res = await fetch('/api/auth/register', {
+    // Account created + verification email sent; the user is NOT signed in.
+    await apiRequest('/auth/register', {
       method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, displayName }),
     })
-    if (!res.ok) throw new Error(await readError(res))
-    const data = (await res.json()) as { user: AuthUser }
+  }
+
+  async function verify(token: string) {
+    const data = await apiRequest<{ user: AuthUser }>('/auth/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
     setUser(data.user)
   }
 
+  async function resendVerification(email: string) {
+    await apiRequest('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    await apiRequest('/auth/logout', { method: 'POST' }).catch(() => {})
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, verify, resendVerification, logout }}
+    >
       {children}
     </AuthContext.Provider>
   )

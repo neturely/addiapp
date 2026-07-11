@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { Home } from '@/pages/Home'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
+import { Verify } from '@/pages/Verify'
 import { Choice } from '@/pages/Choice'
 import { TaskPresented } from '@/pages/TaskPresented'
 import { InProgress } from '@/pages/InProgress'
@@ -15,6 +16,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
   { path: '/register', element: <Register /> },
+  { path: '/verify', element: <Verify /> },
   {
     element: <ProtectedRoute />,
     children: [
