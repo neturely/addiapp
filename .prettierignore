@@ -3,6 +3,9 @@ node_modules
 **/dist
 package-lock.json
 
+# Drizzle-generated migrations + snapshots (tool-owned format)
+**/drizzle/
+
 # Hand-authored spec / context docs — not prettier-managed
 CLAUDE.md
 PROJECT_SPEC.md

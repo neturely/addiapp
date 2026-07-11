@@ -1,0 +1,87 @@
+import {
+  mysqlTable,
+  int,
+  varchar,
+  mysqlEnum,
+  timestamp,
+  date,
+  decimal,
+  unique,
+} from 'drizzle-orm/mysql-core'
+
+/**
+ * Task complexity → base points are assigned in the points logic (issue #28):
+ * low = 2, medium = 5, high = 10. Stored here only as the classification.
+ */
+export const users = mysqlTable('users', {
+  id: int('id').autoincrement().primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  displayName: varchar('display_name', { length: 100 }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+})
+
+export const tasks = mysqlTable('tasks', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  complexity: mysqlEnum('complexity', ['low', 'medium', 'high']).notNull(),
+  estimatedMinutes: int('estimated_minutes').notNull(),
+  status: mysqlEnum('status', ['backlog', 'in_progress', 'done']).default('backlog').notNull(),
+  // Timing captured for the speed bonus (issue #28): set on Start / on completion.
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  actualMinutes: int('actual_minutes'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+})
+
+/**
+ * Ledger of points awarded per completed task. Stores the *components* of the
+ * award (base / speed bonus / multiplier) so the exact formula — still open in
+ * PROJECT_SPEC §7/§10 — can change without a schema change.
+ */
+export const pointsLog = mysqlTable('points_log', {
+  id: int('id').autoincrement().primaryKey(),
+  userId: int('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  taskId: int('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  basePoints: int('base_points').notNull(),
+  speedBonus: int('speed_bonus').notNull().default(0),
+  multiplier: decimal('multiplier', { precision: 4, scale: 2 }).notNull().default('1.00'),
+  totalPoints: int('total_points').notNull(),
+  awardedAt: timestamp('awarded_at').defaultNow().notNull(),
+})
+
+/**
+ * Per-user, per-day rollup that drives the daily multiplier (grows with tasks
+ * completed that day, resets at midnight — PROJECT_SPEC §7). Cap / growth rate
+ * are open numbers (§10) and live in the points logic, not the schema.
+ */
+export const dailyStats = mysqlTable(
+  'daily_stats',
+  {
+    id: int('id').autoincrement().primaryKey(),
+    userId: int('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    statDate: date('stat_date').notNull(),
+    tasksCompleted: int('tasks_completed').notNull().default(0),
+    pointsEarned: int('points_earned').notNull().default(0),
+    multiplier: decimal('multiplier', { precision: 4, scale: 2 }).notNull().default('1.00'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [unique('daily_stats_user_date_unq').on(table.userId, table.statDate)],
+)
+
+export type User = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
+export type Task = typeof tasks.$inferSelect
+export type NewTask = typeof tasks.$inferInsert
+export type PointsLogEntry = typeof pointsLog.$inferSelect
+export type DailyStat = typeof dailyStats.$inferSelect
