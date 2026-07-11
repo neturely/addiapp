@@ -22,6 +22,20 @@ export const users = mysqlTable('users', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
 })
 
+/**
+ * Server-side sessions (issue #26). `id` is an opaque random token stored in an
+ * httpOnly cookie; the row is the source of truth so logout/expiry revoke access
+ * immediately.
+ */
+export const sessions = mysqlTable('sessions', {
+  id: varchar('id', { length: 64 }).primaryKey(),
+  userId: int('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 export const tasks = mysqlTable('tasks', {
   id: int('id').autoincrement().primaryKey(),
   userId: int('user_id')
@@ -81,6 +95,8 @@ export const dailyStats = mysqlTable(
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type Session = typeof sessions.$inferSelect
+export type NewSession = typeof sessions.$inferInsert
 export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
 export type PointsLogEntry = typeof pointsLog.$inferSelect

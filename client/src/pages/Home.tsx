@@ -1,24 +1,23 @@
-import { useEffect, useState } from 'react'
-
-type ApiState = 'checking…' | 'unreachable' | string
+import { useAuth } from '@/auth/useAuth'
 
 export function Home() {
-  const [apiStatus, setApiStatus] = useState<ApiState>('checking…')
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data: { status?: string }) => setApiStatus(data.status ?? 'unknown'))
-      .catch(() => setApiStatus('unreachable'))
-  }, [])
+  const { user, logout } = useAuth()
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
       <h1 className="text-4xl font-bold">AddiApp</h1>
-      <p className="text-gray-500">Monorepo scaffold is up — rebuild in progress.</p>
-      <p className="text-sm text-gray-600">
-        API health: <span className="font-mono font-semibold">{apiStatus}</span>
+      <p className="text-gray-600">
+        Signed in as <span className="font-semibold">{user?.displayName ?? user?.email}</span>
       </p>
+      <p className="text-sm text-gray-500">
+        (Play mode home comes next — issue #29. You&apos;re authenticated.)
+      </p>
+      <button
+        onClick={() => void logout()}
+        className="rounded bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
+      >
+        Log out
+      </button>
     </main>
   )
 }
