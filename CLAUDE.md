@@ -109,7 +109,14 @@ addiapp/
   to emit a new SQL migration, then `npm run db:migrate` to apply it.
 - `DATABASE_URL` in `server/.env` must match the `MYSQL_*` credentials in the
   root `.env` (both default to user `addiapp` / password `addiapp` / db `addiapp`).
-- Stop the DB with `npm run db:down` (data persists in the `db_data` volume).
+- Reset the DB (drop the volume + recreate) with `npm run db:reset`; stop it with
+  `npm run db:down` (data persists in the `db_data` volume). The `db:up`/`db:down`
+  scripts (`scripts/db.sh`) auto-pick `docker-compose` on macOS and `docker
+  compose` on Linux/WSL, matching wptips.
+- **macOS + colima gotcha:** if `docker` reports "command not found" even though
+  colima is installed, the Homebrew `docker` CLI just isn't linked. Fix once:
+  `ln -sf "$(brew --prefix docker)/bin/docker" /opt/homebrew/bin/docker` then
+  `colima start`.
 
 ## Screens designed so far (mockups only, not built)
 

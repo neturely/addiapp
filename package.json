@@ -22,8 +22,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down",
+    "db:up": "bash scripts/db.sh up",
+    "db:down": "bash scripts/db.sh down",
+    "db:reset": "bash scripts/db.sh reset",
     "db:generate": "npm run db:generate -w server",
     "db:migrate": "npm run db:migrate -w server"
   },
