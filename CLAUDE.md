@@ -72,23 +72,44 @@ person/org — confirm or correct.)*
   "current bonus: 1.3x"), resets at midnight, confirmed capped — **cap value
   TBD (placeholder 2.0x)**, **growth rate per task TBD (placeholder +0.1x)**
 
-## Repo structure — TBD
+## Repo structure
 
-Not yet built. Planned shape (draft, not confirmed):
+Monorepo (npm workspaces) — **decided**. Client and server in one repo.
 
 ```
 addiapp/
-├── .github/workflows/deploy.yml   # to be rewritten — old one is stale/broken
-├── client/                        # React + Vite SPA
+├── docker-compose.yml            # local MySQL 8.0 for development
+├── .github/workflows/            # auto-assign (deploy pipeline is issue #39)
+├── client/                       # React + Vite SPA (TypeScript)
 │   └── src/
-├── server/                        # Node.js + Express API
-│   └── src/
+├── server/                       # Node.js + Express API (TypeScript)
+│   ├── drizzle/                  # generated SQL migrations
+│   └── src/db/                   # Drizzle schema, connection, migrator
+├── public/fonts/                 # Nunito web fonts (kept from original)
 ├── CLAUDE.md
+├── PROJECT_SPEC.md
 └── README.md
 ```
 
-Open question: monorepo (client/server in one repo, as sketched above) vs
-split repos — not yet decided.
+## Local dev environment
+
+- Docker Compose (Mac or WSL2 Ubuntu) — a **MySQL 8.0 container only**; the app
+  (client + server) runs on the host, not in containers. No MySQL is installed
+  on the host itself.
+- DB access layer: **Drizzle ORM** (+ `mysql2` driver). Schema lives in
+  `server/src/db/schema.ts`.
+- First-time setup:
+  1. `cp .env.example .env` and `cp server/.env.example server/.env`
+  2. `npm install`
+  3. `npm run db:up` — starts MySQL 8.0 (exposed on `localhost:3306`, data in the
+     `db_data` volume)
+  4. `npm run db:migrate` — applies Drizzle migrations from `server/drizzle/`
+  5. `npm run dev` — client on http://localhost:5173, API on http://localhost:3001
+- Changing the schema: edit `server/src/db/schema.ts`, then `npm run db:generate`
+  to emit a new SQL migration, then `npm run db:migrate` to apply it.
+- `DATABASE_URL` in `server/.env` must match the `MYSQL_*` credentials in the
+  root `.env` (both default to user `addiapp` / password `addiapp` / db `addiapp`).
+- Stop the DB with `npm run db:down` (data persists in the `db_data` volume).
 
 ## Screens designed so far (mockups only, not built)
 
@@ -170,8 +191,8 @@ locked as final brand palette.
 - [ ] SSH availability on KnownHost shared plan
 - [ ] Speed bonus formula/curve
 - [ ] Daily multiplier cap value and growth rate per task
-- [ ] Monorepo vs split repos for client/server
-- [ ] Query builder / ORM choice for MySQL
+- [x] Monorepo vs split repos for client/server — **monorepo** (npm workspaces)
+- [x] Query builder / ORM choice for MySQL — **Drizzle ORM** (+ mysql2)
 - [ ] Task in-progress / completion screen design
 - [ ] Add-task form design
 - [ ] Dashboard layout
