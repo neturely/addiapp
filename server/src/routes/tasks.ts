@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { tasks, type Task } from '../db/schema.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { asyncHandler } from '../lib/asyncHandler.js'
+import { awardTaskCompletion } from '../points/award.js'
 
 export const tasksRouter = Router()
 
@@ -144,6 +145,7 @@ tasksRouter.patch(
     }
 
     const updates: Partial<Task> = { ...parsed.data }
+    const completing = parsed.data.status === 'done' && existing.status !== 'done'
     if (parsed.data.status && parsed.data.status !== existing.status) {
       Object.assign(updates, statusTransitionFields(parsed.data.status, existing))
     }
@@ -153,7 +155,10 @@ tasksRouter.patch(
       .set(updates)
       .where(and(eq(tasks.id, id), eq(tasks.userId, req.user!.id)))
     const updated = await findOwnedTask(id, req.user!.id)
-    res.json({ task: updated })
+
+    // Award points on the first transition into "done" (idempotent per task).
+    const pointsAwarded = completing && updated ? await awardTaskCompletion(updated) : null
+    res.json(pointsAwarded ? { task: updated, pointsAwarded } : { task: updated })
   }),
 )
 
