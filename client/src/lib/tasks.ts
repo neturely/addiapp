@@ -7,6 +7,16 @@ export type Task = {
   complexity: TaskComplexity
   estimatedMinutes: number
   status: TaskStatus
+  /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
+  startedAt?: string | null
+}
+
+/** Points breakdown returned when a task is completed (issue #28). */
+export type AwardResult = {
+  basePoints: number
+  speedBonus: number
+  multiplier: number
+  totalPoints: number
 }
 
 export type WinSize = 'small' | 'big'
@@ -54,4 +64,21 @@ export async function startTask(id: number): Promise<Task> {
     body: JSON.stringify({ status: 'in_progress' }),
   })
   return task
+}
+
+/** Fetch a single owned task (issue #33 in-progress screen). */
+export async function getTask(id: number): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`)
+  return task
+}
+
+/**
+ * Complete a task → done. Awards points on the first completion (issue #28), so
+ * `pointsAwarded` is present the first time and omitted if it was already done.
+ */
+export async function completeTask(id: number): Promise<{ task: Task; pointsAwarded?: AwardResult }> {
+  return requestJson<{ task: Task; pointsAwarded?: AwardResult }>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'done' }),
+  })
 }
