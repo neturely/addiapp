@@ -32,6 +32,9 @@ export function Home() {
           <Link to="/dashboard" className="underline hover:text-gray-700">
             Dashboard
           </Link>
+          <Link to="/stats" className="underline hover:text-gray-700">
+            Stats
+          </Link>
         </div>
       </div>
 

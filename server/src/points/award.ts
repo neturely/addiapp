@@ -116,3 +116,71 @@ export async function getPointsStats(userId: number): Promise<PointsStats> {
     basePoints: BASE_POINTS,
   }
 }
+
+/** Previous calendar date (YYYY-MM-DD) — dates are plain, so UTC-midnight math is safe. */
+function prevDate(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+export type UserStats = {
+  total: number
+  lifetime: { tasksCompleted: number; speedBonusTotal: number }
+  today: { date: string; tasksCompleted: number; pointsEarned: number; currentMultiplier: number }
+  /** Consecutive days (in APP_TIMEZONE) with ≥1 completion, counting back from today. */
+  streak: { currentDays: number }
+}
+
+/**
+ * Richer points/stats for the dedicated user stats page (issue #38). Kept separate
+ * from getPointsStats so the frequently-refreshed dashboard card stays lean.
+ */
+export async function getUserStats(userId: number): Promise<UserStats> {
+  const agg = await db
+    .select({
+      total: sql<string>`COALESCE(SUM(${pointsLog.totalPoints}), 0)`,
+      tasks: sql<string>`COUNT(*)`,
+      speed: sql<string>`COALESCE(SUM(${pointsLog.speedBonus}), 0)`,
+    })
+    .from(pointsLog)
+    .where(eq(pointsLog.userId, userId))
+  const total = Number(agg[0]?.total ?? 0)
+  const lifetimeTasks = Number(agg[0]?.tasks ?? 0)
+  const speedBonusTotal = Number(agg[0]?.speed ?? 0)
+
+  const today = todayInTz()
+  const todayRow = await db
+    .select()
+    .from(dailyStats)
+    .where(and(eq(dailyStats.userId, userId), eq(dailyStats.statDate, today)))
+    .limit(1)
+  const tasksCompleted = todayRow[0]?.tasksCompleted ?? 0
+  const pointsEarned = todayRow[0]?.pointsEarned ?? 0
+
+  // Streak: walk back day-by-day over the set of active dates. If today has no
+  // completion yet, start from yesterday so a fresh day doesn't zero the streak.
+  const dayRows = await db
+    .select({ statDate: dailyStats.statDate, tasksCompleted: dailyStats.tasksCompleted })
+    .from(dailyStats)
+    .where(eq(dailyStats.userId, userId))
+  const activeDays = new Set(dayRows.filter((r) => r.tasksCompleted > 0).map((r) => r.statDate))
+  let cursor = activeDays.has(today) ? today : prevDate(today)
+  let currentDays = 0
+  while (activeDays.has(cursor)) {
+    currentDays += 1
+    cursor = prevDate(cursor)
+  }
+
+  return {
+    total,
+    lifetime: { tasksCompleted: lifetimeTasks, speedBonusTotal },
+    today: {
+      date: today,
+      tasksCompleted,
+      pointsEarned,
+      currentMultiplier: dailyMultiplier(tasksCompleted + 1),
+    },
+    streak: { currentDays },
+  }
+}

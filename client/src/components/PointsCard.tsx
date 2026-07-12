@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 
 /**
@@ -28,7 +29,10 @@ export function PointsCard({ refreshSignal = 0 }: { refreshSignal?: number }) {
   const pointsToday = stats?.today.pointsEarned ?? 0
 
   return (
-    <section className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-[#D85A30] to-[#e07a52] p-5 text-white">
+    <Link
+      to="/stats"
+      className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-[#D85A30] to-[#e07a52] p-5 text-white transition hover:brightness-105"
+    >
       <div>
         <div className="text-xs font-medium uppercase tracking-wide text-white/80">Total points</div>
         <div className="text-4xl font-extrabold tabular-nums">{total.toLocaleString()}</div>
@@ -46,6 +50,6 @@ export function PointsCard({ refreshSignal = 0 }: { refreshSignal?: number }) {
           </div>
         </div>
       </div>
-    </section>
+    </Link>
   )
 }
