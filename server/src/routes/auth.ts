@@ -8,12 +8,13 @@ import { hashPassword, verifyPassword } from '../auth/passwords.js'
 import {
   createSession,
   deleteSession,
+  deleteUserSessions,
   SESSION_COOKIE,
   SESSION_MAX_AGE_MS,
 } from '../auth/sessions.js'
 import { createEmailToken, consumeEmailToken } from '../auth/emailTokens.js'
 import { emailService } from '../email/index.js'
-import { verificationEmail } from '../email/templates.js'
+import { verificationEmail, passwordResetEmail } from '../email/templates.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { asyncHandler } from '../lib/asyncHandler.js'
 import { config } from '../config.js'
@@ -33,9 +34,21 @@ const loginSchema = z.object({
 
 const verifySchema = z.object({ token: z.string().min(1) })
 const emailOnlySchema = z.object({ email: z.string().email() })
+const resetSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+})
 
 // Light rate limit on the resend endpoint to curb abuse/spam.
 const resendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+// Same treatment for the password-reset request (email-sending, enumeration-prone).
+const forgotPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
   standardHeaders: true,
@@ -55,6 +68,11 @@ function setSessionCookie(res: Response, sid: string): void {
 async function sendVerificationEmail(userId: number, email: string): Promise<void> {
   const token = await createEmailToken(userId, 'verify')
   await emailService.send(verificationEmail(email, token))
+}
+
+async function sendPasswordResetEmail(userId: number, email: string): Promise<void> {
+  const token = await createEmailToken(userId, 'reset')
+  await emailService.send(passwordResetEmail(email, token))
 }
 
 // POST /register — creates the account (unverified) and emails a verification
@@ -170,6 +188,51 @@ authRouter.post(
     res.json({
       message: 'If that account exists and is unverified, a new verification link has been sent.',
     })
+  }),
+)
+
+// POST /forgot-password — request a reset. Always 200 (no account enumeration),
+// rate-limited. Emails a reset link only if the account actually exists.
+authRouter.post(
+  '/forgot-password',
+  forgotPasswordLimiter,
+  asyncHandler(async (req, res) => {
+    const parsed = emailOnlySchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Invalid email' })
+      return
+    }
+    const rows = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1)
+    const user = rows[0]
+    if (user) {
+      await sendPasswordResetEmail(user.id, user.email)
+    }
+    res.json({
+      message: 'If an account exists for that email, a password reset link has been sent.',
+    })
+  }),
+)
+
+// POST /reset-password — consume a reset token, set the new password (bcrypt),
+// and revoke ALL of the user's existing sessions. Does not log in: the user
+// signs in fresh with the new password.
+authRouter.post(
+  '/reset-password',
+  asyncHandler(async (req, res) => {
+    const parsed = resetSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' })
+      return
+    }
+    const userId = await consumeEmailToken(parsed.data.token, 'reset')
+    if (userId === null) {
+      res.status(400).json({ error: 'This reset link is invalid or has expired.' })
+      return
+    }
+    const passwordHash = await hashPassword(parsed.data.password)
+    await db.update(users).set({ passwordHash }).where(eq(users.id, userId))
+    await deleteUserSessions(userId)
+    res.json({ message: 'Your password has been reset. You can now sign in.' })
   }),
 )
 

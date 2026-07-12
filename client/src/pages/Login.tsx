@@ -92,6 +92,11 @@ export function Login() {
             Register
           </Link>
         </p>
+        <p className="mt-1 text-center text-sm">
+          <Link to="/forgot-password" className="text-blue-600 underline">
+            Forgot your password?
+          </Link>
+        </p>
       </div>
     </div>
   )
