@@ -6,6 +6,7 @@ import {
   timestamp,
   date,
   decimal,
+  boolean,
   unique,
 } from 'drizzle-orm/mysql-core'
 
@@ -18,8 +19,25 @@ export const users = mysqlTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   displayName: varchar('display_name', { length: 100 }),
+  emailVerified: boolean('email_verified').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
+})
+
+/**
+ * Single-use, time-limited tokens for email flows (issue #61/#62). `type`
+ * distinguishes email verification from password reset. The token itself is the
+ * opaque value placed in the emailed link.
+ */
+export const emailTokens = mysqlTable('email_tokens', {
+  token: varchar('token', { length: 64 }).primaryKey(),
+  userId: int('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: mysqlEnum('type', ['verify', 'reset']).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 /**
@@ -97,6 +115,8 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Session = typeof sessions.$inferSelect
 export type NewSession = typeof sessions.$inferInsert
+export type EmailToken = typeof emailTokens.$inferSelect
+export type EmailTokenType = EmailToken['type']
 export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
 export type PointsLogEntry = typeof pointsLog.$inferSelect
