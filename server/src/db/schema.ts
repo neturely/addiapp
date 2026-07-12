@@ -83,7 +83,7 @@ export const dailyStats = mysqlTable(
     userId: int('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    statDate: date('stat_date').notNull(),
+    statDate: date('stat_date', { mode: 'string' }).notNull(),
     tasksCompleted: int('tasks_completed').notNull().default(0),
     pointsEarned: int('points_earned').notNull().default(0),
     multiplier: decimal('multiplier', { precision: 4, scale: 2 }).notNull().default('1.00'),

@@ -4,6 +4,7 @@ import cookieParser from 'cookie-parser'
 import { healthRouter } from './routes/health.js'
 import { authRouter } from './routes/auth.js'
 import { tasksRouter } from './routes/tasks.js'
+import { pointsRouter } from './routes/points.js'
 
 /**
  * Build the Express application. Kept separate from server startup (index.ts)
@@ -23,6 +24,7 @@ export function createApp(): Express {
   app.use('/api', healthRouter)
   app.use('/api/auth', authRouter)
   app.use('/api/tasks', tasksRouter)
+  app.use('/api/points', pointsRouter)
 
   // Fallback error handler — async route errors are forwarded here via asyncHandler.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
