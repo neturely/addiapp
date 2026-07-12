@@ -72,8 +72,13 @@ export function TaskPresented() {
     try {
       const updated = await startTask(task.id)
       // Straight into the in-progress screen (#33) — the timer starts from the
-      // server's startedAt that this PATCH just set.
-      navigate(`/play/progress/${updated.id}`)
+      // server's startedAt that this PATCH just set. Carry the win/time filters so
+      // the #34 "Keep going" action can reuse them for the next task.
+      const progressParams = new URLSearchParams()
+      if (size) progressParams.set('size', size)
+      if (minutes != null) progressParams.set('minutes', String(minutes))
+      const qs = progressParams.toString()
+      navigate(`/play/progress/${updated.id}${qs ? `?${qs}` : ''}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start the task')
       setStarting(false)
