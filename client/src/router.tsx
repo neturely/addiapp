@@ -6,6 +6,8 @@ import { Choice } from '@/pages/Choice'
 import { TaskPresented } from '@/pages/TaskPresented'
 import { InProgress } from '@/pages/InProgress'
 import { AddTask } from '@/pages/AddTask'
+import { EditTask } from '@/pages/EditTask'
+import { Dashboard } from '@/pages/Dashboard'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
       { path: '/play/task', element: <TaskPresented /> },
       { path: '/play/progress/:id', element: <InProgress /> },
       { path: '/tasks/new', element: <AddTask /> },
+      { path: '/tasks/:id/edit', element: <EditTask /> },
+      { path: '/dashboard', element: <Dashboard /> },
     ],
   },
   { path: '*', element: <NotFound /> },

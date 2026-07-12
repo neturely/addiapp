@@ -50,6 +50,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const body = (await res.json().catch(() => null)) as { error?: string } | null
     throw new Error(body?.error ?? `Request failed (${res.status})`)
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
@@ -60,6 +61,30 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
     body: JSON.stringify(input),
   })
   return task
+}
+
+/** List the user's tasks (issue #36 dashboard). Optionally filter by status. */
+export async function fetchTasks(status?: TaskStatus): Promise<Task[]> {
+  const qs = status ? `?status=${status}` : ''
+  const { tasks } = await requestJson<{ tasks: Task[] }>(`/tasks${qs}`)
+  return tasks
+}
+
+/** Patch a task's editable fields and/or status (issue #36 → #27 PATCH). */
+export async function updateTask(
+  id: number,
+  patch: Partial<NewTaskInput> & { status?: TaskStatus },
+): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+  return task
+}
+
+/** Delete a task (issue #36 → #27 DELETE, 204). */
+export async function deleteTask(id: number): Promise<void> {
+  await requestJson<void>(`/tasks/${id}`, { method: 'DELETE' })
 }
 
 /** Play-mode selection (issue #31). Returns one matching backlog task, or null. */
