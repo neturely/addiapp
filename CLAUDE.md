@@ -53,8 +53,8 @@ person/org — confirm or correct.)*
   Brevo for its marketing/contacts/list/automation layer, which AddiApp doesn't
   need — AddiApp is pure transactional, which is exactly Resend's niche. Two
   intentional per-project choices for different needs, not an inconsistency to
-  reconcile. (The email features themselves — verification #61, password reset
-  #62 — are built on their own branches but **not yet merged to `develop`**.)
+  reconcile. (Email verification #61 and password reset #62 are built and merged;
+  production still needs Resend domain verification for addiapp.com — #65.)
 - Hosting: KnownHost shared hosting — cPanel, CloudLinux, LiteSpeed, Node.js
   Selector (Passenger) for the Express backend; static build served directly
   for the frontend.
@@ -112,9 +112,15 @@ route handler.
 
 ## What's built (maps to PROJECT_SPEC §5/§6)
 
-Merged to `develop` (#25–#38, #69). Quick orientation for a fresh session:
+Merged to `develop` (#25–#38, #61, #62, #69). Quick orientation for a fresh session:
 
-- **Auth (#26)**: register / login / logout / `me`, DB-backed sessions, bcryptjs.
+- **Auth (#26, #61, #62)**: register / login / logout / `me`, DB-backed sessions,
+  bcryptjs. **Email verification** — register creates an unverified account and
+  emails a link (`/api/auth/verify`, `/resend-verification`); login is blocked
+  until verified. **Password reset** — `/api/auth/forgot-password` +
+  `/reset-password` (single-use token, bcrypt, revokes all sessions). Client
+  pages: `/verify`, `/forgot-password`, `/reset`. Email transport +
+  single-use tokens in `server/src/email/` + `email_tokens`.
 - **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks`, plus
   `GET /api/tasks/next` (selection).
 - **Points (#28)**: `GET /api/points` (lean, for the card) and
@@ -127,8 +133,8 @@ Merged to `develop` (#25–#38, #69). Quick orientation for a fresh session:
 - **Add task (#35)**: `/tasks/new`. **Points card (#37)** on the dashboard.
   **Stats page (#38)**: `/stats`.
 
-NOT yet on `develop`: deploy pipeline (#39), email verification (#61) / password
-reset (#62), marketing homepage (#40, unscoped), user guide (#41, unscoped).
+NOT yet on `develop`: deploy pipeline (#39), marketing homepage (#40, unscoped),
+user guide (#41, unscoped).
 
 ## Repo structure
 
@@ -141,32 +147,33 @@ addiapp/
 ├── .github/workflows/            # (deploy pipeline rewrite is issue #39)
 ├── client/                       # React 19 + Vite SPA (TypeScript)
 │   └── src/
-│       ├── pages/                # Home, Login, Register, Choice, TaskPresented,
+│       ├── pages/                # Home, Login, Register, Verify, ForgotPassword,
+│       │                         #   ResetPassword, Choice, TaskPresented,
 │       │                         #   InProgress, AddTask, EditTask, Dashboard,
 │       │                         #   Stats, NotFound
 │       ├── components/           # Mascot, EmptyState, Completion, PointsCard,
 │       │                         #   TaskForm, ProtectedRoute
 │       ├── auth/                 # AuthProvider, authContext, useAuth
-│       ├── lib/                  # tasks.ts, points.ts (raw-fetch API clients)
+│       ├── lib/                  # api.ts + apiError.ts (apiRequest wrapper),
+│       │                         #   tasks.ts, points.ts (raw-fetch clients)
 │       └── router.tsx
 ├── server/                       # Node.js + Express API (TypeScript)
-│   ├── drizzle/                  # generated SQL migrations
+│   ├── drizzle/                  # generated SQL migrations (0000–0002)
 │   └── src/
 │       ├── db/                   # Drizzle schema, connection, migrator
-│       ├── auth/                 # passwords (bcryptjs), sessions (DB-backed)
+│       ├── auth/                 # passwords (bcryptjs), sessions, emailTokens
+│       ├── email/                # Resend + console transport, templates (#61/#62)
 │       ├── points/              # config.ts (tunables), calculate.ts, award.ts
 │       ├── tasks/                # selection.ts (swappable SelectionStrategy)
 │       ├── routes/               # health, auth, tasks, points
 │       ├── middleware/           # requireAuth
+│       ├── config.ts             # env-sourced runtime config (appUrl, Resend)
 │       └── app.ts / index.ts
 ├── public/fonts/                 # Nunito web fonts (kept from original)
 ├── CLAUDE.md
 ├── PROJECT_SPEC.md
 └── README.md
 ```
-
-(No `server/src/email/` on `develop` — the Resend integration lives on the
-unmerged #61/#62 branches.)
 
 ## Local dev environment
 
@@ -217,9 +224,11 @@ locked as final brand palette.
 - Express: standard REST conventions; route handlers stay thin, business logic
   lives in modules (`points/`, `tasks/selection.ts`).
 - DB access via **Drizzle ORM** (parameterized) — no raw string concatenation.
-- Client API calls: plain `fetch` with `credentials: 'include'` in
-  `client/src/lib/*` (a shared api wrapper arrives with #61; until then, match
-  the raw-fetch idiom).
+- Client API calls: a shared `apiRequest` wrapper (`client/src/lib/api.ts`, from
+  #61) that sends cookies and throws `ApiError` — the auth pages use it. The
+  older Play-mode clients (`lib/tasks.ts`, `lib/points.ts`) still use plain
+  `fetch` with `credentials: 'include'`; unifying them onto `apiRequest` is a
+  future cleanup, not required.
 - **Zod** validates request bodies/queries server-side; the client mirrors the
   same rules for fast feedback, but the server is authoritative.
 - Environment variables via `.env` (never committed).

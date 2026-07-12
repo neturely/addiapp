@@ -31,18 +31,26 @@ confirmed yet, FTP-based deploy via GitHub Actions).
   plans). Local dev uses a MySQL 8.0 Docker container.
 - **DB access layer**: **Drizzle ORM** (+ `mysql2` driver) — *resolved*. Schema
   in `server/src/db/schema.ts`; generated SQL migrations in `server/drizzle/`.
-- **Auth**: custom, self-rolled — **DB-backed server-side sessions** (opaque
-  random token in an httpOnly `sid` cookie, 7-day TTL, the `sessions` row is the
-  source of truth so logout/expiry revoke immediately) + **bcryptjs** password
-  hashing (pure-JS, no native build to compile on shared hosting). *Resolved:
-  sessions, not JWT.* Not Supabase Auth, not Auth.js/NextAuth.
+- **Auth (#26, #61, #62)**: custom, self-rolled — **DB-backed server-side
+  sessions** (opaque random token in an httpOnly `sid` cookie, 7-day TTL, the
+  `sessions` row is the source of truth so logout/expiry revoke immediately) +
+  **bcryptjs** password hashing (pure-JS, no native build). Registration creates
+  an **unverified** account and emails a verification link; **login is blocked
+  until verified** (#61). **Password reset** (#62) emails a single-use token;
+  confirming it sets a new bcrypt password and **revokes all existing sessions**.
+  Endpoints: `/api/auth/{register, login, logout, me, verify,
+  resend-verification, forgot-password, reset-password}`. Sessions, not JWT; not
+  Supabase Auth, not Auth.js/NextAuth.
 - **Styling**: Tailwind CSS v4 (via `@tailwindcss/vite`, no config file —
   utility classes; brand accents used as arbitrary values, e.g. `bg-[#D85A30]`).
-- **Transactional email**: **Resend** (TypeScript SDK, `RESEND_API_KEY`) —
-  *decided provider* for verification + password-reset. Deliberately NOT Brevo
-  (see CLAUDE.md for the reasoning). Note: the email features themselves
-  (verification #61, password reset #62) are implemented on their own branches
-  but are **not yet merged to `develop`** — they are not part of this release.
+- **Transactional email**: **Resend** (TypeScript SDK, `RESEND_API_KEY`; a
+  console transport is used in dev when the key is unset, so the full flow runs
+  locally). Deliberately NOT Brevo (see CLAUDE.md). Powers **email verification
+  (#61)** and **password reset (#62)** — both built and merged. A
+  provider-agnostic `EmailService` lives in `server/src/email/`; single-use
+  tokens live in `email_tokens` (`verify` 24h / `reset` 1h TTL). Production still
+  needs Resend **domain verification** for addiapp.com (#65) before live sends to
+  arbitrary recipients.
 - **Deploy**: GitHub Actions. Static frontend build synced via FTP; Express
   backend deploy mechanism still open (FTP alone doesn't restart a Node
   process — need to confirm SSH availability on the shared plan).
@@ -240,9 +248,8 @@ actually built and merged to `develop`.
 - ⬜ **Marketing / landing homepage** (#40) — the only remaining Release-1 item
   on the app itself; **not yet scoped**.
 - ⬜ **Basic user guide / help content** (#41) — **not yet scoped**.
-- ◻ Deploy pipeline (GitHub Actions build + FTP + Express restart) — #39, open;
-  transactional email (Resend): verification #61 / reset #62 built on branches,
-  **not yet merged**.
+- ✅ Email verification (#61) + password reset (#62) — Resend transactional email.
+- ◻ Deploy pipeline (GitHub Actions build + FTP + Express restart) — #39, open.
 
 ### Explicitly deferred to later releases
 - Multi-user competitive features: leaderboards, scoreboard
@@ -304,7 +311,7 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
 This spec was last substantively updated at #24 (scaffolding). This pass folds in
 the merged work #25–#70 (schema #25, auth #26, task CRUD #27, points #28, Play
 mode #29–#34, add-task #35, dashboard #36, points card #37, stats #38, resume
-#69) ahead of the `develop → main` promotion. Where docs and code disagreed, code
-won. Not covered here because they are **not merged to `develop`**: deploy
-pipeline (#39), email verification (#61) / password reset (#62), and the
-still-unscoped #40/#41.
+#69) ahead of the `develop → main` promotion; a follow-up pass then folded in
+**email verification (#61)** and **password reset (#62)** once they merged. Where
+docs and code disagreed, code won. Still not on `develop`: the deploy pipeline
+(#39) and the unscoped #40/#41.
