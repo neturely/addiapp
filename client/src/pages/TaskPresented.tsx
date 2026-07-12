@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mascot } from '@/components/Mascot'
 import { EmptyState } from '@/components/EmptyState'
 import { fetchNextTask, startTask, type Task, type TaskComplexity, type WinSize } from '@/lib/tasks'
@@ -39,7 +39,7 @@ export function TaskPresented() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
-  const [started, setStarted] = useState<Task | null>(null)
+  const navigate = useNavigate()
 
   const roll = useCallback(
     async (exclude?: number) => {
@@ -71,34 +71,13 @@ export function TaskPresented() {
     setError(null)
     try {
       const updated = await startTask(task.id)
-      setStarted(updated)
+      // Straight into the in-progress screen (#33) — the timer starts from the
+      // server's startedAt that this PATCH just set.
+      navigate(`/play/progress/${updated.id}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start the task')
-    } finally {
       setStarting(false)
     }
-  }
-
-  // Started acknowledgement. The real in-progress screen is #33 — this is the
-  // honest stopgap so the Start action has somewhere to land.
-  if (started) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-        <Mascot mood="happy" />
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-gray-800">You&apos;re on it! 💪</h1>
-          <p className="text-gray-500">
-            <span className="font-semibold">{started.title}</span> is in progress.
-          </p>
-        </div>
-        <Link
-          to="/"
-          className="rounded-lg bg-[#D85A30] px-6 py-3 font-semibold text-white transition hover:bg-[#c24d27]"
-        >
-          Back home
-        </Link>
-      </main>
-    )
   }
 
   if (loading) {
