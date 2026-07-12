@@ -8,6 +8,7 @@ import { InProgress } from '@/pages/InProgress'
 import { AddTask } from '@/pages/AddTask'
 import { EditTask } from '@/pages/EditTask'
 import { Dashboard } from '@/pages/Dashboard'
+import { Stats } from '@/pages/Stats'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
       { path: '/tasks/new', element: <AddTask /> },
       { path: '/tasks/:id/edit', element: <EditTask /> },
       { path: '/dashboard', element: <Dashboard /> },
+      { path: '/stats', element: <Stats /> },
     ],
   },
   { path: '*', element: <NotFound /> },
