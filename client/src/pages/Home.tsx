@@ -25,9 +25,14 @@ export function Home() {
         >
           Let&apos;s go
         </Link>
-        <Link to="/tasks/new" className="text-sm text-gray-500 underline hover:text-gray-700">
-          Add a task
-        </Link>
+        <div className="flex gap-4 text-sm text-gray-500">
+          <Link to="/tasks/new" className="underline hover:text-gray-700">
+            Add a task
+          </Link>
+          <Link to="/dashboard" className="underline hover:text-gray-700">
+            Dashboard
+          </Link>
+        </div>
       </div>
 
       <footer className="absolute bottom-6 flex flex-col items-center gap-1 text-xs text-gray-400">
