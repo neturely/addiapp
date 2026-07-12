@@ -6,8 +6,8 @@ import { Mascot } from './Mascot'
  * selection returns no match. `filtered` distinguishes "your filters matched
  * nothing" (offer to change them) from "no tasks at all".
  *
- * The real "Add a task" entry lands with the add-task form (#35) and dashboard
- * (#36); until then the useful recovery is to widen the win/time filter.
+ * When filtered, the useful recovery is to widen the win/time filter; when the
+ * backlog is genuinely empty, adding a task (#35) is the primary action.
  */
 export function EmptyState({ filtered = false }: { filtered?: boolean }) {
   return (
@@ -23,10 +23,16 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
       </div>
       <div className="flex flex-col gap-3">
         <Link
-          to="/play"
+          to={filtered ? '/play' : '/tasks/new'}
           className="rounded-lg bg-[#D85A30] px-6 py-3 font-semibold text-white transition hover:bg-[#c24d27]"
         >
-          {filtered ? 'Pick a different win' : 'Choose a win'}
+          {filtered ? 'Pick a different win' : 'Add a task'}
+        </Link>
+        <Link
+          to={filtered ? '/tasks/new' : '/play'}
+          className="text-sm text-gray-500 underline hover:text-gray-700"
+        >
+          {filtered ? 'Add a task' : 'Choose a win'}
         </Link>
         <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
           Back home

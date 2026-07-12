@@ -18,6 +18,9 @@ export function Home() {
       >
         Let&apos;s go
       </Link>
+      <Link to="/tasks/new" className="text-sm font-medium text-[#a8431f] underline hover:text-[#7f3217]">
+        Add a task
+      </Link>
       <p className="text-xs text-gray-400">
         (Full Play-mode home is issue #29 — this is a temporary entry.)
       </p>

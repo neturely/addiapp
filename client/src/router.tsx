@@ -5,6 +5,7 @@ import { Register } from '@/pages/Register'
 import { Choice } from '@/pages/Choice'
 import { TaskPresented } from '@/pages/TaskPresented'
 import { InProgress } from '@/pages/InProgress'
+import { AddTask } from '@/pages/AddTask'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: '/play', element: <Choice /> },
       { path: '/play/task', element: <TaskPresented /> },
       { path: '/play/progress/:id', element: <InProgress /> },
+      { path: '/tasks/new', element: <AddTask /> },
     ],
   },
   { path: '*', element: <NotFound /> },

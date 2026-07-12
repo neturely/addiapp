@@ -21,6 +21,13 @@ export type AwardResult = {
 
 export type WinSize = 'small' | 'big'
 
+/** Fields for creating a task (issue #35 add-task form). */
+export type NewTaskInput = {
+  title: string
+  complexity: TaskComplexity
+  estimatedMinutes: number
+}
+
 export type NextTaskFilters = {
   size?: WinSize
   /** Time available, in minutes. Omitted means "any". */
@@ -44,6 +51,15 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body?.error ?? `Request failed (${res.status})`)
   }
   return res.json() as Promise<T>
+}
+
+/** Create a task (issue #35 add-task form → the #27 POST /api/tasks endpoint). */
+export async function createTask(input: NewTaskInput): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return task
 }
 
 /** Play-mode selection (issue #31). Returns one matching backlog task, or null. */
