@@ -75,6 +75,21 @@ async function sendPasswordResetEmail(userId: number, email: string): Promise<vo
   await emailService.send(passwordResetEmail(email, token))
 }
 
+/**
+ * Send a transactional email without letting a provider hiccup fail the request
+ * (issue #67). The DB state (account created / token stored) is already
+ * committed and the user can always trigger a resend, so a send failure is
+ * logged loudly server-side but does not become an error response. Never
+ * silently swallowed — it's always logged.
+ */
+async function sendEmailBestEffort(context: string, send: () => Promise<void>): Promise<void> {
+  try {
+    await send()
+  } catch (err) {
+    console.error(`[addiapp-server] email send failed (${context}):`, err)
+  }
+}
+
 // POST /register — creates the account (unverified) and emails a verification
 // link. Does NOT log the user in: login is blocked until the email is verified.
 authRouter.post(
@@ -101,7 +116,12 @@ authRouter.post(
     const [result] = await db
       .insert(users)
       .values({ email, passwordHash, displayName: displayName ?? null })
-    await sendVerificationEmail(result.insertId, email)
+    // The account exists now — a failed verification email must NOT fail the
+    // registration (issue #67). If the send throws, it's logged and the user can
+    // request a fresh link via /resend-verification.
+    await sendEmailBestEffort(`verification for user ${result.insertId} <${email}>`, () =>
+      sendVerificationEmail(result.insertId, email),
+    )
 
     res.status(201).json({
       message: 'Account created. Check your email to verify your address before signing in.',
@@ -183,7 +203,11 @@ authRouter.post(
     const rows = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1)
     const user = rows[0]
     if (user && !user.emailVerified) {
-      await sendVerificationEmail(user.id, user.email)
+      // Best-effort so a provider hiccup on the retry path stays non-enumerating
+      // (same generic 200) rather than 500ing (issue #67).
+      await sendEmailBestEffort(`resend-verification for user ${user.id} <${user.email}>`, () =>
+        sendVerificationEmail(user.id, user.email),
+      )
     }
     res.json({
       message: 'If that account exists and is unverified, a new verification link has been sent.',
