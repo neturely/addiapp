@@ -43,6 +43,11 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.id, sessionId))
 }
 
+/** Revoke ALL of a user's sessions — used after a password reset (issue #62). */
+export async function deleteUserSessions(userId: number): Promise<void> {
+  await db.delete(sessions).where(eq(sessions.userId, userId))
+}
+
 export async function purgeExpiredSessions(): Promise<void> {
   await db.delete(sessions).where(lt(sessions.expiresAt, new Date()))
 }
