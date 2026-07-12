@@ -1,11 +1,10 @@
 # AddiApp — Project Context
 
-> Draft starter instructions, built from the rebuild-planning conversation as of
-> 2026-07-11. This is a NEW project (rebuild from scratch) — much less is
-> settled than a mature project's CLAUDE.md. Sections marked **TBD** need a
-> decision before they can be treated as fixed. Update this file as decisions
-> land; treat it the same way wptips.com's CLAUDE.md is treated — the
-> authoritative reference that supersedes stale chat history.
+> Authoritative project reference — supersedes stale chat history. Originally a
+> rebuild-planning draft (2026-07-11); synced 2026-07-12 to fold in the merged
+> work #25–#70 (see "What's built" below). Most core decisions are now settled;
+> remaining open items live in the Open decisions log. Where this file and the
+> code disagree, the code (on `develop`) wins — update this file to match.
 
 ## What this project is
 
@@ -40,9 +39,22 @@ person/org — confirm or correct.)*
   Router doesn't fit KnownHost shared hosting + FTP deploy well.
 - Database: MySQL/MariaDB — not Postgres, not Supabase. Not available on
   shared cPanel plans.
-- Auth: custom, self-rolled (sessions or JWT + bcrypt). Not Supabase Auth,
-  not Auth.js/NextAuth.
-- Styling: Tailwind CSS.
+- DB access: **Drizzle ORM** (+ `mysql2` driver) — decided. Schema in
+  `server/src/db/schema.ts`; generated SQL migrations in `server/drizzle/`.
+- Auth: custom, self-rolled — **DB-backed server-side sessions** (opaque random
+  token in an httpOnly `sid` cookie, 7-day TTL; the `sessions` row is the source
+  of truth, so logout/expiry revoke access immediately) + **bcryptjs** password
+  hashing (pure-JS, no native addon to compile on shared hosting). Sessions,
+  **not JWT**. Not Supabase Auth, not Auth.js/NextAuth.
+- Styling: Tailwind CSS v4 (utility classes, no config file; coral brand accents
+  as arbitrary values like `bg-[#D85A30]`).
+- Transactional email: **Resend** (TypeScript SDK, `RESEND_API_KEY`) for the
+  verification + password-reset emails. Deliberately NOT Brevo: wptips.com uses
+  Brevo for its marketing/contacts/list/automation layer, which AddiApp doesn't
+  need — AddiApp is pure transactional, which is exactly Resend's niche. Two
+  intentional per-project choices for different needs, not an inconsistency to
+  reconcile. (Email verification #61 and password reset #62 are built and merged;
+  production still needs Resend domain verification for addiapp.com — #65.)
 - Hosting: KnownHost shared hosting — cPanel, CloudLinux, LiteSpeed, Node.js
   Selector (Passenger) for the Express backend; static build served directly
   for the frontend.
@@ -61,71 +73,165 @@ person/org — confirm or correct.)*
 - Release strategy: build a minimal Release 1, defer competitive/social
   features (leaderboards, teams, projects, sharing) to later phases.
 
-## Points / gamification system
+## Points / gamification system (finalized, #28)
 
-- Base points by complexity (set at task creation): Low = 2, Medium = 5, High = 10
-- Estimated time: user enters manually at task creation (minutes) — deliberately
-  not auto-calculated from complexity, since they don't reliably correlate
-- Speed bonus: awarded when actual completion time < estimated time, scaled
-  to how much faster (not flat) — **exact formula/curve TBD**
-- Daily multiplier: grows per task completed that day, shown live (e.g.
-  "current bonus: 1.3x"), resets at midnight, confirmed capped — **cap value
-  TBD (placeholder 2.0x)**, **growth rate per task TBD (placeholder +0.1x)**
+All numbers are FINAL and live in ONE file — `server/src/points/config.ts`.
+Tuning them never touches the pure math (`points/calculate.ts`) or the award
+orchestration (`points/award.ts`). See PROJECT_SPEC §7 for the full formulas.
 
-## Repo structure — TBD
+- Base points: Low = 2, Medium = 5, High = 10.
+- Estimated time: entered manually at creation (minutes); not derived from
+  complexity.
+- Speed bonus (saturation-based, anti-gaming): scales with time saved, reaching
+  the ceiling of **+100% of base** (`SPEED_BONUS_MAX_RATIO = 1.0`) at
+  **≤50% of the estimate** (`SPEED_BONUS_SATURATION = 0.5`); 0 if on/over
+  estimate. No extra beyond saturation.
+- Daily multiplier: `min(1 + (n−1)·0.15, 2.0)` for the n-th completion of the
+  day (`GROWTH = 0.15`, `CAP = 2.0`) → cap reached at the **8th** task/day;
+  resets at midnight in `APP_TIMEZONE` (default **Europe/Stockholm**). Shown live
+  as the next task's multiplier. Total = `round((base + speedBonus) × multiplier)`.
+- Idempotency: points are awarded **once per task, ever** (first completion) —
+  reopening + re-completing does NOT re-award (the `points_log` ledger is checked
+  by `task_id`).
+- Points are shown up front (approximate base, before commitment) — decided.
 
-Not yet built. Planned shape (draft, not confirmed):
+## Task-selection algorithm (Play mode, #31)
+
+Behind a swappable interface in `server/src/tasks/selection.ts`
+(`SelectionStrategy = (candidates, rng?) => Task | null`). The route
+(`GET /api/tasks/next`) filters candidates (win-type → complexity: small =
+{low, medium}, big = {medium, high}; time-available; backlog only; optional
+`exclude` for re-roll); the strategy only picks one — no selection logic in the
+route handler.
+
+- Default: **`weightedByAge`** — weighted random favouring older tasks
+  (rank-based weights; oldest most likely, still random) for the "keep momentum"
+  feel. Alternates `oldestFirst` / `uniformRandom` ship too.
+- A future **per-user selection preference** is designed for (swap
+  `strategies[user.preference]`) but **not built** — no settings page exists yet.
+
+## What's built (maps to PROJECT_SPEC §5/§6)
+
+Merged to `develop` (#25–#38, #61, #62, #69). Quick orientation for a fresh session:
+
+- **Auth (#26, #61, #62)**: register / login / logout / `me`, DB-backed sessions,
+  bcryptjs. **Email verification** — register creates an unverified account and
+  emails a link (`/api/auth/verify`, `/resend-verification`); login is blocked
+  until verified. **Password reset** — `/api/auth/forgot-password` +
+  `/reset-password` (single-use token, bcrypt, revokes all sessions). Client
+  pages: `/verify`, `/forgot-password`, `/reset`. Email transport +
+  single-use tokens in `server/src/email/` + `email_tokens`.
+- **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks`, plus
+  `GET /api/tasks/next` (selection).
+- **Points (#28)**: `GET /api/points` (lean, for the card) and
+  `GET /api/points/stats` (lifetime + streak, for the stats page).
+- **Play mode (#29–#34, #69)**: Home `/`, Choice `/play`, Task `/play/task`,
+  In-progress `/play/progress/:id`, Completion, Empty state, Resume-from-home.
+- **Dashboard (#36)**: `/dashboard` — table + inline edit (title/complexity/est/
+  status), full edit page `/tasks/:id/edit` (shared `TaskForm` with Add), status
+  filter tabs, per-row Start/Resume/Edit/Delete, undo-toast delete.
+- **Add task (#35)**: `/tasks/new`. **Points card (#37)** on the dashboard.
+  **Stats page (#38)**: `/stats`.
+
+NOT yet on `develop`: deploy pipeline (#39), marketing homepage (#40, unscoped),
+user guide (#41, unscoped).
+
+## Repo structure
+
+Monorepo (npm workspaces) — **decided**. Client and server in one repo.
 
 ```
 addiapp/
-├── .github/workflows/deploy.yml   # to be rewritten — old one is stale/broken
-├── client/                        # React + Vite SPA
+├── docker-compose.yml            # local MySQL 8.0 for development
+├── scripts/db.sh                 # db:up/down/reset helper (macOS vs Linux compose)
+├── .github/workflows/            # (deploy pipeline rewrite is issue #39)
+├── client/                       # React 19 + Vite SPA (TypeScript)
 │   └── src/
-├── server/                        # Node.js + Express API
+│       ├── pages/                # Home, Login, Register, Verify, ForgotPassword,
+│       │                         #   ResetPassword, Choice, TaskPresented,
+│       │                         #   InProgress, AddTask, EditTask, Dashboard,
+│       │                         #   Stats, NotFound
+│       ├── components/           # Mascot, EmptyState, Completion, PointsCard,
+│       │                         #   TaskForm, ProtectedRoute
+│       ├── auth/                 # AuthProvider, authContext, useAuth
+│       ├── lib/                  # api.ts + apiError.ts (apiRequest wrapper),
+│       │                         #   tasks.ts, points.ts (raw-fetch clients)
+│       └── router.tsx
+├── server/                       # Node.js + Express API (TypeScript)
+│   ├── drizzle/                  # generated SQL migrations (0000–0002)
 │   └── src/
+│       ├── db/                   # Drizzle schema, connection, migrator
+│       ├── auth/                 # passwords (bcryptjs), sessions, emailTokens
+│       ├── email/                # Resend + console transport, templates (#61/#62)
+│       ├── points/              # config.ts (tunables), calculate.ts, award.ts
+│       ├── tasks/                # selection.ts (swappable SelectionStrategy)
+│       ├── routes/               # health, auth, tasks, points
+│       ├── middleware/           # requireAuth
+│       ├── config.ts             # env-sourced runtime config (appUrl, Resend)
+│       └── app.ts / index.ts
+├── public/fonts/                 # Nunito web fonts (kept from original)
 ├── CLAUDE.md
+├── PROJECT_SPEC.md
 └── README.md
 ```
 
-Open question: monorepo (client/server in one repo, as sketched above) vs
-split repos — not yet decided.
+## Local dev environment
 
-## Screens designed so far (mockups only, not built)
+- Docker Compose (Mac or WSL2 Ubuntu) — a **MySQL 8.0 container only**; the app
+  (client + server) runs on the host, not in containers. No MySQL is installed
+  on the host itself.
+- DB access layer: **Drizzle ORM** (+ `mysql2` driver). Schema lives in
+  `server/src/db/schema.ts`.
+- First-time setup:
+  1. `cp .env.example .env` and `cp server/.env.example server/.env`
+  2. `npm install`
+  3. `npm run db:up` — starts MySQL 8.0 (exposed on `localhost:3306`, data in the
+     `db_data` volume)
+  4. `npm run db:migrate` — applies Drizzle migrations from `server/drizzle/`
+  5. `npm run dev` — client on http://localhost:5173, API on http://localhost:3001
+- Changing the schema: edit `server/src/db/schema.ts`, then `npm run db:generate`
+  to emit a new SQL migration, then `npm run db:migrate` to apply it.
+- `DATABASE_URL` in `server/.env` must match the `MYSQL_*` credentials in the
+  root `.env` (both default to user `addiapp` / password `addiapp` / db `addiapp`).
+- Reset the DB (drop the volume + recreate) with `npm run db:reset`; stop it with
+  `npm run db:down` (data persists in the `db_data` volume). The `db:up`/`db:down`
+  scripts (`scripts/db.sh`) auto-pick `docker-compose` on macOS and `docker
+  compose` on Linux/WSL, matching wptips.
+- **macOS + colima gotcha:** if `docker` reports "command not found" even though
+  colima is installed, the Homebrew `docker` CLI just isn't linked. Fix once:
+  `ln -sf "$(brew --prefix docker)/bin/docker" /opt/homebrew/bin/docker` then
+  `colima start`.
 
-"Play" mode (mascot-guided home):
-1. Home — mascot + "Ready to do something great today?" + "Let's go" CTA +
-   secondary link to Dashboard
-2. Choice screen — "What kind of win do you want?" (small/quick vs
-   big/effort) + time-available filter
-3. Task presented — one task shown with title, time, tag, points; Start
-   (→ in-progress) or "Give me something else" (re-roll)
-4. Empty state — mascot + "Nothing here right now" + "Add a task" CTA +
-   Dashboard link
+## Screens (built)
 
-Not yet designed: task in-progress screen, task completion/celebration
-screen, add-task form, dashboard layout, user points page, dashboard user
-card, marketing homepage, user guide.
+All Play-mode and dashboard screens are implemented and merged to `develop`
+(#29–#38, #69) — see "What's built" above and PROJECT_SPEC §5/§6. The only
+screens still not designed/built are the marketing/landing homepage (#40) and
+the user guide/help content (#41) — both unscoped.
 
 Mascot: placeholder simple flat character only (used consistently across all
-mockups so far). Real mascot art + expression variations is a deliberate
-later design pass, likely in Claude Design once the UX flow is locked.
+screens). Real mascot art + expression variations is a deliberate later design
+pass, likely in Claude Design once the UX flow is locked.
 
 Color palette used in mockups: warm coral primary (`#D85A30`), supporting
 teal/amber/purple for badges/tags — not a literal Duolingo green, not yet
 locked as final brand palette.
 
-## Coding standards — TBD, draft defaults
+## Coding standards
 
-- TypeScript on both client and server (matches the old project's direction;
-  not yet explicitly re-confirmed for the rebuild)
-- React functional components + hooks, no class components
-- Express: standard REST conventions, route handlers separated from business
-  logic
-- MySQL: use a query builder or lightweight ORM rather than raw string
-  concatenation (specific choice not yet made — e.g. `mysql2` directly with
-  parameterized queries vs. Prisma/Drizzle) — **needs a decision**
-- Environment variables via `.env` (never committed) — mirrors old project's
-  `.env.local` convention
+- TypeScript on both client and server — confirmed.
+- React functional components + hooks, no class components.
+- Express: standard REST conventions; route handlers stay thin, business logic
+  lives in modules (`points/`, `tasks/selection.ts`).
+- DB access via **Drizzle ORM** (parameterized) — no raw string concatenation.
+- Client API calls: a shared `apiRequest` wrapper (`client/src/lib/api.ts`, from
+  #61) that sends cookies and throws `ApiError` — the auth pages use it. The
+  older Play-mode clients (`lib/tasks.ts`, `lib/points.ts`) still use plain
+  `fetch` with `credentials: 'include'`; unifying them onto `apiRequest` is a
+  future cleanup, not required.
+- **Zod** validates request bodies/queries server-side; the client mirrors the
+  same rules for fast feedback, but the server is authoritative.
+- Environment variables via `.env` (never committed).
 
 ## Deployment — TBD, key open question
 
@@ -164,18 +270,35 @@ locked as final brand palette.
 - Never assume SSH is available on the shared plan until confirmed — deploy
   suggestions should account for FTP-only as the safe default until this is
   resolved
+- Never "fix" AddiApp to use Brevo for consistency with wptips.com — AddiApp
+  uses Resend for transactional email by deliberate choice; they are
+  intentionally different providers for different needs.
+- Never switch auth to JWT or a client-stored token — it's DB-backed sessions
+  (opaque httpOnly `sid` cookie) by decision, so logout/expiry revoke immediately.
+- Never inline task-selection logic into the route — it lives behind the
+  `SelectionStrategy` interface (`server/src/tasks/selection.ts`) so a per-user
+  preference stays a one-line swap.
+- Never hardcode points numbers outside `server/src/points/config.ts` — that's
+  the single source; the client reads base points from `GET /api/points`.
 
 ## Open decisions log
 
-- [ ] SSH availability on KnownHost shared plan
-- [ ] Speed bonus formula/curve
-- [ ] Daily multiplier cap value and growth rate per task
-- [ ] Monorepo vs split repos for client/server
-- [ ] Query builder / ORM choice for MySQL
-- [ ] Task in-progress / completion screen design
-- [ ] Add-task form design
-- [ ] Dashboard layout
-- [ ] Marketing homepage and user guide scope
-- [ ] Final color palette / brand direction
-- [ ] Release 1 scope confirmation
-- [ ] Dev environment confirmation (Mac/WSL2/Docker/Claude Code — assumed from wptips.com)
+Resolved items removed in the 2026-07-12 sync. Genuinely still open:
+
+- [ ] Node.js version to target on KnownHost (Passenger / Node.js Selector)
+- [ ] SSH availability on KnownHost shared plan (drives backend deploy — #39)
+- [ ] Marketing / landing homepage scope (#40)
+- [ ] User guide / help content scope (#41)
+- [ ] Production email readiness — Resend domain verification for addiapp.com (#65)
+- [ ] Signup rate-limiting / auth abuse protection
+- [ ] Privacy policy / Terms of Service pages
+- [ ] Home secondary-link set (Add task / Dashboard / Stats) — right long-term
+  set vs. a single Dashboard entry (noted at #29's merge)
+- [ ] Final color palette / brand direction (placeholder warm coral in use)
+- [ ] Real mascot art (placeholder flat character in use)
+- [x] Monorepo vs split repos — **monorepo** (npm workspaces)
+- [x] Query builder / ORM — **Drizzle ORM** (+ mysql2)
+- [x] Auth model — **DB-backed sessions + bcryptjs** (not JWT)
+- [x] Speed-bonus formula, daily-multiplier cap/growth — **finalized** (§7)
+- [x] Task-selection algorithm — **weighted-random, swappable strategy**
+- [x] In-progress / completion / add-task / dashboard designs — **built**

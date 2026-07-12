@@ -1,0 +1,38 @@
+import { createBrowserRouter } from 'react-router-dom'
+import { Home } from '@/pages/Home'
+import { Login } from '@/pages/Login'
+import { Register } from '@/pages/Register'
+import { Verify } from '@/pages/Verify'
+import { ForgotPassword } from '@/pages/ForgotPassword'
+import { ResetPassword } from '@/pages/ResetPassword'
+import { Choice } from '@/pages/Choice'
+import { TaskPresented } from '@/pages/TaskPresented'
+import { InProgress } from '@/pages/InProgress'
+import { AddTask } from '@/pages/AddTask'
+import { EditTask } from '@/pages/EditTask'
+import { Dashboard } from '@/pages/Dashboard'
+import { Stats } from '@/pages/Stats'
+import { NotFound } from '@/pages/NotFound'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
+
+export const router = createBrowserRouter([
+  { path: '/login', element: <Login /> },
+  { path: '/register', element: <Register /> },
+  { path: '/verify', element: <Verify /> },
+  { path: '/forgot-password', element: <ForgotPassword /> },
+  { path: '/reset', element: <ResetPassword /> },
+  {
+    element: <ProtectedRoute />,
+    children: [
+      { path: '/', element: <Home /> },
+      { path: '/play', element: <Choice /> },
+      { path: '/play/task', element: <TaskPresented /> },
+      { path: '/play/progress/:id', element: <InProgress /> },
+      { path: '/tasks/new', element: <AddTask /> },
+      { path: '/tasks/:id/edit', element: <EditTask /> },
+      { path: '/dashboard', element: <Dashboard /> },
+      { path: '/stats', element: <Stats /> },
+    ],
+  },
+  { path: '*', element: <NotFound /> },
+])
