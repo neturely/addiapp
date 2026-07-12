@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Mascot } from '@/components/Mascot'
+import { Completion } from '@/components/Completion'
 import { completeTask, getTask, type AwardResult, type Task } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 
@@ -21,13 +22,21 @@ function formatClock(totalSeconds: number): string {
  * Play-mode task-in-progress screen (issue #33). A live count-up timer derived
  * from the server's startedAt (so it survives a refresh) plus a speed-bonus meter
  * against the estimate — making the §7 speed bonus tangible while you work.
- * Complete → done, which awards points (#28). The real celebration screen is #34;
- * until then Complete lands on a lightweight acknowledgement here.
+ * Complete → done, which awards points (#28) and hands off to the celebration
+ * screen (#34), reusing pointsAwarded and the win/time filters from the URL.
  */
 export function InProgress() {
   const { id } = useParams()
   const taskId = Number(id)
   const navigate = useNavigate()
+
+  // Win/time filters carried from the task-presented screen (#31), so the #34
+  // "Keep going" action can offer another task without re-asking.
+  const [params] = useSearchParams()
+  const sizeParam = params.get('size')
+  const size = sizeParam === 'small' || sizeParam === 'big' ? sizeParam : undefined
+  const minutesParam = params.get('minutes')
+  const minutes = minutesParam ? Number(minutesParam) : undefined
 
   const [task, setTask] = useState<Task | null>(null)
   const [points, setPoints] = useState<PointsStats | null>(null)
@@ -115,36 +124,16 @@ export function InProgress() {
     )
   }
 
-  // Completion acknowledgement — stopgap until the #34 celebration screen exists.
+  // Celebration screen (#34), fed by the pointsAwarded from the Complete PATCH.
   if (done) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-        <Mascot mood="happy" />
-        <h1 className="text-3xl font-bold text-gray-800">Done! 🎉</h1>
-        {awarded ? (
-          <div className="space-y-1">
-            <div className="text-2xl font-bold text-[#a8431f]">+{awarded.totalPoints} pts</div>
-            <div className="text-sm text-gray-500">
-              {awarded.basePoints} base
-              {awarded.speedBonus > 0 ? ` + ${awarded.speedBonus} speed bonus ⚡` : ''}
-              {awarded.multiplier > 1 ? ` · ×${awarded.multiplier.toFixed(2)} today` : ''}
-            </div>
-          </div>
-        ) : (
-          <p className="text-gray-500">Nice work.</p>
-        )}
-        <div className="flex flex-col gap-3">
-          <Link
-            to="/play"
-            className="rounded-lg bg-[#D85A30] px-6 py-3 font-semibold text-white transition hover:bg-[#c24d27]"
-          >
-            Another task
-          </Link>
-          <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-            Back home
-          </Link>
-        </div>
-      </main>
+      <Completion
+        title={task?.title ?? 'Task complete'}
+        totalPoints={awarded?.totalPoints}
+        multiplier={awarded?.multiplier}
+        size={size}
+        minutes={minutes}
+      />
     )
   }
 
