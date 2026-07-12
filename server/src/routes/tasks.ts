@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray, lte, ne } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tasks, type Task } from '../db/schema.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { asyncHandler } from '../lib/asyncHandler.js'
 import { awardTaskCompletion } from '../points/award.js'
+import { defaultStrategy } from '../tasks/selection.js'
 
 export const tasksRouter = Router()
 
@@ -14,6 +15,23 @@ tasksRouter.use(requireAuth)
 
 const complexity = z.enum(['low', 'medium', 'high'])
 const status = z.enum(['backlog', 'in_progress', 'done'])
+
+/**
+ * Play-mode win type → task complexity (issue #30/#31). Medium sits in both
+ * pools on purpose: a medium task reads as either a quick-ish win or a step of
+ * real progress, so the guided flow rarely dead-ends when the backlog is small.
+ * One constant to retune if that judgement changes.
+ */
+const WIN_TYPE_COMPLEXITY: Record<'small' | 'big', Array<Task['complexity']>> = {
+  small: ['low', 'medium'],
+  big: ['medium', 'high'],
+}
+
+const nextQuerySchema = z.object({
+  size: z.enum(['small', 'big']).optional(),
+  minutes: z.coerce.number().int().positive().max(100_000).optional(),
+  exclude: z.coerce.number().int().positive().optional(),
+})
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(255),
@@ -88,6 +106,35 @@ tasksRouter.get(
       .where(and(...conditions))
       .orderBy(desc(tasks.createdAt))
     res.json({ tasks: rows })
+  }),
+)
+
+// GET /api/tasks/next?size=small|big&minutes=15&exclude=42
+// Play-mode selection (issue #31): given the choice-screen filters, return ONE
+// backlog task to present (or null → the empty state). Registered before /:id so
+// "next" is never parsed as a task id.
+tasksRouter.get(
+  '/next',
+  asyncHandler(async (req, res) => {
+    const parsed = nextQuerySchema.safeParse(req.query)
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Invalid filters' })
+      return
+    }
+    const { size, minutes, exclude } = parsed.data
+
+    // The route builds the candidate pool (filtering); the strategy only picks
+    // one from it — see ../tasks/selection.ts for why that seam exists.
+    const conditions = [eq(tasks.userId, req.user!.id), eq(tasks.status, 'backlog')]
+    if (size) conditions.push(inArray(tasks.complexity, WIN_TYPE_COMPLEXITY[size]))
+    if (minutes !== undefined) conditions.push(lte(tasks.estimatedMinutes, minutes))
+    if (exclude !== undefined) conditions.push(ne(tasks.id, exclude))
+
+    const candidates = await db
+      .select()
+      .from(tasks)
+      .where(and(...conditions))
+    res.json({ task: defaultStrategy(candidates) })
   }),
 )
 
