@@ -229,7 +229,11 @@ authRouter.post(
     const rows = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1)
     const user = rows[0]
     if (user) {
-      await sendPasswordResetEmail(user.id, user.email)
+      // Best-effort so a provider hiccup keeps the same generic 200 (no
+      // enumeration) instead of 500ing (issue #67 pattern).
+      await sendEmailBestEffort(`password reset for user ${user.id} <${user.email}>`, () =>
+        sendPasswordResetEmail(user.id, user.email),
+      )
     }
     res.json({
       message: 'If an account exists for that email, a password reset link has been sent.',
@@ -265,7 +269,14 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const sid = req.cookies?.[SESSION_COOKIE] as string | undefined
     if (sid) await deleteSession(sid)
-    res.clearCookie(SESSION_COOKIE, { path: '/' })
+    // Clear with the same attributes the cookie was set with, so browsers
+    // reliably remove it (a bare { path } can leave it in place in production).
+    res.clearCookie(SESSION_COOKIE, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: config.isProd,
+      path: '/',
+    })
     res.status(204).end()
   }),
 )

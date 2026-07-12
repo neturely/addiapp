@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Mascot } from '@/components/Mascot'
 import { Completion } from '@/components/Completion'
-import { completeTask, getTask, type AwardResult, type Task } from '@/lib/tasks'
+import { completeTask, getTask, parseMinutes, type AwardResult, type Task } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 
 function pad(n: number): string {
@@ -35,8 +35,7 @@ export function InProgress() {
   const [params] = useSearchParams()
   const sizeParam = params.get('size')
   const size = sizeParam === 'small' || sizeParam === 'big' ? sizeParam : undefined
-  const minutesParam = params.get('minutes')
-  const minutes = minutesParam ? Number(minutesParam) : undefined
+  const minutes = parseMinutes(params.get('minutes'))
 
   const [task, setTask] = useState<Task | null>(null)
   const [points, setPoints] = useState<PointsStats | null>(null)

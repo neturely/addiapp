@@ -81,7 +81,12 @@ export const pointsLog = mysqlTable('points_log', {
   userId: int('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  taskId: int('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  // UNIQUE so points are awarded at most once per task even under a concurrent
+  // double-complete race (issue #74). Nullable → MySQL allows many NULLs, so the
+  // onDelete: 'set null' rows don't collide.
+  taskId: int('task_id')
+    .references(() => tasks.id, { onDelete: 'set null' })
+    .unique(),
   basePoints: int('base_points').notNull(),
   speedBonus: int('speed_bonus').notNull().default(0),
   multiplier: decimal('multiplier', { precision: 4, scale: 2 }).notNull().default('1.00'),

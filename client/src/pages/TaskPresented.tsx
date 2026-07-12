@@ -2,7 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mascot } from '@/components/Mascot'
 import { EmptyState } from '@/components/EmptyState'
-import { fetchNextTask, startTask, type Task, type TaskComplexity, type WinSize } from '@/lib/tasks'
+import {
+  fetchNextTask,
+  parseMinutes,
+  startTask,
+  type Task,
+  type TaskComplexity,
+  type WinSize,
+} from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
@@ -31,8 +38,7 @@ function parseSize(raw: string | null): WinSize | undefined {
 export function TaskPresented() {
   const [params] = useSearchParams()
   const size = parseSize(params.get('size'))
-  const minutesParam = params.get('minutes')
-  const minutes = minutesParam ? Number(minutesParam) : undefined
+  const minutes = parseMinutes(params.get('minutes'))
 
   const [task, setTask] = useState<Task | null>()
   const [points, setPoints] = useState<PointsStats | null>(null)
