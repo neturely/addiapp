@@ -42,12 +42,6 @@ person/org — confirm or correct.)*
   shared cPanel plans.
 - Auth: custom, self-rolled (sessions or JWT + bcrypt). Not Supabase Auth,
   not Auth.js/NextAuth.
-- Transactional email: **Resend** (TypeScript SDK, `RESEND_API_KEY`) for the
-  verification + password-reset emails (#61/#62). Deliberately NOT Brevo:
-  wptips.com uses Brevo for its marketing/contacts/list/automation layer, which
-  AddiApp doesn't need — AddiApp is pure transactional, which is exactly
-  Resend's niche. Two intentional per-project choices for different needs, not
-  an inconsistency to reconcile.
 - Styling: Tailwind CSS.
 - Hosting: KnownHost shared hosting — cPanel, CloudLinux, LiteSpeed, Node.js
   Selector (Passenger) for the Express backend; static build served directly
@@ -198,9 +192,6 @@ locked as final brand palette.
 - Never assume SSH is available on the shared plan until confirmed — deploy
   suggestions should account for FTP-only as the safe default until this is
   resolved
-- Never "fix" AddiApp to use Brevo for consistency with wptips.com — AddiApp
-  uses Resend for transactional email by deliberate choice; they are
-  intentionally different providers for different needs
 
 ## Open decisions log
 
