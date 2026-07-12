@@ -17,6 +17,13 @@ export type AwardResult = {
   totalPoints: number
 }
 
+/** True for a MySQL duplicate-key (unique constraint) violation. */
+function isDuplicateKeyError(err: unknown): boolean {
+  return (
+    typeof err === 'object' && err !== null && (err as { code?: string }).code === 'ER_DUP_ENTRY'
+  )
+}
+
 /**
  * Awards points for a completed task. Idempotent per task — a task earns points
  * exactly once (its first completion), so re-opening + re-completing does not
@@ -47,14 +54,23 @@ export async function awardTaskCompletion(task: Task): Promise<AwardResult | nul
   // What the *next* completion would earn — the live value shown in the UI.
   const liveMultiplier = dailyMultiplier(n + 1)
 
-  await db.insert(pointsLog).values({
-    userId: task.userId,
-    taskId: task.id,
-    basePoints,
-    speedBonus,
-    multiplier: multiplier.toFixed(2),
-    totalPoints,
-  })
+  // The UNIQUE(task_id) constraint (issue #74) is the real idempotency gate: the
+  // pre-check above is only a fast path. Under a concurrent double-complete this
+  // insert atomically picks the single winner — a duplicate-key means another
+  // request already awarded this task, so bail before touching daily stats.
+  try {
+    await db.insert(pointsLog).values({
+      userId: task.userId,
+      taskId: task.id,
+      basePoints,
+      speedBonus,
+      multiplier: multiplier.toFixed(2),
+      totalPoints,
+    })
+  } catch (err) {
+    if (isDuplicateKeyError(err)) return null
+    throw err
+  }
 
   await db
     .insert(dailyStats)

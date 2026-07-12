@@ -21,6 +21,15 @@ export type AwardResult = {
 
 export type WinSize = 'small' | 'big'
 
+/**
+ * Parse a `minutes` URL param defensively → a positive integer, else undefined.
+ * Guards against `?minutes=NaN`/junk propagating into API calls and routes.
+ */
+export function parseMinutes(raw: string | null): number | undefined {
+  const n = Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : undefined
+}
+
 /** Fields for creating a task (issue #35 add-task form). */
 export type NewTaskInput = {
   title: string

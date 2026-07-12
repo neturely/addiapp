@@ -13,8 +13,14 @@ export function PointsCard({ refreshSignal = 0 }: { refreshSignal?: number }) {
 
   useEffect(() => {
     let cancelled = false
+    setFailed(false) // a refetch can recover from a previous transient failure
     fetchPoints()
-      .then((s) => !cancelled && setStats(s))
+      .then((s) => {
+        if (!cancelled) {
+          setStats(s)
+          setFailed(false)
+        }
+      })
       .catch(() => !cancelled && setFailed(true))
     return () => {
       cancelled = true
