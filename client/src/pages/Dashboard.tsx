@@ -9,6 +9,7 @@ import {
   type TaskComplexity,
   type TaskStatus,
 } from '@/lib/tasks'
+import { PointsCard } from '@/components/PointsCard'
 
 type Filter = 'all' | TaskStatus
 
@@ -59,6 +60,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  const [pointsRefresh, setPointsRefresh] = useState(0)
 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
@@ -159,6 +161,8 @@ export function Dashboard() {
       const updated = await updateTask(task.id, patch)
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)).sort(byIdDesc))
       setEditingId(null)
+      // A status change may have awarded points — refresh the summary card.
+      if (patch.status) setPointsRefresh((n) => n + 1)
     } catch (e) {
       setRowError(e instanceof Error ? e.message : 'Could not save changes.')
     } finally {
@@ -196,6 +200,8 @@ export function Dashboard() {
           </Link>
         </div>
       </header>
+
+      <PointsCard refreshSignal={pointsRefresh} />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => {
