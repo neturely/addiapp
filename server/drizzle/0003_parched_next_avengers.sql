@@ -1,1 +1,0 @@
-ALTER TABLE `points_log` ADD CONSTRAINT `points_log_task_id_unique` UNIQUE(`task_id`);

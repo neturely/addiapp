@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "okffs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@neturely/okffs@latest"
+      ],
+      "env": {}
+    }
+  }
+}

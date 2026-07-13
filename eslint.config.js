@@ -35,12 +35,5 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
-  // Server (Node)
-  {
-    files: ['server/**/*.ts'],
-    languageOptions: {
-      ecmaVersion: 2022,
-      globals: globals.node,
-    },
-  },
+  // The backend is PHP (see api/) — not linted here.
 )

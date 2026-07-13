@@ -18,45 +18,43 @@ title/completed/timestamp) and font assets.
 
 ## 2. Tech stack (decided)
 
-Chosen specifically to fit **KnownHost shared hosting** (cPanel, CloudLinux,
-LiteSpeed, Node.js Selector via Passenger, MySQL/MariaDB — no root/SSH
-confirmed yet, FTP-based deploy via GitHub Actions).
+Fit to the **KnownHost Basic Plus Reseller** account (cPanel/CloudLinux/LiteSpeed,
+MySQL, SSH available) — the SAME box as wptips.com. The plan does **not** run
+Node.js apps (no CloudLinux Node.js Selector), which drove the PHP backend.
 
-- **Frontend**: React 19 + Vite, static build (SPA, client-side routing via
-  React Router v7). No Next.js — SSR/App Router doesn't fit shared hosting +
-  FTP deploy well.
-- **Backend**: Node.js + Express (TypeScript), run via cPanel's "Setup Node.js
-  App" (Passenger).
-- **Database**: MySQL/MariaDB (not Postgres — not available on shared cPanel
-  plans). Local dev uses a MySQL 8.0 Docker container.
-- **DB access layer**: **Drizzle ORM** (+ `mysql2` driver) — *resolved*. Schema
-  in `server/src/db/schema.ts`; generated SQL migrations in `server/drizzle/`.
-- **Auth (#26, #61, #62)**: custom, self-rolled — **DB-backed server-side
-  sessions** (opaque random token in an httpOnly `sid` cookie, 7-day TTL, the
-  `sessions` row is the source of truth so logout/expiry revoke immediately) +
-  **bcryptjs** password hashing (pure-JS, no native build). Registration creates
-  an **unverified** account and emails a verification link; **login is blocked
-  until verified** (#61). **Password reset** (#62) emails a single-use token;
-  confirming it sets a new bcrypt password and **revokes all existing sessions**.
-  Endpoints: `/api/auth/{register, login, logout, me, verify,
-  resend-verification, forgot-password, reset-password}`. Sessions, not JWT; not
-  Supabase Auth, not Auth.js/NextAuth.
-- **Styling**: Tailwind CSS v4 (via `@tailwindcss/vite`, no config file —
-  utility classes; brand accents used as arbitrary values, e.g. `bg-[#D85A30]`).
-- **Transactional email**: **Resend** (TypeScript SDK, `RESEND_API_KEY`; a
-  console transport is used in dev when the key is unset, so the full flow runs
-  locally). Deliberately NOT Brevo (see CLAUDE.md). Powers **email verification
-  (#61)** and **password reset (#62)** — both built and merged. A
-  provider-agnostic `EmailService` lives in `server/src/email/`; single-use
-  tokens live in `email_tokens` (`verify` 24h / `reset` 1h TTL). Production still
-  needs Resend **domain verification** for addiapp.com (#65) before live sends to
-  arbitrary recipients.
-- **Deploy**: GitHub Actions. Static frontend build synced via FTP; Express
-  backend deploy mechanism still open (FTP alone doesn't restart a Node
-  process — need to confirm SSH availability on the shared plan).
+- **Frontend**: React 19 + Vite, static build (SPA, React Router v7). No Next.js.
+  Served from the docroot; `.htaccess` (shipped from `client/public/`) does
+  client-side routing.
+- **Backend**: **plain PHP 8.2 + PDO** (`api/`) — no framework, no Composer
+  runtime deps. Rewritten from Node/Express/Drizzle (#77) after Node turned out to
+  be unavailable on the plan; the HTTP contract was preserved so the client was
+  untouched. A thin front controller + minimal router; controllers in
+  `api/src/Controllers/`. Verified on the account: PHP 8.2 (7.4–8.5 available),
+  extensions pdo_mysql/curl/openssl/mbstring/etc.
+- **Database**: MySQL/MariaDB. Local dev uses a MySQL 8.0 Docker container.
+- **DB access**: **plain PDO** (parameterized). Schema is hand-written SQL in
+  `api/migrations/`, applied by `api/migrate.php` (tracked in `_migrations`). No
+  ORM.
+- **Auth (#26, #61, #62, #67, #80)**: custom — **DB-backed sessions** (opaque
+  httpOnly `sid` cookie, 7-day TTL) + **bcrypt** (`password_hash`). Registration
+  creates an unverified account + emails a link; **login is blocked until
+  verified**; register survives email-send failures (best-effort, #67). **Password
+  reset** sets a new password + **revokes all sessions**. login/register + the
+  email endpoints are **rate-limited** (DB fixed-window, #80). Endpoints:
+  `/api/auth/{register, login, logout, me, verify, resend-verification,
+  forgot-password, reset-password}`. Sessions, not JWT; not Supabase/Auth.js.
+- **Styling**: Tailwind CSS v4 (utility classes; brand accents as arbitrary
+  values, e.g. `bg-[#D85A30]`).
+- **Transactional email**: **Resend** via direct curl from PHP (`RESEND_API_KEY`;
+  a console transport is used in dev when unset). Deliberately NOT Brevo (see
+  CLAUDE.md). Powers verification (#61) + password reset (#62); single-use tokens
+  in `email_tokens` (`verify` 24h / `reset` 1h). Production email is **live** —
+  `addiapp.com` verified in Resend, sending from `no-reply@addiapp.com` (#65).
+- **Deploy (#39, done)**: GitHub Actions on push to `main` builds the SPA, rsyncs
+  it + the PHP `api/` over SSH, then `php migrate.php`. No process restart. Live
+  at addiapp.com. Secrets in `~/api/config.php` (PHP array, outside the web root).
 
-Still open (see §10): Node.js version to target on KnownHost (Passenger),
-SSH availability on the shared plan (drives backend deploy/restart).
+Everything in §2 is resolved. Remaining open items are product/scope (§10).
 
 ## 3. Domain / infra (confirmed)
 
@@ -122,11 +120,8 @@ four-screen flow.
 
 ### Task-selection algorithm (resolved — was §10's oldest open item)
 
-Lives behind a swappable interface in `server/src/tasks/selection.ts`:
-
-```ts
-type SelectionStrategy = (candidates: Task[], rng?: () => number) => Task | null
-```
+Lives behind a swappable seam in `api/src/Tasks/Selection.php` (strategies take an
+already-filtered candidate list + an injectable rng and return one task or null):
 
 - The route (`GET /api/tasks/next`) does the **filtering** — win-type → complexity
   (`small` = {low, medium}, `big` = {medium, high}; medium is in both pools so the
@@ -185,11 +180,10 @@ the **current daily multiplier**, plus today's summary. Reads a richer
 
 ## 7. Points / gamification system — FINALIZED (#28)
 
-All numbers are final and live in **one file, `server/src/points/config.ts`** —
-tuning them after real usage never touches the calculation logic
-(`server/src/points/calculate.ts`, pure math) or the award orchestration
-(`server/src/points/award.ts`, DB writes). Base points are also surfaced to the
-UI via `GET /api/points` so the front end never hardcodes them.
+All numbers are final and live in **one file, `api/src/Points/PointsConfig.php`** —
+tuning them never touches the calculation logic (`Points/Calculate.php`, pure
+math) or the award orchestration (`Points/Award.php`, DB writes). Base points are
+also surfaced to the UI via `GET /api/points` so the front end never hardcodes them.
 
 - **Base points by complexity** (set at task creation): Low = 2, Medium = 5,
   High = 10.
@@ -235,8 +229,9 @@ change.
 **Decided**: a genuinely minimal first release. Reconciled against what's now
 actually built and merged to `develop`.
 
-### Release 1 — status
-- ✅ Custom auth (register/login/logout, bcryptjs + DB-backed sessions) — #26
+### Release 1 — status (LIVE at addiapp.com)
+- ✅ Custom auth (register/login/logout, bcrypt + DB-backed sessions) — #26,
+  hardened against email-send failures (#67), login/register rate-limited (#80)
 - ✅ Task CRUD, user-scoped (title, complexity, estimated time) — #27
 - ✅ Points system as defined in §7 (all numbers finalized) — #28
 - ✅ Play mode: Home → Choice → Task presented → Start → In-progress →
@@ -248,8 +243,11 @@ actually built and merged to `develop`.
 - ⬜ **Marketing / landing homepage** (#40) — the only remaining Release-1 item
   on the app itself; **not yet scoped**.
 - ⬜ **Basic user guide / help content** (#41) — **not yet scoped**.
-- ✅ Email verification (#61) + password reset (#62) — Resend transactional email.
-- ◻ Deploy pipeline (GitHub Actions build + FTP + Express restart) — #39, open.
+- ✅ Email verification (#61) + password reset (#62) — production email **LIVE** (#65).
+- ✅ **Backend rewritten to PHP 8.2 + PDO** (Node unavailable on the plan) — #77.
+- ✅ Deploy pipeline (GitHub Actions + rsync + `php migrate.php` over SSH) — #39.
+- ⬜ Marketing / landing homepage (#40) and user guide (#41) — the only remaining
+  Release-1 items, both **not yet scoped**.
 
 ### Explicitly deferred to later releases
 - Multi-user competitive features: leaderboards, scoreboard
@@ -288,30 +286,30 @@ into the rebuild as code:
 
 Rewritten in this sync — resolved items removed. Genuinely still open:
 
-- [ ] **Node.js version** to target on KnownHost (Passenger / Node.js Selector).
-- [ ] **SSH availability** on the KnownHost shared plan (drives backend
-  deploy/restart mechanism; assume FTP-only until confirmed). Deploy pipeline
-  rewrite is #39.
 - [ ] **#40 marketing / landing homepage** — scope/content not defined.
 - [ ] **#41 user guide / help content** — scope/content not defined.
-- [ ] **Production email readiness** — Resend domain verification for
-  `addiapp.com` (#65) before the email features (#61/#62) can be relied on in
-  production.
-- [ ] **General signup rate-limiting / abuse protection** on auth endpoints.
+- [ ] **Auth hardening beyond rate-limiting** — CAPTCHA (Cloudflare Turnstile) +
+  edge protection (WAF/Bot Fight). Login/register rate-limiting is done (#80); the
+  rest is #79.
 - [ ] **Privacy policy / Terms of Service** pages (needed before public launch).
-- [ ] **Home secondary-link tension** — the original mockup called for a
-  "Dashboard" secondary link; the built Home now carries Add task / Dashboard /
-  Stats. Whether that's the right long-term set (vs. a single Dashboard entry) is
-  an open UX call noted at #29's merge.
-- [ ] Final color palette / brand direction (mockups use placeholder warm coral).
+- [ ] **Home secondary-link set** — Add task / Dashboard / Stats vs. a single
+  Dashboard entry (open UX call, #29).
+- [ ] Final color palette / brand direction (placeholder warm coral in use).
 - [ ] Real mascot art (placeholder flat character in use).
 
-## 11. Change log — documentation sync (2026-07-12)
+Resolved since the last sync: backend language (**PHP**, #77), hosting (**same
+Basic Plus Reseller as wptips**), SSH availability (**yes**), deploy (**#39**),
+production email (**#65, live**).
 
-This spec was last substantively updated at #24 (scaffolding). This pass folds in
-the merged work #25–#70 (schema #25, auth #26, task CRUD #27, points #28, Play
-mode #29–#34, add-task #35, dashboard #36, points card #37, stats #38, resume
-#69) ahead of the `develop → main` promotion; a follow-up pass then folded in
-**email verification (#61)** and **password reset (#62)** once they merged. Where
-docs and code disagreed, code won. Still not on `develop`: the deploy pipeline
-(#39) and the unscoped #40/#41.
+## 11. Change log — documentation syncs
+
+- **2026-07-12** — folded in the merged work #25–#70 (schema, auth, task CRUD,
+  points, Play mode, add-task, dashboard, points card, stats, resume), then email
+  verification (#61) + password reset (#62), ahead of the first `develop → main`
+  promotion (Release 1, v1.0.0).
+- **2026-07-13** — the big pivot: the KnownHost plan can't run Node, so the
+  backend was **rewritten from Node/Express/Drizzle to plain PHP 8.2 + PDO**
+  (#77); the **deploy pipeline** (#39) and **production email** (#65) went live;
+  login/register **rate-limiting** (#80) landed. Corrected the hosting note (same
+  Basic Plus Reseller box as wptips.com). AddiApp is now **live at addiapp.com**.
+  Where docs and code disagreed, code won.
