@@ -103,7 +103,13 @@ final class TasksController
         $pdo = Db::pdo();
         $pdo->prepare('INSERT INTO tasks (user_id, title, complexity, estimated_minutes) VALUES (?, ?, ?, ?)')
             ->execute([$req->userId, $title, $complexity, $minutes]);
-        Response::json(['task' => self::mapTask(self::findOwned($pdo, (int) $pdo->lastInsertId(), (int) $req->userId))], 201);
+
+        $created = self::findOwned($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
+        if ($created === null) {
+            Response::error('Failed to load created task', 500);
+            return;
+        }
+        Response::json(['task' => self::mapTask($created)], 201);
     }
 
     /** GET /api/tasks/{id} */
@@ -213,9 +219,14 @@ final class TasksController
         $pdo->prepare('UPDATE tasks SET ' . implode(', ', $sets) . ' WHERE id = ? AND user_id = ?')->execute($args);
 
         $updated = self::findOwned($pdo, $id, (int) $req->userId);
+        if ($updated === null) {
+            // Concurrent delete between UPDATE and reload — the task is gone.
+            Response::error('Task not found', 404);
+            return;
+        }
 
         $pointsAwarded = null;
-        if ($completing && $updated !== null) {
+        if ($completing) {
             $pointsAwarded = Award::awardTaskCompletion(
                 (int) $updated['id'],
                 (int) $updated['user_id'],
