@@ -1,0 +1,26 @@
+# AddiApp SPA — served from public_html. Shipped with the Vite build.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # /api is a symlink to the PHP app (api/public) — let it handle its own routes.
+  RewriteRule ^api(/|$) - [L]
+
+  # Serve real files and directories as-is.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Everything else is client-side routing → the SPA entrypoint.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Long-cache fingerprinted assets; never cache the HTML shell.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(?:js|css|woff2?|png|jpg|svg|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
