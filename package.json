@@ -3,30 +3,27 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "AddiApp — gamified task app. Monorepo: React+Vite client + Node/Express API.",
+  "description": "AddiApp — gamified task app. React+Vite client + PHP/PDO API + MySQL.",
   "license": "MIT",
   "workspaces": [
-    "client",
-    "server"
+    "client"
   ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -n client,server -c blue,green \"npm:dev:client\" \"npm:dev:server\"",
+    "dev": "concurrently -n client,api -c blue,green \"npm:dev:client\" \"npm:dev:api\"",
     "dev:client": "npm run dev -w client",
-    "dev:server": "npm run dev -w server",
-    "build": "npm run build -w client && npm run build -w server",
-    "start": "npm run start -w server",
-    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
+    "dev:api": "php -S 127.0.0.1:3001 api/router.php",
+    "build": "npm run build -w client",
+    "typecheck": "npm run typecheck -w client",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:up": "bash scripts/db.sh up",
     "db:down": "bash scripts/db.sh down",
     "db:reset": "bash scripts/db.sh reset",
-    "db:generate": "npm run db:generate -w server",
-    "db:migrate": "npm run db:migrate -w server"
+    "db:migrate": "php api/migrate.php"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
