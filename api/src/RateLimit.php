@@ -11,9 +11,11 @@ namespace App;
  */
 final class RateLimit
 {
-    public static function check(string $action, string $ip, int $limit = 5, int $windowSeconds = 900): bool
+    public static function check(string $action, string $identifier, int $limit = 5, int $windowSeconds = 900): bool
     {
-        $bucket = $action . ':' . $ip;
+        // Hash the identifier: keeps the bucket ≤191 chars for long emails and
+        // avoids storing raw emails/IPs in the table.
+        $bucket = $action . ':' . sha1($identifier);
         $pdo = Db::pdo();
 
         // $windowSeconds is an internal int constant — safe to inline.
