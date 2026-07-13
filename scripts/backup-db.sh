@@ -36,19 +36,18 @@ tmp="${final}.tmp"
 
 mkdir -p "${BACKUP_DIR}"
 
-# --single-transaction --quick : consistent InnoDB snapshot with NO table locks,
-#                                so the nightly dump never blocks the live app.
-# --no-tablespaces             : cPanel DB users lack the PROCESS privilege that
-#                                MySQL 8 tablespace introspection needs; without
-#                                this the dump errors out.
-# --set-gtid-purged=OFF        : keeps the dump restorable into a fresh DB
-#                                without requiring the SUPER privilege.
+# The production box runs MariaDB 10.11 (not MySQL). --single-transaction --quick
+# gives a consistent InnoDB snapshot with NO table locks, so the nightly dump
+# never blocks the live app — the one flag that matters here.
+#
+# Deliberately NOT passed (MySQL-only; MariaDB's mysqldump rejects/doesn't need them):
+#   --set-gtid-purged  → MySQL-only GTID handling; MariaDB errors "unknown variable".
+#   --no-tablespaces   → only dodges a MySQL 8 PROCESS-privilege quirk that MariaDB
+#                        doesn't have.
 mysqldump \
   --defaults-extra-file="${DEFAULTS_FILE}" \
   --single-transaction \
   --quick \
-  --no-tablespaces \
-  --set-gtid-purged=OFF \
   "${DB_NAME}" \
   | gzip -c > "${tmp}"
 

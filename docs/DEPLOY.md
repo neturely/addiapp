@@ -72,10 +72,10 @@ consistent, gzipped, timestamped dump to `~/backups/db/`; an external NAS pull
 `scripts/backup-db.sh` (run from cron):
 
 - `mysqldump --single-transaction --quick` — consistent InnoDB snapshot with **no
-  table locking**, so the nightly dump never blocks the live app.
-- `--no-tablespaces` — cPanel DB users lack the `PROCESS` privilege MySQL 8's
-  tablespace introspection needs; without this the dump errors out.
-- `--set-gtid-purged=OFF` — keeps the dump restorable into a fresh DB without `SUPER`.
+  table locking**, so the nightly dump never blocks the live app. The box runs
+  **MariaDB 10.11**, so the MySQL-only `--set-gtid-purged` (MariaDB errors
+  `unknown variable`) and `--no-tablespaces` (only needed for a MySQL 8
+  PROCESS-privilege quirk) are deliberately **not** passed.
 - Writes to `…​.sql.gz.tmp`, then `mv` to the final name (**atomic** on the same
   filesystem) so the offsite pull never grabs a half-written gzip.
 - Emits a `.sha256` sidecar per dump for integrity verification.
