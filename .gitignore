@@ -11,6 +11,10 @@ dist/
 !.env.example
 !**/.env.example
 
+# PHP API secrets (config.example.php is tracked; the real config never is)
+api/config.php
+api/vendor/
+
 # logs
 *.log
 npm-debug.log*

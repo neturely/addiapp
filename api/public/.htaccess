@@ -1,0 +1,12 @@
+# Front-controller routing for LiteSpeed/Apache: serve real files, else index.php.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+# Never serve PHP config or source if they somehow land under the web root.
+<FilesMatch "\.(?:sql|md)$">
+  Require all denied
+</FilesMatch>
