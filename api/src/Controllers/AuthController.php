@@ -19,6 +19,11 @@ final class AuthController
     /** POST /register — creates an unverified account and emails a link. No login. */
     public function register(Request $req, array $params): void
     {
+        if (!RateLimit::check('register', $req->clientIp(), 10)) {
+            Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+
         $email = self::email($req->input('email'));
         $password = $req->input('password');
         $displayName = self::displayName($req->input('displayName'));
@@ -64,6 +69,17 @@ final class AuthController
         $password = $req->input('password');
         if ($email === null || !is_string($password) || $password === '') {
             Response::error('Invalid credentials', 400);
+            return;
+        }
+
+        // Throttle before the (expensive) bcrypt verify: per-IP catches one host
+        // brute-forcing, per-email catches distributed targeting of one account.
+        // Fires regardless of whether the account exists (no enumeration).
+        if (
+            !RateLimit::check('login-ip', $req->clientIp(), 20)
+            || !RateLimit::check('login-email', $email, 10)
+        ) {
+            Response::error('Too many login attempts, please try again later.', 429);
             return;
         }
 
