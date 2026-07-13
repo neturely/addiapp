@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/src/autoload.php';
 
+use App\Config;
 use App\Controllers\AuthController;
 use App\Controllers\HealthController;
 use App\Controllers\PointsController;
@@ -25,10 +26,13 @@ set_exception_handler(static function (\Throwable $e): void {
 date_default_timezone_set('UTC');
 
 // CORS: in dev the Vite proxy makes /api same-origin; in prod the SPA is served
-// from the same host. Reflected origin + credentials keeps the session cookie
-// working if the API is ever hit cross-origin.
+// from the same host. Because responses carry the session cookie
+// (Access-Control-Allow-Credentials: true), the allowed origin must be an exact
+// allowlist — never a reflected arbitrary origin — so cross-site JS can't read
+// authenticated responses. The only trusted origin is the configured SPA base.
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if ($origin !== '') {
+$allowedOrigins = array_filter([rtrim((string) Config::get('appUrl'), '/')]);
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Vary: Origin');
     header('Access-Control-Allow-Credentials: true');
