@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { createTask } from '@/lib/tasks'
 import { TaskForm, type TaskFormValues } from '@/components/TaskForm'
 
@@ -22,9 +23,10 @@ export function AddTask() {
   if (addedTitle) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-800">Task added ✓</h1>
-        <p className="text-gray-500">
-          <span className="font-semibold">{addedTitle}</span> is in your backlog.
+        <CircleCheck className="h-12 w-12 text-success" />
+        <h1 className="text-2xl font-bold text-gray-800">Task added</h1>
+        <p className="text-muted">
+          <span className="font-semibold text-gray-700">{addedTitle}</span> is in your backlog.
         </p>
         <div className="flex flex-col gap-3">
           <button
@@ -32,13 +34,13 @@ export function AddTask() {
               setAddedTitle(null)
               setFormKey((k) => k + 1)
             }}
-            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg bg-gray-100 px-6 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
           >
             Add another
           </button>
           <Link
             to="/play"
-            className="rounded-lg bg-[#D85A30] px-6 py-3 font-semibold text-white transition hover:bg-[#c24d27]"
+            className="rounded-lg bg-primary px-6 py-3 font-semibold text-white transition hover:opacity-90"
           >
             Let&apos;s play
           </Link>
@@ -48,12 +50,12 @@ export function AddTask() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <h1 className="mb-5 text-center text-2xl font-bold text-gray-800">Add a task</h1>
         <TaskForm key={formKey} submitLabel="Add task" submittingLabel="Adding…" onSubmit={onSubmit} />
         <div className="mt-4 text-center text-sm">
-          <button onClick={() => navigate(-1)} className="text-gray-500 underline hover:text-gray-700">
+          <button onClick={() => navigate(-1)} className="text-muted underline hover:text-gray-700">
             Cancel
           </button>
         </div>
