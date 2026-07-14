@@ -15,6 +15,11 @@ dist/
 api/config.php
 api/vendor/
 
+# Dev-only test tooling (Composer/PHPUnit live at the repo root, never deployed)
+/vendor/
+.phpunit.cache/
+.phpunit.result.cache
+
 # logs
 *.log
 npm-debug.log*
