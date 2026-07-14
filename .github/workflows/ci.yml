@@ -1,0 +1,98 @@
+name: CI
+
+# Release gate. By design this runs ONLY on the develop -> main promotion PR, not
+# on the small, frequent issue PRs into develop — those don't wait on CI; the
+# promotion PR is where the full suite (lint/typecheck/build + PHPUnit) runs
+# together and any issues get fixed via review before the release merges.
+#
+# This workflow only REPORTS status; blocking the merge requires branch protection
+# to mark these checks "required" — on MAIN ONLY (never develop, where CI doesn't
+# run, so a required check would never resolve). See docs/DEPLOY.md.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # allow running the full suite manually on demand
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (PHPUnit + php -l)
+    runs-on: ubuntu-latest
+
+    # Prod is MariaDB 10.11 — test against the same flavour for fidelity (the code
+    # special-cases MariaDB/MySQL divergences elsewhere).
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: addiapp_test
+          MARIADB_USER: addiapp
+          MARIADB_PASSWORD: addiapp
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_URL: mysql://addiapp:addiapp@127.0.0.1:3306/addiapp_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install dev dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Syntax lint (php -l) across api/
+        run: find api -name '*.php' -print0 | xargs -0 -n1 -P4 php -l
+
+      - name: Migrate the test database
+        run: php api/migrate.php
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit
+
+  frontend:
+    name: Frontend (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build -w client

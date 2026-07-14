@@ -223,7 +223,12 @@ badges/tags — not a literal Duolingo green, not yet locked as final brand pale
   client-side routing and skips `/api`.
 - Secrets on the server: `~/api/config.php` (DB creds, `RESEND_API_KEY`, `appUrl`,
   `emailFrom`, `isProd`). GitHub secrets: `DEPLOY_SSH_{HOST,USER,PORT,KEY}`.
-- Full details + one-time server setup: **docs/DEPLOY.md**.
+- **DB backups (OPS-1)**: nightly `mysqldump` cron (`scripts/backup-db.sh`) →
+  gzipped/timestamped dumps in `~/backups/db/`, ~14-day rotation, read-only
+  `addiapp_bak` user. App-level — JetBackup doesn't expose DB restore points on
+  this account. `~/backups/db/` is the handoff for an external NAS pull (separate
+  repo; not built here). Cron install is a documented on-box step, not deployed.
+- Full details + one-time server setup + backups: **docs/DEPLOY.md**.
 
 ## How to help me
 

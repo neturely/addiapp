@@ -64,7 +64,13 @@ final class Selection
     {
         $rng ??= static fn (): float => mt_rand() / mt_getrandmax();
         $count = count($candidates);
-        return $count === 0 ? null : $candidates[(int) floor($rng() * $count)];
+        if ($count === 0) {
+            return null;
+        }
+        // Clamp: the default rng can return exactly 1.0 (mt_rand() == mt_getrandmax()),
+        // which would otherwise index one past the end.
+        $index = min((int) floor($rng() * $count), $count - 1);
+        return $candidates[$index];
     }
 
     /** @return array<string,callable> name → strategy */
