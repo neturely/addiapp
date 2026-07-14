@@ -14,6 +14,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { AppLayout } from '@/components/AppLayout'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -22,16 +23,23 @@ export const router = createBrowserRouter([
   { path: '/forgot-password', element: <ForgotPassword /> },
   { path: '/reset', element: <ResetPassword /> },
   {
+    // ProtectedRoute gates; AppLayout wraps every authed route in the shared
+    // Header/Footer shell at one seam (visual refresh v2, #92).
     element: <ProtectedRoute />,
     children: [
-      { path: '/', element: <Home /> },
-      { path: '/play', element: <Choice /> },
-      { path: '/play/task', element: <TaskPresented /> },
-      { path: '/play/progress/:id', element: <InProgress /> },
-      { path: '/tasks/new', element: <AddTask /> },
-      { path: '/tasks/:id/edit', element: <EditTask /> },
-      { path: '/dashboard', element: <Dashboard /> },
-      { path: '/stats', element: <Stats /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { path: '/', element: <Home /> },
+          { path: '/play', element: <Choice /> },
+          { path: '/play/task', element: <TaskPresented /> },
+          { path: '/play/progress/:id', element: <InProgress /> },
+          { path: '/tasks/new', element: <AddTask /> },
+          { path: '/tasks/:id/edit', element: <EditTask /> },
+          { path: '/dashboard', element: <Dashboard /> },
+          { path: '/stats', element: <Stats /> },
+        ],
+      },
     ],
   },
   { path: '*', element: <NotFound /> },

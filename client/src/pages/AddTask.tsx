@@ -42,9 +42,6 @@ export function AddTask() {
           >
             Let&apos;s play
           </Link>
-          <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-            Back home
-          </Link>
         </div>
       </main>
     )
@@ -55,13 +52,10 @@ export function AddTask() {
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm">
         <h1 className="mb-5 text-center text-2xl font-bold text-gray-800">Add a task</h1>
         <TaskForm key={formKey} submitLabel="Add task" submittingLabel="Adding…" onSubmit={onSubmit} />
-        <div className="mt-4 flex justify-between text-sm">
+        <div className="mt-4 text-center text-sm">
           <button onClick={() => navigate(-1)} className="text-gray-500 underline hover:text-gray-700">
             Cancel
           </button>
-          <Link to="/" className="text-gray-500 underline hover:text-gray-700">
-            Home
-          </Link>
         </div>
       </div>
     </main>

@@ -34,9 +34,6 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
         >
           {filtered ? 'Add a task' : 'Choose a win'}
         </Link>
-        <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-          Back home
-        </Link>
       </div>
     </main>
   )

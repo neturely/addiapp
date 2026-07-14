@@ -197,9 +197,9 @@ export function InProgress() {
         </button>
       </div>
 
-      <Link to="/" className="text-sm text-gray-400 underline hover:text-gray-600">
-        Leave it running, go home
-      </Link>
+      <p className="text-sm text-gray-400">
+        You can leave any time — this task stays in progress until you complete it.
+      </p>
     </main>
   )
 }
