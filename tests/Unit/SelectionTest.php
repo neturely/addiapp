@@ -14,7 +14,11 @@ use PHPUnit\Framework\TestCase;
  */
 final class SelectionTest extends TestCase
 {
-    /** Oldest -> youngest by createdAt; ids intentionally NOT in age order. */
+    /**
+     * Deliberately NOT in age order (youngest is listed first) and the ids do NOT
+     * correlate with age — so a passing test can't be quietly relying on input
+     * order. By createdAt the oldest is id 10, then 20, then 30 (the youngest).
+     */
     private const CANDIDATES = [
         ['id' => 30, 'createdAt' => '2026-01-03 10:00:00'], // youngest
         ['id' => 10, 'createdAt' => '2026-01-01 10:00:00'], // oldest
@@ -83,6 +87,14 @@ final class SelectionTest extends TestCase
         // After no sorting, uniformRandom indexes the list as-is: rng*count floored.
         self::assertSame(30, Selection::uniformRandom(self::CANDIDATES, static fn (): float => 0.0)['id']);
         self::assertSame(20, Selection::uniformRandom(self::CANDIDATES, static fn (): float => 0.999)['id']);
+    }
+
+    public function testUniformRandomClampsRngEqualToOne(): void
+    {
+        // The default rng (mt_rand()/mt_getrandmax()) can return exactly 1.0, which
+        // would index one past the end — the index must clamp to the last element.
+        $picked = Selection::uniformRandom(self::CANDIDATES, static fn (): float => 1.0);
+        self::assertSame(20, $picked['id']); // last element of the (unsorted) list
     }
 
     public function testStrategiesMapExposesAllThree(): void
