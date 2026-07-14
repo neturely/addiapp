@@ -29,11 +29,33 @@ export function Choice() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 text-center">
-      <Mascot mood="thinking" />
       <h1 className="text-2xl font-bold text-gray-800">What kind of win do you want?</h1>
 
+      {/* The mascot presents two equal paths — small (left) / big (right). */}
+      <div className="flex w-full max-w-2xl items-stretch justify-center gap-3 sm:gap-5">
+        <button
+          type="button"
+          onClick={() => go('small')}
+          className="flex flex-1 flex-col justify-center rounded-2xl bg-surface p-5 transition hover:bg-success-tint"
+        >
+          <div className="text-lg font-bold text-success">Something small</div>
+          <div className="mt-1 text-sm text-muted">A quick, low-effort win</div>
+        </button>
+
+        <Mascot mood="thinking" className="h-20 w-20 shrink-0 self-center sm:h-24 sm:w-24" />
+
+        <button
+          type="button"
+          onClick={() => go('big')}
+          className="flex flex-1 flex-col justify-center rounded-2xl bg-surface p-5 transition hover:bg-primary-tint"
+        >
+          <div className="text-lg font-bold text-primary">Something big</div>
+          <div className="mt-1 text-sm text-muted">Real progress worth more points</div>
+        </button>
+      </div>
+
       <div className="w-full max-w-md">
-        <p className="mb-2 text-sm font-medium text-gray-500">How much time do you have?</p>
+        <p className="mb-2 text-sm font-medium text-muted">How much time do you have?</p>
         <div className="flex flex-wrap justify-center gap-2">
           {TIME_OPTIONS.map((opt) => {
             const active = minutes === opt.minutes
@@ -43,9 +65,7 @@ export function Choice() {
                 type="button"
                 onClick={() => setMinutes(opt.minutes)}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                  active
-                    ? 'bg-gray-800 text-white'
-                    : 'border border-gray-300 text-gray-600 hover:bg-gray-50'
+                  active ? 'bg-primary text-white' : 'bg-surface text-muted hover:bg-primary-tint'
                 }`}
               >
                 {opt.label}
@@ -53,25 +73,6 @@ export function Choice() {
             )
           })}
         </div>
-      </div>
-
-      <div className="grid w-full max-w-md gap-4 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => go('small')}
-          className="rounded-2xl border-2 border-[#2FA39B] bg-[#2FA39B]/10 p-6 text-left transition hover:bg-[#2FA39B]/20"
-        >
-          <div className="text-lg font-bold text-[#1f746e]">Something small</div>
-          <div className="text-sm text-gray-600">A quick, low-effort win</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => go('big')}
-          className="rounded-2xl border-2 border-[#D85A30] bg-[#D85A30]/10 p-6 text-left transition hover:bg-[#D85A30]/20"
-        >
-          <div className="text-lg font-bold text-[#a8431f]">Something big</div>
-          <div className="text-sm text-gray-600">Real progress worth more points</div>
-        </button>
       </div>
     </main>
   )

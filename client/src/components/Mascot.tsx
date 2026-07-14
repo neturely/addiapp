@@ -17,7 +17,7 @@ export function Mascot({ mood = 'happy', className = '' }: { mood?: Mood; classN
       height="120"
     >
       {/* body */}
-      <ellipse cx="60" cy="66" rx="42" ry="40" fill="#D85A30" />
+      <ellipse cx="60" cy="66" rx="42" ry="40" fill="var(--color-primary)" />
       <ellipse cx="60" cy="72" rx="30" ry="26" fill="#F3B598" />
       {/* eyes */}
       {mood === 'sleepy' ? (
@@ -46,8 +46,8 @@ export function Mascot({ mood = 'happy', className = '' }: { mood?: Mood; classN
         />
       )}
       {/* little antenna */}
-      <line x1="60" y1="26" x2="60" y2="14" stroke="#D85A30" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="60" cy="11" r="5" fill="#F5A623" />
+      <line x1="60" y1="26" x2="60" y2="14" stroke="var(--color-primary)" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="60" cy="11" r="5" fill="var(--color-warning)" />
     </svg>
   )
 }

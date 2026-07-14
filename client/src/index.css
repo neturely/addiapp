@@ -17,9 +17,34 @@
   --color-accent: #6e3fd6;
   --color-accent-tint: #f1ebfd;
   --color-warning: #d98a00;
+  --color-warning-tint: #fbeed3;
   --color-muted: #5b6270;
   --color-page: #f6f1ea;
   --color-surface: #ffffff;
+
+  /* Completion-screen confetti (#94 B1): pop-in, drift down, fade. */
+  --animate-confetti: confetti 2.4s ease-in-out infinite;
+}
+
+@keyframes confetti {
+  0% {
+    transform: translateY(-8px) scale(0.4);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(18px) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Respect reduced-motion: show the dots statically rather than animating. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-confetti {
+    animation: none;
+  }
 }
 
 /*

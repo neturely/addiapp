@@ -15,7 +15,7 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
       <Mascot mood="sleepy" />
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-800">Nothing here right now</h1>
-        <p className="text-gray-500">
+        <p className="text-muted">
           {filtered
             ? 'No task matches that pick. Try a different kind of win or more time.'
             : 'Your backlog is empty. Add a task to get the ball rolling.'}
@@ -24,13 +24,13 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
       <div className="flex flex-col gap-3">
         <Link
           to={filtered ? '/play' : '/tasks/new'}
-          className="rounded-lg bg-[#D85A30] px-6 py-3 font-semibold text-white transition hover:bg-[#c24d27]"
+          className="rounded-lg bg-primary px-6 py-3 font-semibold text-white transition hover:opacity-90"
         >
           {filtered ? 'Pick a different win' : 'Add a task'}
         </Link>
         <Link
           to={filtered ? '/tasks/new' : '/play'}
-          className="text-sm text-gray-500 underline hover:text-gray-700"
+          className="text-sm text-muted underline hover:text-gray-700"
         >
           {filtered ? 'Add a task' : 'Choose a win'}
         </Link>
