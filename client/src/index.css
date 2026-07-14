@@ -1,1 +1,37 @@
 @import 'tailwindcss';
+
+/*
+ * AddiApp design tokens (visual refresh v2, #91/#92). Single source of truth.
+ * Tailwind v4 `@theme` generates the `bg-*` / `text-*` / `bg-*-tint` utilities
+ * AND exposes `--color-*` CSS vars (for raw-CSS / SVG fills like the Mascot).
+ * All values are WCAG AA (4.5:1) verified for their text use — see #91.
+ *
+ * Hard rules (see #91): no box-shadow, no borders — surfaces separate from the
+ * cream page by flat color alone. `#D85A30` (old coral) is fully retired.
+ */
+@theme {
+  --color-primary: #c43a0c;
+  --color-primary-tint: #fdf0ea;
+  --color-success: #0b7c63;
+  --color-success-tint: #e5f5f0;
+  --color-accent: #6e3fd6;
+  --color-accent-tint: #f1ebfd;
+  --color-warning: #d98a00;
+  --color-muted: #5b6270;
+  --color-page: #f6f1ea;
+  --color-surface: #ffffff;
+}
+
+/*
+ * The AppLayout shell owns page height (#92). Pages still set their own
+ * `min-h-screen` (per-screen cleanup is retrofit #94); inside the shell that
+ * would stack a full viewport UNDER the header+footer and push the footer off
+ * screen. This neutralizes the page's min-height and lets it flex to fill the
+ * content row instead — footer sits at the viewport bottom on short content and
+ * is pushed down (never overlapped) on long content. Unlayered, so it wins over
+ * the Tailwind `min-h-screen` utility (which lives in a cascade layer).
+ */
+.app-shell-content > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}

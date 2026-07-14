@@ -183,22 +183,8 @@ export function Dashboard() {
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl p-4 sm:p-8">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <header className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/tasks/new"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            + Add task
-          </Link>
-          <Link
-            to="/play"
-            className="rounded-lg bg-[#D85A30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c24d27]"
-          >
-            ▶ Play
-          </Link>
-        </div>
       </header>
 
       <PointsCard refreshSignal={pointsRefresh} />
@@ -384,12 +370,6 @@ export function Dashboard() {
           </table>
         </div>
       )}
-
-      <div className="mt-6 text-center">
-        <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-          Back home
-        </Link>
-      </div>
 
       {pendingTask && (
         <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white shadow-lg">

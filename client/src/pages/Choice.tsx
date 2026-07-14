@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Mascot } from '@/components/Mascot'
 import type { WinSize } from '@/lib/tasks'
 
@@ -73,10 +73,6 @@ export function Choice() {
           <div className="text-sm text-gray-600">Real progress worth more points</div>
         </button>
       </div>
-
-      <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-        Back home
-      </Link>
     </main>
   )
 }

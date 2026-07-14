@@ -78,17 +78,6 @@ export function Stats() {
         {today.tasksCompleted} {today.tasksCompleted === 1 ? 'task' : 'tasks'}
       </p>
 
-      <div className="mt-6 flex justify-center gap-4 text-sm">
-        <Link to="/play" className="text-[#a8431f] underline hover:text-[#7f3217]">
-          Play
-        </Link>
-        <Link to="/dashboard" className="text-gray-500 underline hover:text-gray-700">
-          Dashboard
-        </Link>
-        <Link to="/" className="text-gray-500 underline hover:text-gray-700">
-          Home
-        </Link>
-      </div>
     </main>
   )
 }

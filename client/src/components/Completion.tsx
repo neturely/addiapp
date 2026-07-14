@@ -62,17 +62,12 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
         <p className="text-sm text-gray-400">Current daily bonus: {+multiplier.toFixed(2)}x</p>
       )}
 
-      <div className="mt-2 flex flex-col gap-3">
-        <Link
-          to={keepGoingHref}
-          className="rounded-xl bg-[#D85A30] px-8 py-3 text-lg font-semibold text-white transition hover:bg-[#c24d27]"
-        >
-          Keep going
-        </Link>
-        <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-          Back to home
-        </Link>
-      </div>
+      <Link
+        to={keepGoingHref}
+        className="mt-2 rounded-xl bg-[#D85A30] px-8 py-3 text-lg font-semibold text-white transition hover:bg-[#c24d27]"
+      >
+        Keep going
+      </Link>
     </main>
   )
 }
