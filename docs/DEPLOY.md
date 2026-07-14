@@ -23,6 +23,67 @@ Runs on push to `main` (or manual dispatch):
 | `DEPLOY_SSH_PORT` | `22` |
 | `DEPLOY_SSH_KEY`  | private half of a dedicated deploy keypair (public half in the account's `~/.ssh/authorized_keys`) |
 
+## CI release gate (`.github/workflows/ci.yml`)
+
+Separate from deploy. By design it runs on **PRs into `main` only** — i.e. the
+`develop → main` **promotion PR** — plus manual `workflow_dispatch`.
+
+- **backend** — MariaDB 10.11 service (prod flavour) → PHP 8.2 → `composer install`
+  → `php -l` sweep across `api/` → migrate `addiapp_test` → PHPUnit.
+- **frontend** — Node 20 → `npm ci` → `lint` + `typecheck` + `build`.
+
+**Why not on develop?** For this project's size, the many small issue PRs into
+`develop` shouldn't each wait on CI. The promotion PR is the real release gate:
+the full suite runs there together and anything red gets fixed via review comments
+before the release merges. There is deliberately **no** CI on develop PRs, on
+pushes to develop, or on push-to-main (main only advances through the promotion PR,
+which already ran the suite; and `deploy.yml` rebuilds the SPA on push to main
+regardless, so a broken build still can't ship).
+
+The test tooling (Composer, `phpunit.xml`, `tests/`, `vendor/`) lives at the repo
+**root** and is git-ignored / never rsynced — the deployed `api/` tree stays
+dependency-free.
+
+### ⚠ Manual branch protection (one-time, required to actually block merges)
+
+The workflow only *reports* status. To make a red CI **block the merge**, the two
+checks must be marked **required**. Protection here is managed by an **org-level
+ruleset** (`neturely` → **"Branch Rules"**) that already targets both
+`refs/heads/develop` and `refs/heads/main` and enforces: no deletion, no
+force-push, PR required, review-thread resolution. It does **not** yet require
+status checks — that's the piece to add.
+
+> ⚠ **Apply required status checks to `main` ONLY — never `develop`.** CI does not
+> run on develop PRs, so a check required there would never report and would block
+> every develop merge outright. Because the org "Branch Rules" ruleset covers both
+> branches with one shared condition, add the status-check requirement as a
+> **separate ruleset scoped to `refs/heads/main`** (or split the rule) rather than
+> putting it on the shared one.
+
+1. GitHub → **org `neturely` → Settings → Rules → Rulesets** → add/edit a ruleset
+   whose target ref is **`refs/heads/main` only**.
+2. Add a **Require status checks to pass** rule and select the two checks:
+   **`Backend (PHPUnit + php -l)`** and **`Frontend (lint + typecheck + build)`**.
+   (They appear in the picker after `ci.yml` has run at least once.)
+3. Recommended: also tick **Require branches to be up to date before merging**.
+
+Requires org-admin (`admin:org`) to edit — it's an org ruleset, not a repo
+setting.
+
+### Running the backend tests locally
+
+```bash
+composer install                                   # one-time (repo root)
+docker exec addiapp-mysql-1 mysql -uroot -prootpassword \
+  -e "CREATE DATABASE IF NOT EXISTS addiapp_test; \
+      GRANT ALL ON addiapp_test.* TO 'addiapp'@'%'; FLUSH PRIVILEGES;"
+DATABASE_URL="mysql://addiapp:addiapp@127.0.0.1:3306/addiapp_test" php api/migrate.php
+DATABASE_URL="mysql://addiapp:addiapp@127.0.0.1:3306/addiapp_test" vendor/bin/phpunit
+```
+
+Without `DATABASE_URL` the pure-math/selection unit tests still run; the DB-backed
+tests skip (they never touch dev/prod data).
+
 ## One-time server setup
 
 1. **MySQL** (cPanel → MySQL Databases, or `uapi Mysql …` over SSH): create DB

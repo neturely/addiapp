@@ -70,6 +70,13 @@ final class Award
             throw $e;
         }
 
+        // NOTE (TECH-2): `daily_stats.multiplier` stores $liveMultiplier — the
+        // multiplier the *next* completion will earn — NOT the one applied to the
+        // completion just recorded. It's a live preview for the UI (the points card
+        // shows "your next task earns ×N"). The multiplier actually applied to THIS
+        // completion is persisted per-row in `points_log.multiplier` above. So a
+        // reader inspecting daily_stats will see a value one step ahead of the last
+        // award; that's intentional, not a bug.
         $pdo->prepare(
             'INSERT INTO daily_stats (user_id, stat_date, tasks_completed, points_earned, multiplier)
              VALUES (?, ?, 1, ?, ?)
