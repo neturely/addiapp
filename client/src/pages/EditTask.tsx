@@ -39,14 +39,14 @@ export function EditTask() {
   }
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-gray-500">Loading…</main>
+    return <main className="flex min-h-screen items-center justify-center text-muted">Loading…</main>
   }
 
   if (error || !task) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <p className="text-gray-600">{error ?? 'Task not found'}</p>
-        <Link to="/dashboard" className="text-sm text-gray-500 underline hover:text-gray-700">
+        <p className="text-gray-700">{error ?? 'Task not found'}</p>
+        <Link to="/dashboard" className="text-sm text-muted underline hover:text-gray-700">
           Back to dashboard
         </Link>
       </main>
@@ -54,8 +54,8 @@ export function EditTask() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <h1 className="mb-5 text-center text-2xl font-bold text-gray-800">Edit task</h1>
         <TaskForm
           initial={{
@@ -68,7 +68,7 @@ export function EditTask() {
           onSubmit={onSubmit}
         />
         <div className="mt-4 text-center text-sm">
-          <Link to="/dashboard" className="text-gray-500 underline hover:text-gray-700">
+          <Link to="/dashboard" className="text-muted underline hover:text-gray-700">
             Cancel
           </Link>
         </div>
