@@ -21,7 +21,11 @@ abstract class DbTestCase extends TestCase
 
     protected function setUp(): void
     {
-        if (getenv('DATABASE_URL') === false) {
+        // Treat an empty/whitespace value as unset too: Config maps '' back to the
+        // DEFAULT (dev) DB URL, so running here would risk writing to the dev
+        // schema instead of the throwaway addiapp_test one.
+        $dbUrl = getenv('DATABASE_URL');
+        if ($dbUrl === false || trim($dbUrl) === '') {
             self::markTestSkipped('DATABASE_URL not set — DB tests need a migrated addiapp_test schema.');
         }
         $this->pdo = Db::pdo();
