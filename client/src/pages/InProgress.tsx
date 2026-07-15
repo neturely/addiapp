@@ -158,6 +158,10 @@ export function InProgress() {
         </div>
 
         <div className="mt-4">
+          {/* #143: vivid meter fills are a DELIBERATE choice — their contrast vs
+              the track is below 1.4.11's 3:1 (green 1.86, gold 1.41), accepted
+              because this is a decorative indicator and the exact elapsed/estimate
+              time is always shown as text below. Do not "fix" to darker shades. */}
           <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full rounded-full transition-[width] duration-500 ${
