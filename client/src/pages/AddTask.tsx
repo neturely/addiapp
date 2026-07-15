@@ -40,7 +40,7 @@ export function AddTask() {
           </button>
           <Link
             to="/play"
-            className="rounded-lg bg-primary px-6 py-3 font-semibold text-on-primary transition hover:opacity-90"
+            className="rounded-lg bg-primary px-6 py-3 text-xl font-bold text-white transition hover:opacity-90"
           >
             Let&apos;s play
           </Link>

@@ -193,7 +193,7 @@ export function InProgress() {
           type="button"
           onClick={() => void onComplete()}
           disabled={completing}
-          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-on-primary transition hover:opacity-90 disabled:bg-gray-400"
+          className="mt-5 w-full rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
         >
           {completing ? 'Completing…' : 'Complete'}
         </button>

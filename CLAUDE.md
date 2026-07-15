@@ -223,11 +223,16 @@ double duty:
 Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
 set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
 
-**Text-on-vivid rule (do not violate):** dark on-fill text everywhere; **white only on
-`--color-primary`, and only for large/bold text** (≥24px, or ≥19px bold — WCAG 3:1;
-e.g. the PointsCard/Stats big stat numbers). Buttons, small labels, badges, and every
-success/accent/warning fill at any size use dark on-fill. Emphasis tiers: solid vivid +
-on-fill = high; tint + ink = low.
+**Text-on-vivid rule (do not violate):** dark on-fill text (`text-on-{h}`) by default;
+**white is allowed on `--color-primary` only for large/bold text** (≥24px, or ≥19px bold
+— WCAG's 3:1 large-text tier; white on `#FB5231` = 3.31). Applied to: the PointsCard/Stats
+large stat numbers, AND **all primary CTA buttons** — standardized to `text-xl` (20px)
+`font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
+read muddy). Everything else stays dark on-fill: small labels, badges, the filter/time
+pills, the initials avatar, and the compact utility buttons (Header "Add task", Dashboard
+inline "Save" — too small to bump without breaking their layout). success/accent/warning
+fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: solid vivid
++ on-fill = high; tint + ink = low.
 
 ## Coding standards
 
