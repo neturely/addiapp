@@ -291,7 +291,7 @@ export function Dashboard() {
                         <button
                           onClick={() => void saveEdit(task)}
                           disabled={savingId === task.id}
-                          className="rounded bg-primary px-3 py-1 text-xs font-semibold text-on-primary transition hover:opacity-90 disabled:bg-gray-400"
+                          className="rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
                         >
                           {savingId === task.id ? 'Saving…' : 'Save'}
                         </button>
@@ -300,7 +300,7 @@ export function Dashboard() {
                             setEditingId(null)
                             setRowError(null)
                           }}
-                          className="ml-2 text-xs text-muted underline hover:text-gray-700"
+                          className="ml-2 text-sm text-muted underline hover:text-gray-700"
                         >
                           Cancel
                         </button>
