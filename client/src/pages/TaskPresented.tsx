@@ -106,7 +106,7 @@ export function TaskPresented() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot mood="happy" />
+      <Mascot expression="neutral" />
 
       <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${tag.className}`}>

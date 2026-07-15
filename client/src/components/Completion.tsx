@@ -50,7 +50,7 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
         />
       ))}
 
-      <Mascot mood="happy" />
+      <Mascot expression="celebrating" />
       <h1 className="text-3xl font-bold text-gray-800">Nice work!</h1>
       <p className="text-muted">{title}</p>
 

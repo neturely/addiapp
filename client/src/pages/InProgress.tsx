@@ -115,7 +115,7 @@ export function InProgress() {
   if (error && !task) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <Mascot mood="sleepy" />
+        <Mascot expression="idle" />
         <p className="text-gray-700">{error}</p>
         <Link to="/play" className="text-sm text-muted underline hover:text-gray-700">
           Back to Play
@@ -147,7 +147,7 @@ export function InProgress() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot mood="happy" />
+      <Mascot expression="idle" />
       <p className="text-sm font-semibold uppercase tracking-wide text-muted">Working on it</p>
 
       <div className="w-full max-w-md rounded-2xl bg-surface p-6">

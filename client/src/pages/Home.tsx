@@ -34,7 +34,7 @@ export function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot mood="happy" />
+      <Mascot expression="neutral" />
       <h1 className="max-w-md text-3xl font-bold text-gray-800">
         Ready to do something great today?
       </h1>

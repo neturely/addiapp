@@ -42,7 +42,7 @@ export function Choice() {
           <div className="mt-1 text-sm text-muted">A quick, low-effort win</div>
         </button>
 
-        <Mascot mood="thinking" className="h-20 w-20 shrink-0 self-center sm:h-24 sm:w-24" />
+        <Mascot expression="neutral" className="h-20 w-20 shrink-0 self-center sm:h-24 sm:w-24" />
 
         <button
           type="button"

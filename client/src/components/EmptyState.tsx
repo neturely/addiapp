@@ -12,7 +12,7 @@ import { Mascot } from './Mascot'
 export function EmptyState({ filtered = false }: { filtered?: boolean }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot mood="sleepy" />
+      <Mascot expression="idle" />
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-800">Nothing here right now</h1>
         <p className="text-muted">
