@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Mail } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 
 export function Register() {
@@ -36,26 +37,27 @@ export function Register() {
 
   if (registered) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-        <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow">
-          <h1 className="mb-2 text-xl font-bold">Check your email 📬</h1>
-          <p className="text-sm text-gray-600">
-            We sent a verification link to <strong>{email}</strong>. Click it to activate your
-            account, then sign in.
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
+          <Mail className="mx-auto mb-3 h-10 w-10 text-primary" />
+          <h1 className="mb-2 text-xl font-bold">Check your email</h1>
+          <p className="text-sm text-muted">
+            We sent a verification link to <strong className="text-gray-700">{email}</strong>. Click
+            it to activate your account, then sign in.
           </p>
           <button
             onClick={onResend}
-            className="mt-4 w-full rounded border border-gray-300 py-2 text-sm hover:bg-gray-50"
+            className="mt-4 w-full rounded-lg bg-gray-100 py-2 text-sm hover:bg-gray-200"
           >
             Resend verification email
           </button>
           {resent && (
-            <p className="mt-2 text-sm text-green-600">
+            <p className="mt-2 text-sm text-success">
               If that account is unverified, a new link is on its way.
             </p>
           )}
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-blue-600 underline">
+            <Link to="/login" className="text-primary underline">
               Back to sign in
             </Link>
           </p>
@@ -65,12 +67,12 @@ export function Register() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow">
+    <div className="flex min-h-screen items-center justify-center bg-page p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-surface p-6">
         <h1 className="mb-4 text-center text-xl font-bold">Create your AddiApp account</h1>
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
             type="text"
             autoComplete="nickname"
             placeholder="Display name (optional)"
@@ -78,7 +80,7 @@ export function Register() {
             onChange={(e) => setDisplayName(e.target.value)}
           />
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
             type="email"
             autoComplete="email"
             placeholder="Email"
@@ -86,7 +88,7 @@ export function Register() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
             type="password"
             autoComplete="new-password"
             placeholder="Password (min 8 characters)"
@@ -97,14 +99,14 @@ export function Register() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded bg-blue-600 py-2 text-white disabled:bg-gray-400"
+            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Creating account…' : 'Register'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
           Already have an account?{' '}
-          <Link to="/login" className="text-blue-600 underline">
+          <Link to="/login" className="text-primary underline">
             Sign in
           </Link>
         </p>

@@ -2,16 +2,16 @@ import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
 import type { WinSize } from '@/lib/tasks'
 
-/** A few static confetti-dot accents — moderate ceremony, no animation library. */
+/** Confetti-dot accents — staggered CSS keyframe (pop/drift/fade), no library. */
 const CONFETTI = [
-  { color: '#D85A30', top: '14%', left: '16%', pulse: true },
-  { color: '#2FA39B', top: '22%', left: '80%', pulse: false },
-  { color: '#F5A623', top: '38%', left: '10%', pulse: false },
-  { color: '#8B5CF6', top: '12%', left: '58%', pulse: true },
-  { color: '#2FA39B', top: '30%', left: '38%', pulse: false },
-  { color: '#F5A623', top: '18%', left: '34%', pulse: true },
-  { color: '#8B5CF6', top: '40%', left: '72%', pulse: false },
-  { color: '#D85A30', top: '48%', left: '24%', pulse: false },
+  { color: 'var(--color-primary)', top: '14%', left: '16%', delay: '0s' },
+  { color: 'var(--color-success)', top: '22%', left: '80%', delay: '0.5s' },
+  { color: 'var(--color-warning)', top: '38%', left: '10%', delay: '0.9s' },
+  { color: 'var(--color-accent)', top: '12%', left: '58%', delay: '0.2s' },
+  { color: 'var(--color-success)', top: '30%', left: '38%', delay: '1.2s' },
+  { color: 'var(--color-warning)', top: '18%', left: '34%', delay: '0.7s' },
+  { color: 'var(--color-accent)', top: '40%', left: '72%', delay: '1.5s' },
+  { color: 'var(--color-primary)', top: '48%', left: '24%', delay: '0.35s' },
 ]
 
 type CompletionProps = {
@@ -45,34 +45,29 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
         <span
           key={i}
           aria-hidden
-          className={`absolute h-2.5 w-2.5 rounded-full ${c.pulse ? 'animate-pulse' : ''}`}
-          style={{ backgroundColor: c.color, top: c.top, left: c.left }}
+          className="animate-confetti absolute h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: c.color, top: c.top, left: c.left, animationDelay: c.delay }}
         />
       ))}
 
-      <Mascot mood="happy" />
+      <Mascot expression="celebrating" />
       <h1 className="text-3xl font-bold text-gray-800">Nice work!</h1>
-      <p className="text-gray-500">{title}</p>
+      <p className="text-muted">{title}</p>
 
       {totalPoints != null && (
-        <div className="text-6xl font-extrabold tabular-nums text-[#D85A30]">+{totalPoints}</div>
+        <div className="text-6xl font-extrabold tabular-nums text-primary">+{totalPoints}</div>
       )}
 
       {multiplier != null && multiplier > 1 && (
-        <p className="text-sm text-gray-400">Current daily bonus: {+multiplier.toFixed(2)}x</p>
+        <p className="text-sm text-muted">Current daily bonus: {+multiplier.toFixed(2)}x</p>
       )}
 
-      <div className="mt-2 flex flex-col gap-3">
-        <Link
-          to={keepGoingHref}
-          className="rounded-xl bg-[#D85A30] px-8 py-3 text-lg font-semibold text-white transition hover:bg-[#c24d27]"
-        >
-          Keep going
-        </Link>
-        <Link to="/" className="text-sm text-gray-500 underline hover:text-gray-700">
-          Back to home
-        </Link>
-      </div>
+      <Link
+        to={keepGoingHref}
+        className="mt-2 rounded-xl bg-primary px-8 py-3 text-lg font-semibold text-white transition hover:opacity-90"
+      >
+        Keep going
+      </Link>
     </main>
   )
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Shuffle, SlidersHorizontal } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { EmptyState } from '@/components/EmptyState'
 import {
@@ -13,9 +14,9 @@ import {
 import { fetchPoints, type PointsStats } from '@/lib/points'
 
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
-  low: { label: 'Low effort', className: 'bg-[#2FA39B]/15 text-[#1f746e]' },
-  medium: { label: 'Medium', className: 'bg-[#F5A623]/15 text-[#a06d00]' },
-  high: { label: 'Big effort', className: 'bg-[#D85A30]/15 text-[#a8431f]' },
+  low: { label: 'Low effort', className: 'bg-success-tint text-success' },
+  medium: { label: 'Medium', className: 'bg-warning-tint text-[#8a5a00]' },
+  high: { label: 'Big effort', className: 'bg-primary-tint text-primary' },
 }
 
 function formatMinutes(m: number): string {
@@ -92,7 +93,7 @@ export function TaskPresented() {
   }
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-gray-500">Finding you a task…</main>
+    return <main className="flex min-h-screen items-center justify-center text-muted">Finding you a task…</main>
   }
 
   if (!task) {
@@ -105,19 +106,19 @@ export function TaskPresented() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot mood="happy" />
+      <Mascot expression="neutral" />
 
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${tag.className}`}>
           {tag.label}
         </span>
         <h1 className="mt-3 text-2xl font-bold text-gray-800">{task.title}</h1>
-        <p className="mt-1 text-gray-500">~{formatMinutes(task.estimatedMinutes)}</p>
+        <p className="mt-1 text-muted">~{formatMinutes(task.estimatedMinutes)}</p>
 
         {basePoints != null && (
-          <div className="mt-4 rounded-xl bg-gray-50 p-3">
-            <div className="text-lg font-bold text-[#a8431f]">≈ {basePoints} pts</div>
-            <div className="text-xs text-gray-500">
+          <div className="mt-4 rounded-xl bg-primary-tint p-3">
+            <div className="text-lg font-bold text-primary">≈ {basePoints} pts</div>
+            <div className="text-xs text-muted">
               + speed bonus if you beat the estimate
               {multiplier && multiplier > 1 ? ` · ×${multiplier.toFixed(2)} today` : ''}
             </div>
@@ -130,22 +131,29 @@ export function TaskPresented() {
           type="button"
           onClick={onStart}
           disabled={starting}
-          className="mt-5 w-full rounded-lg bg-[#D85A30] py-3 font-semibold text-white transition hover:bg-[#c24d27] disabled:bg-gray-400"
+          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
         >
           {starting ? 'Starting…' : 'Start'}
         </button>
-        <button
-          type="button"
-          onClick={() => void roll(task.id)}
-          className="mt-2 w-full rounded-lg py-2 text-sm text-gray-500 underline hover:text-gray-700"
-        >
-          Give me something else
-        </button>
-      </div>
 
-      <Link to="/play" className="text-sm text-gray-500 underline hover:text-gray-700">
-        Change my pick
-      </Link>
+        <div className="mt-3 flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => void roll(task.id)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary"
+          >
+            <Shuffle className="h-4 w-4" />
+            Give me something else
+          </button>
+          <Link
+            to="/play"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Change my pick
+          </Link>
+        </div>
+      </div>
     </main>
   )
 }

@@ -84,7 +84,7 @@ export function TaskForm({ initial, submitLabel, submittingLabel, onSubmit }: Ta
           maxLength={MAX_TITLE}
           placeholder="e.g. Draft the sprint notes"
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 p-2.5 focus:border-[#D85A30] focus:outline-none"
+          className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
         />
       </div>
 
@@ -98,12 +98,14 @@ export function TaskForm({ initial, submitLabel, submittingLabel, onSubmit }: Ta
                 key={c}
                 type="button"
                 onClick={() => setComplexity(c)}
-                className={`rounded-lg border-2 py-2 text-center transition ${
-                  active ? 'border-[#D85A30] bg-[#D85A30]/10' : 'border-gray-200 hover:border-gray-300'
+                className={`rounded-lg py-2 text-center transition ${
+                  active ? 'bg-primary-tint' : 'bg-gray-100 hover:bg-gray-200'
                 }`}
               >
-                <div className="text-sm font-semibold text-gray-800">{COMPLEXITY_LABEL[c]}</div>
-                <div className="text-xs text-gray-500">{basePoints[c]} pts</div>
+                <div className={`text-sm font-semibold ${active ? 'text-primary' : 'text-gray-800'}`}>
+                  {COMPLEXITY_LABEL[c]}
+                </div>
+                <div className="text-xs text-muted">{basePoints[c]} pts</div>
               </button>
             )
           })}
@@ -123,9 +125,9 @@ export function TaskForm({ initial, submitLabel, submittingLabel, onSubmit }: Ta
           value={minutes}
           placeholder="e.g. 25"
           onChange={(e) => setMinutes(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 p-2.5 focus:border-[#D85A30] focus:outline-none"
+          className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
         />
-        <p className="mt-1 text-xs text-gray-400">Beat your estimate to earn a speed bonus.</p>
+        <p className="mt-1 text-xs text-muted">Beat your estimate to earn a speed bonus.</p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -133,7 +135,7 @@ export function TaskForm({ initial, submitLabel, submittingLabel, onSubmit }: Ta
       <button
         type="submit"
         disabled={submitting}
-        className="w-full rounded-lg bg-[#D85A30] py-3 font-semibold text-white transition hover:bg-[#c24d27] disabled:bg-gray-400"
+        className="w-full rounded-lg bg-primary py-3 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
       >
         {submitting ? submittingLabel : submitLabel}
       </button>

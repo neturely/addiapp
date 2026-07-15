@@ -37,21 +37,21 @@ export function PointsCard({ refreshSignal = 0 }: { refreshSignal?: number }) {
   return (
     <Link
       to="/stats"
-      className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-[#D85A30] to-[#e07a52] p-5 text-white transition hover:brightness-105"
+      className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-white transition hover:opacity-90"
     >
       <div>
-        <div className="text-xs font-medium uppercase tracking-wide text-white/80">Total points</div>
+        <div className="text-xs font-medium uppercase tracking-wide text-white">Total points</div>
         <div className="text-4xl font-extrabold tabular-nums">{total.toLocaleString()}</div>
       </div>
       <div className="flex gap-6 text-right">
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-white/80">Daily bonus</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-white">Daily bonus</div>
           <div className="text-2xl font-bold tabular-nums">×{+multiplier.toFixed(2)}</div>
         </div>
         <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-white/80">Today</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-white">Today</div>
           <div className="text-2xl font-bold tabular-nums">{pointsToday}</div>
-          <div className="text-xs text-white/80">
+          <div className="text-xs text-white">
             {tasksToday} {tasksToday === 1 ? 'task' : 'tasks'}
           </div>
         </div>

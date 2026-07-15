@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { Completion } from '@/components/Completion'
 import { completeTask, getTask, parseMinutes, type AwardResult, type Task } from '@/lib/tasks'
@@ -108,15 +109,15 @@ export function InProgress() {
   }, [task])
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-gray-500">Loading…</main>
+    return <main className="flex min-h-screen items-center justify-center text-muted">Loading…</main>
   }
 
   if (error && !task) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <Mascot mood="sleepy" />
-        <p className="text-gray-600">{error}</p>
-        <Link to="/play" className="text-sm text-gray-500 underline hover:text-gray-700">
+        <Mascot expression="idle" />
+        <p className="text-gray-700">{error}</p>
+        <Link to="/play" className="text-sm text-muted underline hover:text-gray-700">
           Back to Play
         </Link>
       </main>
@@ -146,10 +147,10 @@ export function InProgress() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot mood="happy" />
-      <p className="text-sm font-semibold uppercase tracking-wide text-gray-400">Working on it</p>
+      <Mascot expression="idle" />
+      <p className="text-sm font-semibold uppercase tracking-wide text-muted">Working on it</p>
 
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <h1 className="text-xl font-bold text-gray-800">{task.title}</h1>
 
         <div className="mt-4 font-mono text-5xl font-bold tabular-nums text-gray-900">
@@ -160,12 +161,12 @@ export function InProgress() {
           <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full rounded-full transition-[width] duration-500 ${
-                inBonus ? 'bg-[#2FA39B]' : 'bg-[#D85A30]'
+                inBonus ? 'bg-success' : 'bg-warning'
               }`}
               style={{ width: `${meterFrac * 100}%` }}
             />
           </div>
-          <div className="mt-1 text-xs text-gray-500">
+          <div className="mt-1 text-xs text-muted">
             {elapsedMin} / {task.estimatedMinutes} min
           </div>
         </div>
@@ -173,14 +174,15 @@ export function InProgress() {
         <p className="mt-4 text-sm font-medium text-gray-600">
           {inBonus ? (
             <>
-              ⚡ Finish within{' '}
-              <span className="font-bold text-[#1f746e]">{formatClock(estimateSec - elapsed)}</span>{' '}
+              <Zap className="mb-0.5 inline h-4 w-4 text-warning" fill="currentColor" strokeWidth={0} />{' '}
+              Finish within{' '}
+              <span className="font-bold text-success">{formatClock(estimateSec - elapsed)}</span>{' '}
               for a speed bonus
             </>
           ) : (
             <>
               Past the estimate — no speed bonus now
-              {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish strong 💪
+              {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish strong.
             </>
           )}
         </p>
@@ -191,15 +193,15 @@ export function InProgress() {
           type="button"
           onClick={() => void onComplete()}
           disabled={completing}
-          className="mt-5 w-full rounded-lg bg-[#D85A30] py-3 font-semibold text-white transition hover:bg-[#c24d27] disabled:bg-gray-400"
+          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
         >
           {completing ? 'Completing…' : 'Complete'}
         </button>
       </div>
 
-      <Link to="/" className="text-sm text-gray-400 underline hover:text-gray-600">
-        Leave it running, go home
-      </Link>
+      <p className="text-sm text-muted">
+        You can leave any time — this task stays in progress until you complete it.
+      </p>
     </main>
   )
 }
