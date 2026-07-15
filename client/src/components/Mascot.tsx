@@ -3,8 +3,9 @@ export type Expression = 'neutral' | 'celebrating' | 'idle'
 /**
  * AddiApp mascot — icon-style, expression-driven (#96, visual refresh v2 #91).
  *
- * One penguin-ish icon: green circle head + darker green crest/tuft, two pale
- * cream eye patches, an orange beak, and a face that changes per `expression`.
+ * One penguin-ish icon: golden-yellow circle head + darker orange-gold crest,
+ * two pale-cream eye patches, an orange-red beak, and a face that changes per
+ * `expression`.
  * The body colour is CONSTANT across states — the FACE (eyes + beak) carries the
  * emotion, so the mascot keeps its silhouette against any state-coloured surface
  * under the flat "no border/shadow" rule. All colours are `--color-mascot-*`
