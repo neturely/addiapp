@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { Mail } from 'lucide-react'
 import { apiRequest } from '@/lib/api'
 
 /**
@@ -30,15 +31,16 @@ export function ForgotPassword() {
 
   if (sent) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-        <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow">
-          <h1 className="mb-2 text-xl font-bold">Check your email 📬</h1>
-          <p className="text-sm text-gray-600">
-            If an account exists for <strong>{email}</strong>, a password reset link is on its way.
-            The link expires in 1 hour.
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
+          <Mail className="mx-auto mb-3 h-10 w-10 text-primary" />
+          <h1 className="mb-2 text-xl font-bold">Check your email</h1>
+          <p className="text-sm text-muted">
+            If an account exists for <strong className="text-gray-700">{email}</strong>, a password
+            reset link is on its way. The link expires in 1 hour.
           </p>
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-blue-600 underline">
+            <Link to="/login" className="text-primary underline">
               Back to sign in
             </Link>
           </p>
@@ -48,15 +50,15 @@ export function ForgotPassword() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow">
+    <div className="flex min-h-screen items-center justify-center bg-page p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-surface p-6">
         <h1 className="mb-1 text-center text-xl font-bold">Forgot your password?</h1>
-        <p className="mb-4 text-center text-sm text-gray-500">
+        <p className="mb-4 text-center text-sm text-muted">
           Enter your email and we&apos;ll send a reset link.
         </p>
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
             type="email"
             required
             autoComplete="email"
@@ -67,13 +69,13 @@ export function ForgotPassword() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded bg-blue-600 py-2 text-white disabled:bg-gray-400"
+            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link to="/login" className="text-blue-600 underline">
+          <Link to="/login" className="text-primary underline">
             Back to sign in
           </Link>
         </p>

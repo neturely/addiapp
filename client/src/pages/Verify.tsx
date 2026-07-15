@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 
 type Status = 'verifying' | 'success' | 'error'
@@ -35,13 +36,14 @@ export function Verify() {
   }, [params, verify, navigate])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow">
-        {status === 'verifying' && <p className="text-gray-600">Verifying your email…</p>}
+    <div className="flex min-h-screen items-center justify-center bg-page p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
+        {status === 'verifying' && <p className="text-muted">Verifying your email…</p>}
         {status === 'success' && (
           <>
-            <h1 className="mb-2 text-xl font-bold">Email verified ✅</h1>
-            <p className="text-sm text-gray-600">Signing you in…</p>
+            <CircleCheck className="mx-auto mb-3 h-10 w-10 text-success" />
+            <h1 className="mb-2 text-xl font-bold">Email verified</h1>
+            <p className="text-sm text-muted">Signing you in…</p>
           </>
         )}
         {status === 'error' && (
@@ -49,7 +51,7 @@ export function Verify() {
             <h1 className="mb-2 text-xl font-bold">Verification failed</h1>
             <p className="text-sm text-red-600">{message}</p>
             <p className="mt-4 text-sm">
-              <Link to="/login" className="text-blue-600 underline">
+              <Link to="/login" className="text-primary underline">
                 Back to sign in
               </Link>{' '}
               to request a new link.
