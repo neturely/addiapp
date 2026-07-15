@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { apiRequest } from '@/lib/api'
 
 /**
@@ -19,12 +20,12 @@ export function ResetPassword() {
 
   if (!token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-        <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow">
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
           <h1 className="mb-2 text-xl font-bold">Invalid reset link</h1>
-          <p className="text-sm text-gray-600">This link is missing its reset token.</p>
+          <p className="text-sm text-muted">This link is missing its reset token.</p>
           <p className="mt-4 text-sm">
-            <Link to="/forgot-password" className="text-blue-600 underline">
+            <Link to="/forgot-password" className="text-primary underline">
               Request a new link
             </Link>
           </p>
@@ -61,22 +62,23 @@ export function ResetPassword() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-        <div className="w-full max-w-sm rounded-lg bg-white p-6 text-center shadow">
-          <h1 className="mb-2 text-xl font-bold">Password reset ✅</h1>
-          <p className="text-sm text-gray-600">Sending you to sign in with your new password…</p>
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
+          <CircleCheck className="mx-auto mb-3 h-10 w-10 text-success" />
+          <h1 className="mb-2 text-xl font-bold">Password reset</h1>
+          <p className="text-sm text-muted">Sending you to sign in with your new password…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow">
+    <div className="flex min-h-screen items-center justify-center bg-page p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-surface p-6">
         <h1 className="mb-4 text-center text-xl font-bold">Choose a new password</h1>
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
             type="password"
             autoComplete="new-password"
             placeholder="New password (min 8 characters)"
@@ -84,7 +86,7 @@ export function ResetPassword() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <input
-            className="w-full rounded border p-2"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
             type="password"
             autoComplete="new-password"
             placeholder="Confirm new password"
@@ -95,13 +97,13 @@ export function ResetPassword() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded bg-blue-600 py-2 text-white disabled:bg-gray-400"
+            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Resetting…' : 'Reset password'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link to="/login" className="text-blue-600 underline">
+          <Link to="/login" className="text-primary underline">
             Back to sign in
           </Link>
         </p>
