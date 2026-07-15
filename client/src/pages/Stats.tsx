@@ -54,7 +54,7 @@ export function Stats() {
   return (
     <main className="mx-auto min-h-screen max-w-2xl p-4 sm:p-8">
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
-        <Mascot mood="happy" />
+        <Mascot expression="neutral" />
         <h1 className="text-2xl font-bold text-gray-800">Your stats</h1>
       </div>
 

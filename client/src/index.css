@@ -22,6 +22,17 @@
   --color-page: #f6f1ea;
   --color-surface: #ffffff;
 
+  /* Mascot (#96): dedicated character-fill tokens — decorative, not text.
+     Named separately (not reusing --color-primary etc.) because the mascot has
+     its own golden palette (kept distinct from the UI palette AND from Duolingo's
+     green owl). These may get folded into the main token system once the broader
+     palette refresh (vivid v3, #143) lands — the names here are not permanent. */
+  --color-mascot-body: #ffc800;
+  --color-mascot-crest: #e08800;
+  --color-mascot-patch: #fff3d6;
+  --color-mascot-pupil: #5a3a00;
+  --color-mascot-beak: #ff5a36;
+
   /* Completion-screen confetti (#94 B1): pop-in, drift down, fade. */
   --animate-confetti: confetti 2.4s ease-in-out infinite;
 }
