@@ -23,7 +23,7 @@ export function AddTask() {
   if (addedTitle) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-        <CircleCheck className="h-12 w-12 text-success" />
+        <CircleCheck className="h-12 w-12 text-success-ink" />
         <h1 className="text-2xl font-bold text-gray-800">Task added</h1>
         <p className="text-muted">
           <span className="font-semibold text-gray-700">{addedTitle}</span> is in your backlog.

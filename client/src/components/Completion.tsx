@@ -55,7 +55,7 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
       <p className="text-muted">{title}</p>
 
       {totalPoints != null && (
-        <div className="text-6xl font-extrabold tabular-nums text-primary">+{totalPoints}</div>
+        <div className="text-6xl font-extrabold tabular-nums text-primary-ink">+{totalPoints}</div>
       )}
 
       {multiplier != null && multiplier > 1 && (

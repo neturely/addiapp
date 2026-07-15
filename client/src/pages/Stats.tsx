@@ -71,7 +71,7 @@ export function Stats() {
           hint={
             <span className="inline-flex items-center gap-1">
               {streak.currentDays === 1 ? 'day' : 'days'}
-              <Flame className="h-3.5 w-3.5 text-warning" />
+              <Flame className="h-3.5 w-3.5 text-warning-ink" />
             </span>
           }
         />
@@ -81,7 +81,7 @@ export function Stats() {
           hint={
             <span className="inline-flex items-center gap-1">
               earned
-              <Zap className="h-3.5 w-3.5 text-warning" fill="currentColor" strokeWidth={0} />
+              <Zap className="h-3.5 w-3.5 text-warning-ink" fill="currentColor" strokeWidth={0} />
             </span>
           }
         />

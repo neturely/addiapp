@@ -10,13 +10,31 @@
  * cream page by flat color alone. `#D85A30` (old coral) is fully retired.
  */
 @theme {
-  --color-primary: #c43a0c;
+  /*
+   * Vivid palette v3 (#143). Each hue has THREE roles — never one token doing
+   * double duty:
+   *   --color-{h}        vivid FILL   → bg-{h} (solid surfaces/buttons). Full saturation.
+   *   --color-{h}-ink    text on LIGHT → text-{h}-ink (colored text/badges on cream/white; AA ≥4.5)
+   *   --color-on-{h}     text on FILL  → text-on-{h} (dark text sitting on the vivid fill)
+   *   --color-{h}-tint   soft tint     → bg-{h}-tint (low-emphasis badges/surfaces)
+   * Text-on-vivid rule: dark on-fill everywhere; WHITE only on --color-primary and
+   * only for large/bold text (≥24px, or ≥19px bold — WCAG 3:1). See #143.
+   */
+  --color-primary: #fb5231;
+  --color-primary-ink: #c43a0c;
+  --color-on-primary: #3d1200;
   --color-primary-tint: #fdf0ea;
-  --color-success: #0b7c63;
+  --color-success: #3ecf4c;
+  --color-success-ink: #0b7c63;
+  --color-on-success: #0a3d14;
   --color-success-tint: #e5f5f0;
-  --color-accent: #6e3fd6;
+  --color-accent: #1cb0f6;
+  --color-accent-ink: #6e3fd6;
+  --color-on-accent: #04283a;
   --color-accent-tint: #f1ebfd;
-  --color-warning: #d98a00;
+  --color-warning: #ffc800;
+  --color-warning-ink: #8a5a00;
+  --color-on-warning: #3a2a00;
   --color-warning-tint: #fbeed3;
   --color-muted: #5b6270;
   --color-page: #f6f1ea;

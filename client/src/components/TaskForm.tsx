@@ -102,7 +102,7 @@ export function TaskForm({ initial, submitLabel, submittingLabel, onSubmit }: Ta
                   active ? 'bg-primary-tint' : 'bg-gray-100 hover:bg-gray-200'
                 }`}
               >
-                <div className={`text-sm font-semibold ${active ? 'text-primary' : 'text-gray-800'}`}>
+                <div className={`text-sm font-semibold ${active ? 'text-primary-ink' : 'text-gray-800'}`}>
                   {COMPLEXITY_LABEL[c]}
                 </div>
                 <div className="text-xs text-muted">{basePoints[c]} pts</div>

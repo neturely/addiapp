@@ -174,9 +174,9 @@ export function InProgress() {
         <p className="mt-4 text-sm font-medium text-gray-600">
           {inBonus ? (
             <>
-              <Zap className="mb-0.5 inline h-4 w-4 text-warning" fill="currentColor" strokeWidth={0} />{' '}
+              <Zap className="mb-0.5 inline h-4 w-4 text-warning-ink" fill="currentColor" strokeWidth={0} />{' '}
               Finish within{' '}
-              <span className="font-bold text-success">{formatClock(estimateSec - elapsed)}</span>{' '}
+              <span className="font-bold text-success-ink">{formatClock(estimateSec - elapsed)}</span>{' '}
               for a speed bonus
             </>
           ) : (

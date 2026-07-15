@@ -39,7 +39,7 @@ export function Register() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page p-4">
         <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
-          <Mail className="mx-auto mb-3 h-10 w-10 text-primary" />
+          <Mail className="mx-auto mb-3 h-10 w-10 text-primary-ink" />
           <h1 className="mb-2 text-xl font-bold">Check your email</h1>
           <p className="text-sm text-muted">
             We sent a verification link to <strong className="text-gray-700">{email}</strong>. Click
@@ -52,12 +52,12 @@ export function Register() {
             Resend verification email
           </button>
           {resent && (
-            <p className="mt-2 text-sm text-success">
+            <p className="mt-2 text-sm text-success-ink">
               If that account is unverified, a new link is on its way.
             </p>
           )}
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-primary underline">
+            <Link to="/login" className="text-primary-ink underline">
               Back to sign in
             </Link>
           </p>
@@ -106,7 +106,7 @@ export function Register() {
         </form>
         <p className="mt-4 text-center text-sm">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary underline">
+          <Link to="/login" className="text-primary-ink underline">
             Sign in
           </Link>
         </p>

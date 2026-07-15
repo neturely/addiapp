@@ -33,7 +33,7 @@ export function Header() {
   return (
     <header className="flex items-center justify-between gap-4 bg-surface px-4 py-3 sm:px-6">
       <Link to="/" className="text-xl font-bold tracking-tight text-gray-900">
-        Addi<span className="text-primary">App</span>
+        Addi<span className="text-primary-ink">App</span>
       </Link>
 
       <div className="flex items-center gap-4 sm:gap-5">
@@ -47,7 +47,7 @@ export function Header() {
                 aria-label={label}
                 title={label}
                 aria-current={active ? 'page' : undefined}
-                className={active ? 'text-primary' : 'text-muted hover:text-gray-900'}
+                className={active ? 'text-primary-ink' : 'text-muted hover:text-gray-900'}
               >
                 <Icon className="h-6 w-6" strokeWidth={2} />
               </Link>

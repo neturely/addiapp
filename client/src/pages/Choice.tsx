@@ -38,7 +38,7 @@ export function Choice() {
           onClick={() => go('small')}
           className="flex flex-1 flex-col justify-center rounded-2xl bg-surface p-5 transition hover:bg-success-tint"
         >
-          <div className="text-lg font-bold text-success">Something small</div>
+          <div className="text-lg font-bold text-success-ink">Something small</div>
           <div className="mt-1 text-sm text-muted">A quick, low-effort win</div>
         </button>
 
@@ -49,7 +49,7 @@ export function Choice() {
           onClick={() => go('big')}
           className="flex flex-1 flex-col justify-center rounded-2xl bg-surface p-5 transition hover:bg-primary-tint"
         >
-          <div className="text-lg font-bold text-primary">Something big</div>
+          <div className="text-lg font-bold text-primary-ink">Something big</div>
           <div className="mt-1 text-sm text-muted">Real progress worth more points</div>
         </button>
       </div>
