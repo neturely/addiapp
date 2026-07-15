@@ -131,7 +131,7 @@ export function TaskPresented() {
           type="button"
           onClick={onStart}
           disabled={starting}
-          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-on-primary transition hover:opacity-90 disabled:bg-gray-400"
         >
           {starting ? 'Starting…' : 'Start'}
         </button>

@@ -64,7 +64,7 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
 
       <Link
         to={keepGoingHref}
-        className="mt-2 rounded-xl bg-primary px-8 py-3 text-lg font-semibold text-white transition hover:opacity-90"
+        className="mt-2 rounded-xl bg-primary px-8 py-3 text-lg font-semibold text-on-primary transition hover:opacity-90"
       >
         Keep going
       </Link>

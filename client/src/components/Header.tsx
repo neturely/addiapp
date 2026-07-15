@@ -57,7 +57,7 @@ export function Header() {
 
         <Link
           to="/tasks/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition hover:opacity-90"
         >
           <Plus className="h-4 w-4" strokeWidth={2.5} />
           <span className="hidden sm:inline">Add task</span>
@@ -69,7 +69,7 @@ export function Header() {
             aria-label="Your stats"
             aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
             title={user.displayName ?? user.email}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition hover:opacity-90"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary transition hover:opacity-90"
           >
             {initialsFor(user)}
           </Link>

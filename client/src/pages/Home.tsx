@@ -51,7 +51,7 @@ export function Home() {
 
       <Link
         to="/play"
-        className="mt-2 rounded-xl bg-primary px-10 py-3 text-lg font-semibold text-white transition hover:opacity-90"
+        className="mt-2 rounded-xl bg-primary px-10 py-3 text-lg font-semibold text-on-primary transition hover:opacity-90"
       >
         Let&apos;s go
       </Link>

@@ -65,7 +65,7 @@ export function Choice() {
                 type="button"
                 onClick={() => setMinutes(opt.minutes)}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                  active ? 'bg-primary text-white' : 'bg-surface text-muted hover:bg-primary-tint'
+                  active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
                 }`}
               >
                 {opt.label}

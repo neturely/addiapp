@@ -24,7 +24,7 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
       <div className="flex flex-col gap-3">
         <Link
           to={filtered ? '/play' : '/tasks/new'}
-          className="rounded-lg bg-primary px-6 py-3 font-semibold text-white transition hover:opacity-90"
+          className="rounded-lg bg-primary px-6 py-3 font-semibold text-on-primary transition hover:opacity-90"
         >
           {filtered ? 'Pick a different win' : 'Add a task'}
         </Link>

@@ -58,9 +58,11 @@ export function Stats() {
         <h1 className="text-2xl font-bold text-gray-800">Your stats</h1>
       </div>
 
-      <section className="mb-4 rounded-2xl bg-primary p-6 text-center text-white">
-        <div className="text-xs font-medium uppercase tracking-wide text-white">Total points</div>
-        <div className="text-5xl font-extrabold tabular-nums">{total.toLocaleString()}</div>
+      {/* #143 rule: white only on the large stat number (≥24px) — WCAG 3:1 on
+          the vivid fill; the small label stays dark (text-on-primary). */}
+      <section className="mb-4 rounded-2xl bg-primary p-6 text-center text-on-primary">
+        <div className="text-xs font-medium uppercase tracking-wide text-on-primary">Total points</div>
+        <div className="text-5xl font-extrabold tabular-nums text-white">{total.toLocaleString()}</div>
       </section>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

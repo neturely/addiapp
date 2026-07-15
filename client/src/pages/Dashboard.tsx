@@ -199,10 +199,10 @@ export function Dashboard() {
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={`rounded-full px-3 py-1 text-sm font-medium transition ${
-                active ? 'bg-primary text-white' : 'bg-surface text-muted hover:bg-primary-tint'
+                active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
               }`}
             >
-              {f.label} <span className={active ? 'text-white' : 'text-muted'}>{count}</span>
+              {f.label} <span className={active ? 'text-on-primary' : 'text-muted'}>{count}</span>
             </button>
           )
         })}
@@ -291,7 +291,7 @@ export function Dashboard() {
                         <button
                           onClick={() => void saveEdit(task)}
                           disabled={savingId === task.id}
-                          className="rounded bg-primary px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+                          className="rounded bg-primary px-3 py-1 text-xs font-semibold text-on-primary transition hover:opacity-90 disabled:bg-gray-400"
                         >
                           {savingId === task.id ? 'Saving…' : 'Save'}
                         </button>
