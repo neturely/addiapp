@@ -193,16 +193,28 @@ All Play-mode and dashboard screens are implemented and live (#29–#38, #69). T
 only screens not built are the marketing/landing homepage (#40) and user
 guide/help content (#41) — both unscoped.
 
+App shell (#92): authenticated routes render inside `AppLayout` (Header → Outlet
+→ Footer). The Header nav is intentionally **Play + Dashboard only** — the
+initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
+decision, not a missing nav item), and logout lives in the Footer. Add-task is a
+Header CTA button.
+
 Mascot: icon-style, expression-driven SVG (#96) — one `Mascot` component
 (`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
-celebrating | idle`); a penguin-ish icon (green head + darker crest, pale-cream
-eye patches, orange beak) whose FACE carries emotion while the body colour stays
-constant. Colours are dedicated `--color-mascot-*` tokens in `index.css`. This is
+celebrating | idle`); a penguin-ish icon (golden-yellow head + darker orange-gold
+crest, pale-cream eye patches, orange-red beak) whose FACE carries emotion while
+the body colour stays constant — deliberately distinct from both the UI palette
+and Duolingo's green. Colours are dedicated `--color-mascot-*` tokens in
+`index.css`. This is
 the SVG icon-system pass, NOT final illustrated art — real mascot art is still a
 deliberate later design pass, likely in Claude Design.
 
-Color palette: warm coral primary (`#D85A30`), supporting teal/amber/purple for
-badges/tags — not a literal Duolingo green, not yet locked as final brand palette.
+Color palette (visual refresh v2, #91/#92 — single source `client/src/index.css`):
+primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning `#D98A00`, muted
+`#5B6270`, cream page `#F6F1EA`, white surface `#FFFFFF` — flat, no shadows/borders,
+all AA-verified. The old coral `#D85A30` is fully retired. Not yet locked as the
+final brand palette — a move to true full-saturation colors + dark-text-on-vivid
+is scoped in #143.
 
 ## Coding standards
 
