@@ -1,7 +1,7 @@
 {
   "name": "addiapp",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "AddiApp — gamified task app. React+Vite client + PHP/PDO API + MySQL.",
   "license": "MIT",
