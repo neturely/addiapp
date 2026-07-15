@@ -193,8 +193,13 @@ All Play-mode and dashboard screens are implemented and live (#29–#38, #69). T
 only screens not built are the marketing/landing homepage (#40) and user
 guide/help content (#41) — both unscoped.
 
-Mascot: placeholder simple flat character only. Real mascot art + expression
-variations is a deliberate later design pass, likely in Claude Design.
+Mascot: icon-style, expression-driven SVG (#96) — one `Mascot` component
+(`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
+celebrating | idle`); a penguin-ish icon (green head + darker crest, pale-cream
+eye patches, orange beak) whose FACE carries emotion while the body colour stays
+constant. Colours are dedicated `--color-mascot-*` tokens in `index.css`. This is
+the SVG icon-system pass, NOT final illustrated art — real mascot art is still a
+deliberate later design pass, likely in Claude Design.
 
 Color palette: warm coral primary (`#D85A30`), supporting teal/amber/purple for
 badges/tags — not a literal Duolingo green, not yet locked as final brand palette.
