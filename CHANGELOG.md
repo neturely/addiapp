@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [1.3.0] - 2026-07-16
+
 ### Changed
 - App-wide vivid color palette v3 — true-saturation colors + dark-text-on-vivid (semantic token layer) ([#143](https://github.com/neturely/addiapp/issues/143))
 
