@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-16
+### Changed
+- App-wide vivid color palette v3 — true-saturation colors + dark-text-on-vivid (semantic token layer) ([#143](https://github.com/neturely/addiapp/issues/143))
+
 ## [1.2.0] - 2026-07-15
 
 ### Changed
@@ -18,5 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/neturely/addiapp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/neturely/addiapp/compare/v1.1.0...v1.2.0
