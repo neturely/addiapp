@@ -209,12 +209,30 @@ and Duolingo's green. Colours are dedicated `--color-mascot-*` tokens in
 the SVG icon-system pass, NOT final illustrated art — real mascot art is still a
 deliberate later design pass, likely in Claude Design.
 
-Color palette (visual refresh v2, #91/#92 — single source `client/src/index.css`):
-primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning `#D98A00`, muted
-`#5B6270`, cream page `#F6F1EA`, white surface `#FFFFFF` — flat, no shadows/borders,
-all AA-verified. The old coral `#D85A30` is fully retired. Not yet locked as the
-final brand palette — a move to true full-saturation colors + dark-text-on-vivid
-is scoped in #143.
+Color palette — **vivid v3** (#143; single source `client/src/index.css`, flat,
+no shadows/borders, AA-verified). Each hue has THREE roles — never one token doing
+double duty:
+- `--color-{h}` = **vivid FILL** (`bg-{h}`): primary `#FB5231`, success `#3ECF4C`,
+  accent `#1CB0F6`, warning `#FFC800`.
+- `--color-{h}-ink` = **text on LIGHT** (`text-{h}-ink`, colored text/badges on
+  cream/white): primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning
+  `#8A5A00`. (These are the old v2 values — they were already AA as text.)
+- `--color-on-{h}` = **dark text ON the fill** (`text-on-{h}`): primary `#3D1200`, etc.
+- `--color-{h}-tint` = soft tint for low-emphasis badges (`bg-{h}-tint` + `text-{h}-ink`).
+
+Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
+set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
+
+**Text-on-vivid rule (do not violate):** dark on-fill text (`text-on-{h}`) by default;
+**white is allowed on `--color-primary` only for large/bold text** (≥24px, or ≥19px bold
+— WCAG's 3:1 large-text tier; white on `#FB5231` = 3.31). Applied to: the PointsCard/Stats
+large stat numbers, AND **all primary CTA buttons** — standardized to `text-xl` (20px)
+`font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
+read muddy). Everything else stays dark on-fill: small labels, badges, the filter/time
+pills, the initials avatar, and the compact utility buttons (Header "Add task", Dashboard
+inline "Save" — too small to bump without breaking their layout). success/accent/warning
+fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: solid vivid
++ on-fill = high; tint + ink = low.
 
 ## Coding standards
 

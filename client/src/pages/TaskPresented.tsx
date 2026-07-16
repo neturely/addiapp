@@ -14,9 +14,9 @@ import {
 import { fetchPoints, type PointsStats } from '@/lib/points'
 
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
-  low: { label: 'Low effort', className: 'bg-success-tint text-success' },
-  medium: { label: 'Medium', className: 'bg-warning-tint text-[#8a5a00]' },
-  high: { label: 'Big effort', className: 'bg-primary-tint text-primary' },
+  low: { label: 'Low effort', className: 'bg-success-tint text-success-ink' },
+  medium: { label: 'Medium', className: 'bg-warning-tint text-warning-ink' },
+  high: { label: 'Big effort', className: 'bg-primary-tint text-primary-ink' },
 }
 
 function formatMinutes(m: number): string {
@@ -117,7 +117,7 @@ export function TaskPresented() {
 
         {basePoints != null && (
           <div className="mt-4 rounded-xl bg-primary-tint p-3">
-            <div className="text-lg font-bold text-primary">≈ {basePoints} pts</div>
+            <div className="text-lg font-bold text-primary-ink">≈ {basePoints} pts</div>
             <div className="text-xs text-muted">
               + speed bonus if you beat the estimate
               {multiplier && multiplier > 1 ? ` · ×${multiplier.toFixed(2)} today` : ''}
@@ -131,7 +131,7 @@ export function TaskPresented() {
           type="button"
           onClick={onStart}
           disabled={starting}
-          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+          className="mt-5 w-full rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
         >
           {starting ? 'Starting…' : 'Start'}
         </button>
@@ -140,14 +140,14 @@ export function TaskPresented() {
           <button
             type="button"
             onClick={() => void roll(task.id)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary-ink"
           >
             <Shuffle className="h-4 w-4" />
             Give me something else
           </button>
           <Link
             to="/play"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary-ink"
           >
             <SlidersHorizontal className="h-4 w-4" />
             Change my pick

@@ -33,14 +33,14 @@ export function ForgotPassword() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page p-4">
         <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
-          <Mail className="mx-auto mb-3 h-10 w-10 text-primary" />
+          <Mail className="mx-auto mb-3 h-10 w-10 text-primary-ink" />
           <h1 className="mb-2 text-xl font-bold">Check your email</h1>
           <p className="text-sm text-muted">
             If an account exists for <strong className="text-gray-700">{email}</strong>, a password
             reset link is on its way. The link expires in 1 hour.
           </p>
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-primary underline">
+            <Link to="/login" className="text-primary-ink underline">
               Back to sign in
             </Link>
           </p>
@@ -69,13 +69,13 @@ export function ForgotPassword() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+            className="w-full rounded-lg bg-primary py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link to="/login" className="text-primary underline">
+          <Link to="/login" className="text-primary-ink underline">
             Back to sign in
           </Link>
         </p>

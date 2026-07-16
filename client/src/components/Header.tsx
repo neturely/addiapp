@@ -33,7 +33,7 @@ export function Header() {
   return (
     <header className="flex items-center justify-between gap-4 bg-surface px-4 py-3 sm:px-6">
       <Link to="/" className="text-xl font-bold tracking-tight text-gray-900">
-        Addi<span className="text-primary">App</span>
+        Addi<span className="text-primary-ink">App</span>
       </Link>
 
       <div className="flex items-center gap-4 sm:gap-5">
@@ -47,7 +47,7 @@ export function Header() {
                 aria-label={label}
                 title={label}
                 aria-current={active ? 'page' : undefined}
-                className={active ? 'text-primary' : 'text-muted hover:text-gray-900'}
+                className={active ? 'text-primary-ink' : 'text-muted hover:text-gray-900'}
               >
                 <Icon className="h-6 w-6" strokeWidth={2} />
               </Link>
@@ -57,9 +57,9 @@ export function Header() {
 
         <Link
           to="/tasks/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90"
         >
-          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          <Plus className="h-5 w-5" strokeWidth={2.5} />
           <span className="hidden sm:inline">Add task</span>
         </Link>
 
@@ -69,7 +69,7 @@ export function Header() {
             aria-label="Your stats"
             aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
             title={user.displayName ?? user.email}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition hover:opacity-90"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary transition hover:opacity-90"
           >
             {initialsFor(user)}
           </Link>

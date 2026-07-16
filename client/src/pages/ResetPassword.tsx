@@ -25,7 +25,7 @@ export function ResetPassword() {
           <h1 className="mb-2 text-xl font-bold">Invalid reset link</h1>
           <p className="text-sm text-muted">This link is missing its reset token.</p>
           <p className="mt-4 text-sm">
-            <Link to="/forgot-password" className="text-primary underline">
+            <Link to="/forgot-password" className="text-primary-ink underline">
               Request a new link
             </Link>
           </p>
@@ -64,7 +64,7 @@ export function ResetPassword() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page p-4">
         <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
-          <CircleCheck className="mx-auto mb-3 h-10 w-10 text-success" />
+          <CircleCheck className="mx-auto mb-3 h-10 w-10 text-success-ink" />
           <h1 className="mb-2 text-xl font-bold">Password reset</h1>
           <p className="text-sm text-muted">Sending you to sign in with your new password…</p>
         </div>
@@ -97,13 +97,13 @@ export function ResetPassword() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+            className="w-full rounded-lg bg-primary py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Resetting…' : 'Reset password'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link to="/login" className="text-primary underline">
+          <Link to="/login" className="text-primary-ink underline">
             Back to sign in
           </Link>
         </p>

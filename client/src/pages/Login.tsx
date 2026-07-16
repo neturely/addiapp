@@ -74,26 +74,26 @@ export function Login() {
             </button>
           )}
           {resent && (
-            <p className="text-sm text-success">
+            <p className="text-sm text-success-ink">
               If that account is unverified, a new link is on its way.
             </p>
           )}
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+            className="w-full rounded-lg bg-primary py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
           No account?{' '}
-          <Link to="/register" className="text-primary underline">
+          <Link to="/register" className="text-primary-ink underline">
             Register
           </Link>
         </p>
         <p className="mt-1 text-center text-sm">
-          <Link to="/forgot-password" className="text-primary underline">
+          <Link to="/forgot-password" className="text-primary-ink underline">
             Forgot your password?
           </Link>
         </p>

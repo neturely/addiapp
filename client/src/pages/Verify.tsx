@@ -41,7 +41,7 @@ export function Verify() {
         {status === 'verifying' && <p className="text-muted">Verifying your email…</p>}
         {status === 'success' && (
           <>
-            <CircleCheck className="mx-auto mb-3 h-10 w-10 text-success" />
+            <CircleCheck className="mx-auto mb-3 h-10 w-10 text-success-ink" />
             <h1 className="mb-2 text-xl font-bold">Email verified</h1>
             <p className="text-sm text-muted">Signing you in…</p>
           </>
@@ -51,7 +51,7 @@ export function Verify() {
             <h1 className="mb-2 text-xl font-bold">Verification failed</h1>
             <p className="text-sm text-red-600">{message}</p>
             <p className="mt-4 text-sm">
-              <Link to="/login" className="text-primary underline">
+              <Link to="/login" className="text-primary-ink underline">
                 Back to sign in
               </Link>{' '}
               to request a new link.
