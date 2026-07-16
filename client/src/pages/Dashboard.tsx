@@ -94,10 +94,19 @@ export function Dashboard() {
     })
   }
 
-  // Clean up a still-pending delete on unmount (fail-safe: the task survives).
+  // Finalize a still-pending delete on unmount (#112). The user chose delete and
+  // didn't undo within the window, so honour it rather than dropping it — the
+  // old code only cleared the timer, leaving the task alive though the UI already
+  // showed it gone. Fire-and-forget: the component is unmounting, so there's no
+  // row to restore on failure. Nulling the ref + clearing the timer prevents any
+  // double-delete from the scheduled commit.
   useEffect(() => {
     return () => {
-      if (pendingRef.current) clearTimeout(pendingRef.current.timer)
+      const p = pendingRef.current
+      if (!p) return
+      clearTimeout(p.timer)
+      pendingRef.current = null
+      deleteTask(p.task.id).catch(() => {})
     }
   }, [])
 

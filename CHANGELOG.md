@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-07-16
+### Changed
+- ERR-1 — Global 401 handling: silent redirect to /login on session expiry (unify fetch layers, absorbs ERR-2) ([#101](https://github.com/neturely/addiapp/issues/101))
+### Added
+- ERR-3 — Add ~15s request timeout to the shared fetch layer ([#110](https://github.com/neturely/addiapp/issues/110))
+### Fixed
+- ERR-4 — Finalize optimistic delete on unmount instead of abandoning it, so a task deleted mid-undo-window isn't left alive server-side ([#112](https://github.com/neturely/addiapp/issues/112))
+
 ## [1.3.0] - 2026-07-16
 ### Added
 - Cloudflare Turnstile CAPTCHA on the register and forgot-password forms, verified server-side ([#79](https://github.com/neturely/addiapp/issues/79))
@@ -27,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/neturely/addiapp/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/neturely/addiapp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/neturely/addiapp/compare/v1.1.0...v1.2.0

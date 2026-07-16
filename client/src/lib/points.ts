@@ -1,3 +1,4 @@
+import { apiRequest } from './api'
 import type { TaskComplexity } from './tasks'
 
 /** Shape of GET /api/points (issue #28). */
@@ -14,9 +15,7 @@ export type PointsStats = {
 }
 
 export async function fetchPoints(): Promise<PointsStats> {
-  const res = await fetch('/api/points', { credentials: 'include' })
-  if (!res.ok) throw new Error(`Request failed (${res.status})`)
-  return res.json() as Promise<PointsStats>
+  return apiRequest<PointsStats>('/points')
 }
 
 /** Shape of GET /api/points/stats (issue #38 user page). */
@@ -33,7 +32,5 @@ export type UserStats = {
 }
 
 export async function fetchUserStats(): Promise<UserStats> {
-  const res = await fetch('/api/points/stats', { credentials: 'include' })
-  if (!res.ok) throw new Error(`Request failed (${res.status})`)
-  return res.json() as Promise<UserStats>
+  return apiRequest<UserStats>('/points/stats')
 }

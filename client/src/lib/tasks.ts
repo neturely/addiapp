@@ -1,3 +1,5 @@
+import { apiRequest } from './api'
+
 export type TaskComplexity = 'low' | 'medium' | 'high'
 export type TaskStatus = 'backlog' | 'in_progress' | 'done'
 
@@ -46,21 +48,13 @@ export type NextTaskFilters = {
 }
 
 /**
- * Minimal JSON fetch. Mirrors the raw-fetch style already used in AuthProvider;
- * a shared api wrapper arrives with #61, so this stays dependency-free until then.
+ * Thin alias over the shared `apiRequest` wrapper (issue #101). Delegating here
+ * gives every task call status-preserving `ApiError`s and the global 401 handler
+ * for free; call-site signatures below are unchanged. `apiRequest` returns null
+ * on a 204, which is fine for the `void` delete.
  */
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new Error(body?.error ?? `Request failed (${res.status})`)
-  }
-  if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
+function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  return apiRequest<T>(path, init)
 }
 
 /** Create a task (issue #35 add-task form → the #27 POST /api/tasks endpoint). */
