@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-16
+### Added
+- Cloudflare Turnstile CAPTCHA on the register and forgot-password forms, verified server-side ([#79](https://github.com/neturely/addiapp/issues/79))
+- SEC-1 — Add security response headers (HSTS, nosniff, frame-ancestors, Referrer-Policy) at the origin ([#107](https://github.com/neturely/addiapp/issues/107))
+### Changed
+- Production email readiness — Resend domain verification ([#65](https://github.com/neturely/addiapp/issues/65))
+- App-wide vivid color palette v3 — true-saturation colors + dark-text-on-vivid (semantic token layer) ([#143](https://github.com/neturely/addiapp/issues/143))
+- SEC-3 — Loosen per-email login limit so it can't be used to lock out real logins ([#120](https://github.com/neturely/addiapp/issues/120))
+
 ## [1.2.0] - 2026-07-15
 
 ### Changed
@@ -18,5 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/neturely/addiapp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/neturely/addiapp/compare/v1.1.0...v1.2.0
