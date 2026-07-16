@@ -250,6 +250,12 @@ fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: so
   authoritative (the client mirrors rules for UX).
 - Secrets: production `api/config.php` (PHP array, outside the web root, `600`,
   git-ignored). Never a committed/web-served `.env`.
+- Security headers (#107): set at the **origin, in-repo** (not Cloudflare) on both
+  surfaces — SPA in `client/public/.htaccess` (top-level `Header always set`), API
+  via early `header()` in `api/public/index.php` (before the OPTIONS short-circuit).
+  HSTS/nosniff/XFO/`frame-ancestors 'none'`/Referrer-Policy. Don't move these to the
+  edge (origin defense-in-depth is the point); don't add a content CSP (`script-src`)
+  without a dedicated nonce/hash pass.
 
 ## Deployment (done — #39)
 

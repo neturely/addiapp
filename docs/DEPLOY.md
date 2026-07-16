@@ -136,6 +136,36 @@ always deploy the two together. Cloudflare's dummy test keys
 Edge-level protection (Bot Fight Mode, WAF rule on `/api/auth/*`, managed DDoS)
 is tracked separately — dashboard-only, no code.
 
+## Security response headers (#107)
+
+Four headers are set at the **origin** (in-repo, not Cloudflare) on both surfaces:
+the SPA via `client/public/.htaccess` (top-level `Header always set`) and the API
+via early `header()` calls in `api/public/index.php` (before the OPTIONS
+short-circuit, so preflight + errors carry them too).
+
+| Header | Value |
+| --- | --- |
+| `Strict-Transport-Security` | `max-age=15552000` (180d, **apex only**, no `preload`) |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Content-Security-Policy` | `frame-ancestors 'none'` (anti-clickjacking only — **not** a content CSP) |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+Verify with **GET** (the API router 404s on HEAD, so `curl -I` misleads); the
+headers must appear on success, error, and SPA responses:
+
+```sh
+curl -sD - -o /dev/null https://addiapp.com/            # SPA
+curl -sD - -o /dev/null https://addiapp.com/api/health  # API 200
+curl -sD - -o /dev/null https://addiapp.com/api/auth/me # API 401 (rides errors)
+```
+
+**Follow-ups (not done):** `includeSubDomains` on HSTS is omitted until it's
+confirmed no `addiapp.com` subdomain (webmail/cPanel/mail) is served HTTP-only —
+one-line add once confirmed, foot-gun otherwise. A broader content CSP
+(`script-src` etc.) is a separate careful pass (Tailwind/Vite inline
+styles/scripts need nonces or hashes).
+
 ## Backups
 
 `addiapp_prod` is backed up at the **application level**, independent of

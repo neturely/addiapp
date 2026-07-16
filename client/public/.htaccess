@@ -15,8 +15,19 @@
   RewriteRule ^ index.html [L]
 </IfModule>
 
-# Long-cache fingerprinted assets; never cache the HTML shell.
 <IfModule mod_headers.c>
+  # Security response headers (SEC-1, #107) — top-level `always set` so they ride
+  # every response incl. 404/500, on index.html and all asset paths. Origin-level
+  # defense-in-depth; Cloudflare is a second layer, not the only one. Apex-only
+  # HSTS (no includeSubDomains/preload — see docs/DEPLOY.md). frame-ancestors-only
+  # CSP is non-disruptive (blocks iframing only; no script/style restriction).
+  Header always set Strict-Transport-Security "max-age=15552000"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Content-Security-Policy "frame-ancestors 'none'"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Long-cache fingerprinted assets; never cache the HTML shell.
   <FilesMatch "\.(?:js|css|woff2?|png|jpg|svg|ico)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
