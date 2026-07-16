@@ -54,18 +54,32 @@ foreach ($files as $file) {
 
     // No transaction: MySQL/MariaDB DDL implicitly commits, so a transaction can't
     // wrap it. Statements are applied in order; on failure we stop and report where.
-    $i = 0;
+    // `$stmtNo` tracks the 1-based statement being run (0 = not started); once the
+    // loop completes, `$recording` flips so a failure in the tracking INSERT is
+    // reported distinctly from a statement failure.
+    $total = count($statements);
+    $stmtNo = 0;
+    $recording = false;
     try {
-        foreach ($statements as $i => $stmt) {
+        foreach ($statements as $idx => $stmt) {
+            $stmtNo = $idx + 1;
             $pdo->exec($stmt);
         }
+        $recording = true;
         $pdo->prepare('INSERT INTO `_migrations` (`name`) VALUES (?)')->execute([$name]);
     } catch (\Throwable $e) {
-        $total = count($statements);
-        fwrite(STDERR, "[addiapp] migration failed: {$name} (statement " . ($i + 1) . " of {$total})\n{$e->getMessage()}\n");
-        fwrite(STDERR, $i > 0
-            ? "[addiapp] WARNING: {$name} is PARTIALLY APPLIED — statements 1-{$i} already ran but the file is not recorded in `_migrations`. Make the earlier statements idempotent (IF NOT EXISTS) or reconcile by hand before re-running.\n"
-            : "[addiapp] No statements from {$name} were applied.\n");
+        if ($recording) {
+            // All statements ran; only the `_migrations` bookkeeping failed. The
+            // schema IS changed but the file isn't marked done, so a re-run will
+            // re-apply it — fine if the statements are idempotent (IF NOT EXISTS).
+            fwrite(STDERR, "[addiapp] migration recorded-check failed: {$name} — all statements ran but marking it done in `_migrations` failed:\n{$e->getMessage()}\n");
+            fwrite(STDERR, "[addiapp] WARNING: the schema changes ARE applied; a re-run will re-apply {$name}, so its statements must be idempotent (IF NOT EXISTS).\n");
+        } else {
+            fwrite(STDERR, "[addiapp] migration failed: {$name} (statement {$stmtNo} of {$total})\n{$e->getMessage()}\n");
+            fwrite(STDERR, $stmtNo > 1
+                ? "[addiapp] WARNING: {$name} is PARTIALLY APPLIED — statements 1-" . ($stmtNo - 1) . " already ran but the file is not recorded in `_migrations`. Make the earlier statements idempotent (IF NOT EXISTS) or reconcile by hand before re-running.\n"
+                : "[addiapp] No statements from {$name} were applied.\n");
+        }
         exit(1);
     }
 
