@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-07-16
+### Changed
+- OPS-4 — Nightly cleanup of expired sessions / email_tokens / rate_limits rows ([#109](https://github.com/neturely/addiapp/issues/109))
+- OPS-2 — Deploy migration safety: pre-deploy backup + migrate-before-cutover + idempotent-migration discipline ([#103](https://github.com/neturely/addiapp/issues/103))
+
 ## [1.3.2] - 2026-07-16
 ### Changed
 - TECH-3 — Lightweight structured logging (replace ad-hoc error_log calls) ([#122](https://github.com/neturely/addiapp/issues/122))
@@ -43,7 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.3...HEAD
+[1.3.3]: https://github.com/neturely/addiapp/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/neturely/addiapp/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/neturely/addiapp/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/neturely/addiapp/compare/v1.2.0...v1.3.0
