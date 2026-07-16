@@ -15,5 +15,6 @@ return [
     'appTimezone' => 'Europe/Stockholm',        // midnight that resets the daily multiplier
     'resendApiKey' => '',                        // empty → console email transport (dev/test)
     'emailFrom'   => 'AddiApp <no-reply@addiapp.com>',  // prod: verified Resend sender (apex addiapp.com, #65)
+    'turnstileSecret' => '',                     // Cloudflare Turnstile secret; empty → CAPTCHA disabled (dev). #79
     'isProd'      => false,
 ];

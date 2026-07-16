@@ -13,6 +13,7 @@ use App\Email\Templates;
 use App\Http\Request;
 use App\Http\Response;
 use App\RateLimit;
+use App\Turnstile;
 
 final class AuthController
 {
@@ -21,6 +22,10 @@ final class AuthController
     {
         if (!RateLimit::check('register', $req->clientIp(), 10)) {
             Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+        if (!Turnstile::verify($req->input('turnstileToken'), $req->clientIp())) {
+            Response::error('captcha_failed', 400, 'Captcha verification failed. Please try again.');
             return;
         }
 
@@ -159,6 +164,12 @@ final class AuthController
     {
         if (!RateLimit::check('forgot-password', $req->clientIp())) {
             Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+        // Captcha failure is about the challenge, not the account — safe to 400
+        // without leaking whether the email exists (non-enumeration preserved).
+        if (!Turnstile::verify($req->input('turnstileToken'), $req->clientIp())) {
+            Response::error('captcha_failed', 400, 'Captcha verification failed. Please try again.');
             return;
         }
         $email = self::email($req->input('email'));

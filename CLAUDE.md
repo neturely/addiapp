@@ -116,11 +116,15 @@ controller.
 Backend endpoints (PHP, `api/src/Controllers/`); the client contract is identical
 to the old Node API.
 
-- **Auth (#26, #61, #62, #67, #80)**: `/api/auth/{register,login,logout,me,verify,
+- **Auth (#26, #61, #62, #67, #79, #80)**: `/api/auth/{register,login,logout,me,verify,
   resend-verification,forgot-password,reset-password}`. DB-backed sessions, bcrypt.
   Email verification gates login; password reset revokes all sessions. register
   survives email-send failures (best-effort, #67). login/register + the email
-  endpoints are rate-limited (#80). Client pages: `/verify`, `/forgot-password`, `/reset`.
+  endpoints are rate-limited (#80). **Cloudflare Turnstile CAPTCHA** on register +
+  forgot-password, verified server-side via `siteverify` (#79) — all-or-nothing on
+  `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
+  disabled (dev default, fails closed if only the secret is set). Client pages:
+  `/verify`, `/forgot-password`, `/reset`.
 - **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69)**: Home `/`, Choice `/play`, Task `/play/task`,
@@ -305,8 +309,9 @@ Genuinely still open:
 
 - [ ] Marketing / landing homepage scope (#40)
 - [ ] User guide / help content scope (#41)
-- [ ] Auth hardening beyond rate-limiting — CAPTCHA (Cloudflare Turnstile) + edge
-  protection (#79)
+- [ ] Auth hardening — edge protection only (#79 rate-limiting + Turnstile CAPTCHA
+  are done; Cloudflare edge config — Bot Fight Mode, WAF on `/api/auth/*`, managed
+  DDoS — tracked as a separate dashboard-only issue)
 - [ ] Privacy policy / Terms of Service pages
 - [ ] Home secondary-link set (Add task / Dashboard / Stats) vs. a single entry (#29)
 - [ ] Final color palette / brand direction (placeholder warm coral in use)
