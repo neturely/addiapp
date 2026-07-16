@@ -53,16 +53,27 @@ final class AuthController
         // For an existing account we do NOTHING — no insert, and critically no
         // re-sent verification email (re-sending would leak via behaviour/timing).
         if (!$alreadyRegistered) {
-            $ins = $pdo->prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)');
-            $ins->execute([$email, Passwords::hash($password), $displayName]);
-            $userId = (int) $pdo->lastInsertId();
+            try {
+                $ins = $pdo->prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)');
+                $ins->execute([$email, Passwords::hash($password), $displayName]);
+                $userId = (int) $pdo->lastInsertId();
 
-            // The account exists now — a failed verification email must NOT fail
-            // the registration (#67); logged, recoverable via /resend-verification.
-            Mailer::sendBestEffort(
-                "verification for user {$userId} <{$email}>",
-                Templates::verification($email, EmailTokens::create($userId, 'verify')),
-            );
+                // The account exists now — a failed verification email must NOT fail
+                // the registration (#67); logged, recoverable via /resend-verification.
+                Mailer::sendBestEffort(
+                    "verification for user {$userId} <{$email}>",
+                    Templates::verification($email, EmailTokens::create($userId, 'verify')),
+                );
+            } catch (\PDOException $e) {
+                // Lost a race with a concurrent registration of the same email
+                // (UNIQUE(email) → SQLSTATE 23000). Treat it as already-registered:
+                // fall through to the identical 201 rather than a 500, so /register
+                // stays non-enumerating even under concurrency (#118). Re-throw any
+                // other DB error to the global handler.
+                if (($e->errorInfo[0] ?? '') !== '23000') {
+                    throw $e;
+                }
+            }
         }
 
         // Neutral message — true whether the account was just created or already

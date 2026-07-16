@@ -62,13 +62,17 @@ final class Log
         return is_string($uri) ? (parse_url($uri, PHP_URL_PATH) ?: null) : null;
     }
 
-    /** Mirrors Request::clientIp so log lines and rate-limit keys agree on the IP. */
-    private static function clientIp(): ?string
+    /**
+     * Mirrors Request::clientIp exactly (incl. the '0.0.0.0' fallback when
+     * REMOTE_ADDR is absent, e.g. CLI/unusual SAPIs) so log lines and rate-limit
+     * keys agree on the IP.
+     */
+    private static function clientIp(): string
     {
         $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
         if ($xff !== '') {
             return trim(explode(',', $xff)[0]);
         }
-        return $_SERVER['REMOTE_ADDR'] ?? null;
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
     }
 }

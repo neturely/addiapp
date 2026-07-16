@@ -16,19 +16,22 @@ final class LogTest extends TestCase
 {
     private string $logFile;
     private string $prevDest;
-    private string $prevType;
 
     protected function setUp(): void
     {
-        $this->logFile = tempnam(sys_get_temp_dir(), 'addiapp-log-');
-        $this->prevType = (string) ini_get('error_log');
-        // message_type 3 (append to file) is selected by pointing error_log at a file.
-        $this->prevDest = (string) ini_set('error_log', $this->logFile);
+        $tmp = tempnam(sys_get_temp_dir(), 'addiapp-log-');
+        self::assertNotFalse($tmp, 'could not create a temp log file');
+        $this->logFile = $tmp;
+
+        // Point error_log at our file so Log's real emission path is exercised.
+        $prev = ini_set('error_log', $this->logFile);
+        self::assertNotFalse($prev, 'could not redirect error_log');
+        $this->prevDest = $prev;
     }
 
     protected function tearDown(): void
     {
-        ini_set('error_log', $this->prevDest === '' ? $this->prevType : $this->prevDest);
+        ini_set('error_log', $this->prevDest);
         @unlink($this->logFile);
     }
 
