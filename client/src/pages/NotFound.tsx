@@ -4,7 +4,7 @@ export function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-page p-8 text-center">
       <h1 className="text-2xl font-bold text-gray-800">404 — Not found</h1>
-      <Link to="/" className="text-primary underline">
+      <Link to="/" className="text-primary-ink underline">
         Go home
       </Link>
     </main>

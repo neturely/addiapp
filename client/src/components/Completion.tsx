@@ -55,7 +55,7 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
       <p className="text-muted">{title}</p>
 
       {totalPoints != null && (
-        <div className="text-6xl font-extrabold tabular-nums text-primary">+{totalPoints}</div>
+        <div className="text-6xl font-extrabold tabular-nums text-primary-ink">+{totalPoints}</div>
       )}
 
       {multiplier != null && multiplier > 1 && (
@@ -64,7 +64,7 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
 
       <Link
         to={keepGoingHref}
-        className="mt-2 rounded-xl bg-primary px-8 py-3 text-lg font-semibold text-white transition hover:opacity-90"
+        className="mt-2 rounded-xl bg-primary px-8 py-3 text-xl font-bold text-white transition hover:opacity-90"
       >
         Keep going
       </Link>

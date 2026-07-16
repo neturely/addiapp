@@ -25,6 +25,18 @@ set_exception_handler(static function (\Throwable $e): void {
 
 date_default_timezone_set('UTC');
 
+// Security response headers (SEC-1, #107). Set here — before routing and the
+// OPTIONS short-circuit — so every response carries them: the preflight 204, all
+// routes, and the exception-handler 500. Origin-level defense-in-depth alongside
+// the SPA .htaccess; Cloudflare is a second layer, not the only one. Apex-only
+// HSTS (no includeSubDomains/preload — see docs/DEPLOY.md). frame-ancestors-only
+// CSP is non-disruptive (the JSON API is never iframed).
+header('Strict-Transport-Security: max-age=15552000');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header("Content-Security-Policy: frame-ancestors 'none'");
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 // CORS: in dev the Vite proxy makes /api same-origin; in prod the SPA is served
 // from the same host. Because responses carry the session cookie
 // (Access-Control-Allow-Credentials: true), the allowed origin must be an exact

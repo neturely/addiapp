@@ -12,7 +12,7 @@ export function Footer() {
     <footer className="flex items-center justify-center gap-3 bg-surface px-4 py-4 text-xs text-muted">
       <span>© AddiApp</span>
       <span aria-hidden="true">·</span>
-      <button type="button" onClick={() => void logout()} className="font-medium hover:text-primary">
+      <button type="button" onClick={() => void logout()} className="font-medium hover:text-primary-ink">
         Log out
       </button>
     </footer>

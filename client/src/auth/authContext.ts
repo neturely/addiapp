@@ -8,7 +8,12 @@ export type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>
   // Creates the account and triggers a verification email. Does NOT sign in —
   // the user must verify first.
-  register: (email: string, password: string, displayName?: string) => Promise<void>
+  register: (
+    email: string,
+    password: string,
+    displayName?: string,
+    captchaToken?: string,
+  ) => Promise<void>
   // Confirms an email token and signs the user in on success.
   verify: (token: string) => Promise<void>
   resendVerification: (email: string) => Promise<void>

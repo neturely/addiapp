@@ -21,11 +21,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
   }
 
-  async function register(email: string, password: string, displayName?: string) {
+  async function register(
+    email: string,
+    password: string,
+    displayName?: string,
+    captchaToken?: string,
+  ) {
     // Account created + verification email sent; the user is NOT signed in.
     await apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, displayName }),
+      body: JSON.stringify({ email, password, displayName, turnstileToken: captchaToken }),
     })
   }
 

@@ -116,11 +116,15 @@ controller.
 Backend endpoints (PHP, `api/src/Controllers/`); the client contract is identical
 to the old Node API.
 
-- **Auth (#26, #61, #62, #67, #80)**: `/api/auth/{register,login,logout,me,verify,
+- **Auth (#26, #61, #62, #67, #79, #80)**: `/api/auth/{register,login,logout,me,verify,
   resend-verification,forgot-password,reset-password}`. DB-backed sessions, bcrypt.
   Email verification gates login; password reset revokes all sessions. register
   survives email-send failures (best-effort, #67). login/register + the email
-  endpoints are rate-limited (#80). Client pages: `/verify`, `/forgot-password`, `/reset`.
+  endpoints are rate-limited (#80). **Cloudflare Turnstile CAPTCHA** on register +
+  forgot-password, verified server-side via `siteverify` (#79) — all-or-nothing on
+  `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
+  disabled (dev default, fails closed if only the secret is set). Client pages:
+  `/verify`, `/forgot-password`, `/reset`.
 - **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69)**: Home `/`, Choice `/play`, Task `/play/task`,
@@ -209,12 +213,31 @@ and Duolingo's green. Colours are dedicated `--color-mascot-*` tokens in
 the SVG icon-system pass, NOT final illustrated art — real mascot art is still a
 deliberate later design pass, likely in Claude Design.
 
-Color palette (visual refresh v2, #91/#92 — single source `client/src/index.css`):
-primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning `#D98A00`, muted
-`#5B6270`, cream page `#F6F1EA`, white surface `#FFFFFF` — flat, no shadows/borders,
-all AA-verified. The old coral `#D85A30` is fully retired. Not yet locked as the
-final brand palette — a move to true full-saturation colors + dark-text-on-vivid
-is scoped in #143.
+Color palette — **vivid v3** (#143; single source `client/src/index.css`, flat,
+no shadows/borders, AA-verified). Each hue has THREE roles — never one token doing
+double duty:
+- `--color-{h}` = **vivid FILL** (`bg-{h}`): primary `#FB5231`, success `#3ECF4C`,
+  accent `#1CB0F6`, warning `#FFC800`.
+- `--color-{h}-ink` = **text on LIGHT** (`text-{h}-ink`, colored text/badges on
+  cream/white): primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning
+  `#8A5A00`. (These are the old v2 values — they were already AA as text.)
+- `--color-on-{h}` = **dark text ON the fill** (`text-on-{h}`): primary `#3D1200`, etc.
+- `--color-{h}-tint` = soft tint for low-emphasis badges (`bg-{h}-tint` + `text-{h}-ink`).
+
+Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
+set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
+
+**Text-on-vivid rule (do not violate):** dark on-fill text (`text-on-{h}`) by default;
+**white is allowed on `--color-primary` only for large/bold text** (≥24px, or ≥19px bold
+— WCAG's 3:1 large-text tier; white on `#FB5231` = 3.31). Applied to: the PointsCard/Stats
+large stat numbers, AND **all primary CTA buttons** — standardized to `text-xl` (20px)
+`font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
+read muddy). This includes the compact utility buttons — Header "Add task" and Dashboard
+inline "Save" ARE primary CTAs and follow the same standardization (`text-xl font-bold
+text-white`; 20px bold clears the 3:1 large-text tier). Everything else stays dark on-fill:
+small labels, badges, the filter/time pills, and the initials avatar. success/accent/warning
+fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: solid vivid
++ on-fill = high; tint + ink = low.
 
 ## Coding standards
 
@@ -228,6 +251,12 @@ is scoped in #143.
   authoritative (the client mirrors rules for UX).
 - Secrets: production `api/config.php` (PHP array, outside the web root, `600`,
   git-ignored). Never a committed/web-served `.env`.
+- Security headers (#107): set at the **origin, in-repo** (not Cloudflare) on both
+  surfaces — SPA in `client/public/.htaccess` (top-level `Header always set`), API
+  via early `header()` in `api/public/index.php` (before the OPTIONS short-circuit).
+  HSTS/nosniff/XFO/`frame-ancestors 'none'`/Referrer-Policy. Don't move these to the
+  edge (origin defense-in-depth is the point); don't add a content CSP (`script-src`)
+  without a dedicated nonce/hash pass.
 
 ## Deployment (done — #39)
 
@@ -287,8 +316,9 @@ Genuinely still open:
 
 - [ ] Marketing / landing homepage scope (#40)
 - [ ] User guide / help content scope (#41)
-- [ ] Auth hardening beyond rate-limiting — CAPTCHA (Cloudflare Turnstile) + edge
-  protection (#79)
+- [ ] Auth hardening — edge protection only (#79 rate-limiting + Turnstile CAPTCHA
+  are done; Cloudflare edge config — Bot Fight Mode, WAF on `/api/auth/*`, managed
+  DDoS — tracked as a separate dashboard-only issue)
 - [ ] Privacy policy / Terms of Service pages
 - [ ] Home secondary-link set (Add task / Dashboard / Stats) vs. a single entry (#29)
 - [ ] Final color palette / brand direction (placeholder warm coral in use)

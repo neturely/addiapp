@@ -42,7 +42,7 @@ export function Home() {
       {resume && (
         <Link
           to={`/play/progress/${resume.id}`}
-          className="flex w-full max-w-sm items-center justify-center gap-2 rounded-xl bg-accent-tint px-6 py-3 font-semibold text-accent transition hover:opacity-90"
+          className="flex w-full max-w-sm items-center justify-center gap-2 rounded-xl bg-accent-tint px-6 py-3 font-semibold text-accent-ink transition hover:opacity-90"
         >
           <Play className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={0} />
           Resume: <span className="max-w-[16rem] truncate">{resume.title}</span>
@@ -51,7 +51,7 @@ export function Home() {
 
       <Link
         to="/play"
-        className="mt-2 rounded-xl bg-primary px-10 py-3 text-lg font-semibold text-white transition hover:opacity-90"
+        className="mt-2 rounded-xl bg-primary px-10 py-3 text-xl font-bold text-white transition hover:opacity-90"
       >
         Let&apos;s go
       </Link>

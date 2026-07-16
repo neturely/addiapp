@@ -158,6 +158,10 @@ export function InProgress() {
         </div>
 
         <div className="mt-4">
+          {/* #143: vivid meter fills are a DELIBERATE choice — their contrast vs
+              the track is below 1.4.11's 3:1 (green 1.86, gold 1.41), accepted
+              because this is a decorative indicator and the exact elapsed/estimate
+              time is always shown as text below. Do not "fix" to darker shades. */}
           <div className="h-3 w-full overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full rounded-full transition-[width] duration-500 ${
@@ -174,9 +178,9 @@ export function InProgress() {
         <p className="mt-4 text-sm font-medium text-gray-600">
           {inBonus ? (
             <>
-              <Zap className="mb-0.5 inline h-4 w-4 text-warning" fill="currentColor" strokeWidth={0} />{' '}
+              <Zap className="mb-0.5 inline h-4 w-4 text-warning-ink" fill="currentColor" strokeWidth={0} />{' '}
               Finish within{' '}
-              <span className="font-bold text-success">{formatClock(estimateSec - elapsed)}</span>{' '}
+              <span className="font-bold text-success-ink">{formatClock(estimateSec - elapsed)}</span>{' '}
               for a speed bonus
             </>
           ) : (
@@ -193,7 +197,7 @@ export function InProgress() {
           type="button"
           onClick={() => void onComplete()}
           disabled={completing}
-          className="mt-5 w-full rounded-lg bg-primary py-3 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+          className="mt-5 w-full rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
         >
           {completing ? 'Completing…' : 'Complete'}
         </button>

@@ -2,12 +2,15 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { Turnstile, TURNSTILE_SITE_KEY } from '@/components/Turnstile'
 
 export function Register() {
   const { register, resendVerification } = useAuth()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [registered, setRegistered] = useState(false)
@@ -18,10 +21,13 @@ export function Register() {
     setError(null)
     setSubmitting(true)
     try {
-      await register(email, password, displayName.trim() || undefined)
+      await register(email, password, displayName.trim() || undefined, captchaToken)
       setRegistered(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
+      // Turnstile tokens are single-use — get a fresh one for the next attempt.
+      setCaptchaToken('')
+      setWidgetKey((k) => k + 1)
     } finally {
       setSubmitting(false)
     }
@@ -39,7 +45,7 @@ export function Register() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page p-4">
         <div className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center">
-          <Mail className="mx-auto mb-3 h-10 w-10 text-primary" />
+          <Mail className="mx-auto mb-3 h-10 w-10 text-primary-ink" />
           <h1 className="mb-2 text-xl font-bold">Check your email</h1>
           <p className="text-sm text-muted">
             We sent a verification link to <strong className="text-gray-700">{email}</strong>. Click
@@ -52,12 +58,12 @@ export function Register() {
             Resend verification email
           </button>
           {resent && (
-            <p className="mt-2 text-sm text-success">
+            <p className="mt-2 text-sm text-success-ink">
               If that account is unverified, a new link is on its way.
             </p>
           )}
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-primary underline">
+            <Link to="/login" className="text-primary-ink underline">
               Back to sign in
             </Link>
           </p>
@@ -95,18 +101,19 @@ export function Register() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <Turnstile key={widgetKey} onToken={setCaptchaToken} className="flex justify-center" />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-primary py-2.5 font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+            disabled={submitting || (!!TURNSTILE_SITE_KEY && !captchaToken)}
+            className="w-full rounded-lg bg-primary py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Creating account…' : 'Register'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary underline">
+          <Link to="/login" className="text-primary-ink underline">
             Sign in
           </Link>
         </p>

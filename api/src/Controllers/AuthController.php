@@ -13,6 +13,7 @@ use App\Email\Templates;
 use App\Http\Request;
 use App\Http\Response;
 use App\RateLimit;
+use App\Turnstile;
 
 final class AuthController
 {
@@ -21,6 +22,10 @@ final class AuthController
     {
         if (!RateLimit::check('register', $req->clientIp(), 10)) {
             Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+        if (!Turnstile::verify($req->input('turnstileToken'), $req->clientIp())) {
+            Response::error('captcha_failed', 400, 'Captcha verification failed. Please try again.');
             return;
         }
 
@@ -72,12 +77,16 @@ final class AuthController
             return;
         }
 
-        // Throttle before the (expensive) bcrypt verify: per-IP catches one host
-        // brute-forcing, per-email catches distributed targeting of one account.
+        // Throttle before the (expensive) bcrypt verify: per-IP (20) is the primary
+        // brute-force defence against a single host. The per-email bucket is set
+        // HIGH (50) on purpose (SEC-3, #120): a low cap let anyone who knows your
+        // email burn your attempts and lock out your real logins — and it counts
+        // successful logins too. 50 still trips genuinely distributed targeting of
+        // one account (many IPs) without making a targeted lockout cheap.
         // Fires regardless of whether the account exists (no enumeration).
         if (
             !RateLimit::check('login-ip', $req->clientIp(), 20)
-            || !RateLimit::check('login-email', $email, 10)
+            || !RateLimit::check('login-email', $email, 50)
         ) {
             Response::error('Too many login attempts, please try again later.', 429);
             return;
@@ -159,6 +168,12 @@ final class AuthController
     {
         if (!RateLimit::check('forgot-password', $req->clientIp())) {
             Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+        // Captcha failure is about the challenge, not the account — safe to 400
+        // without leaking whether the email exists (non-enumeration preserved).
+        if (!Turnstile::verify($req->input('turnstileToken'), $req->clientIp())) {
+            Response::error('captcha_failed', 400, 'Captcha verification failed. Please try again.');
             return;
         }
         $email = self::email($req->input('email'));

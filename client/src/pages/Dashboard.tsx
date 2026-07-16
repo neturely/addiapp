@@ -21,15 +21,15 @@ const FILTERS: { key: Filter; label: string }[] = [
 ]
 
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
-  low: { label: 'Low', className: 'bg-success-tint text-success' },
-  medium: { label: 'Medium', className: 'bg-warning-tint text-[#8a5a00]' },
-  high: { label: 'High', className: 'bg-primary-tint text-primary' },
+  low: { label: 'Low', className: 'bg-success-tint text-success-ink' },
+  medium: { label: 'Medium', className: 'bg-warning-tint text-warning-ink' },
+  high: { label: 'High', className: 'bg-primary-tint text-primary-ink' },
 }
 
 const STATUS_BADGE: Record<TaskStatus, { label: string; className: string }> = {
   backlog: { label: 'Backlog', className: 'bg-gray-100 text-muted' },
-  in_progress: { label: 'In progress', className: 'bg-warning-tint text-[#8a5a00]' },
-  done: { label: 'Done', className: 'bg-success-tint text-success' },
+  in_progress: { label: 'In progress', className: 'bg-warning-tint text-warning-ink' },
+  done: { label: 'Done', className: 'bg-success-tint text-success-ink' },
 }
 
 const MAX_TITLE = 255
@@ -199,10 +199,10 @@ export function Dashboard() {
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={`rounded-full px-3 py-1 text-sm font-medium transition ${
-                active ? 'bg-primary text-white' : 'bg-surface text-muted hover:bg-primary-tint'
+                active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
               }`}
             >
-              {f.label} <span className={active ? 'text-white' : 'text-muted'}>{count}</span>
+              {f.label} <span className={active ? 'text-on-primary' : 'text-muted'}>{count}</span>
             </button>
           )
         })}
@@ -217,7 +217,7 @@ export function Dashboard() {
           <p className="text-muted">
             {tasks.length === 0 ? 'No tasks yet.' : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} tasks.`}
           </p>
-          <Link to="/tasks/new" className="mt-2 inline-block text-sm text-primary underline">
+          <Link to="/tasks/new" className="mt-2 inline-block text-sm text-primary-ink underline">
             Add a task
           </Link>
         </div>
@@ -291,7 +291,7 @@ export function Dashboard() {
                         <button
                           onClick={() => void saveEdit(task)}
                           disabled={savingId === task.id}
-                          className="rounded bg-primary px-3 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:bg-gray-400"
+                          className="rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
                         >
                           {savingId === task.id ? 'Saving…' : 'Save'}
                         </button>
@@ -300,7 +300,7 @@ export function Dashboard() {
                             setEditingId(null)
                             setRowError(null)
                           }}
-                          className="ml-2 text-xs text-muted underline hover:text-gray-700"
+                          className="ml-2 text-sm text-muted underline hover:text-gray-700"
                         >
                           Cancel
                         </button>
@@ -337,7 +337,7 @@ export function Dashboard() {
                       {task.status === 'backlog' && (
                         <button
                           onClick={() => void onStart(task)}
-                          className="text-xs font-semibold text-primary hover:underline"
+                          className="text-xs font-semibold text-primary-ink hover:underline"
                         >
                           Start
                         </button>
@@ -345,7 +345,7 @@ export function Dashboard() {
                       {task.status === 'in_progress' && (
                         <Link
                           to={`/play/progress/${task.id}`}
-                          className="text-xs font-semibold text-[#8a5a00] hover:underline"
+                          className="text-xs font-semibold text-warning-ink hover:underline"
                         >
                           Resume
                         </Link>
@@ -376,7 +376,7 @@ export function Dashboard() {
           <span>
             Deleted “{pendingTask.title.length > 32 ? pendingTask.title.slice(0, 32) + '…' : pendingTask.title}”
           </span>
-          <button onClick={undoDelete} className="font-semibold text-warning hover:underline">
+          <button onClick={undoDelete} className="font-semibold text-warning-ink hover:underline">
             Undo
           </button>
         </div>
