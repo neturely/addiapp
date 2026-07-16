@@ -14,6 +14,6 @@ return [
     'appUrl'      => 'http://localhost:5173',   // frontend base, used in email links
     'appTimezone' => 'Europe/Stockholm',        // midnight that resets the daily multiplier
     'resendApiKey' => '',                        // empty → console email transport (dev/test)
-    'emailFrom'   => 'AddiApp <onboarding@resend.dev>',
+    'emailFrom'   => 'AddiApp <no-reply@addiapp.com>',  // prod: verified Resend sender (apex addiapp.com, #65)
     'isProd'      => false,
 ];
