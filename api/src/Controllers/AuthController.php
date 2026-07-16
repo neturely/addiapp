@@ -45,24 +45,41 @@ final class AuthController
         $pdo = Db::pdo();
         $exists = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
         $exists->execute([$email]);
-        if ($exists->fetch() !== false) {
-            Response::error('Email already registered', 409);
-            return;
+        $alreadyRegistered = $exists->fetch() !== false;
+
+        // Non-enumerating (SEC-2, #118): return the SAME response whether or not
+        // the address already has an account, so /register can't be used to probe
+        // which emails exist (login/forgot-password/resend are already neutral).
+        // For an existing account we do NOTHING — no insert, and critically no
+        // re-sent verification email (re-sending would leak via behaviour/timing).
+        if (!$alreadyRegistered) {
+            try {
+                $ins = $pdo->prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)');
+                $ins->execute([$email, Passwords::hash($password), $displayName]);
+                $userId = (int) $pdo->lastInsertId();
+
+                // The account exists now — a failed verification email must NOT fail
+                // the registration (#67); logged, recoverable via /resend-verification.
+                Mailer::sendBestEffort(
+                    "verification for user {$userId} <{$email}>",
+                    Templates::verification($email, EmailTokens::create($userId, 'verify')),
+                );
+            } catch (\PDOException $e) {
+                // Lost a race with a concurrent registration of the same email
+                // (UNIQUE(email) → SQLSTATE 23000). Treat it as already-registered:
+                // fall through to the identical 201 rather than a 500, so /register
+                // stays non-enumerating even under concurrency (#118). Re-throw any
+                // other DB error to the global handler.
+                if (($e->errorInfo[0] ?? '') !== '23000') {
+                    throw $e;
+                }
+            }
         }
 
-        $ins = $pdo->prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)');
-        $ins->execute([$email, Passwords::hash($password), $displayName]);
-        $userId = (int) $pdo->lastInsertId();
-
-        // The account exists now — a failed verification email must NOT fail the
-        // registration (#67); logged, and recoverable via /resend-verification.
-        Mailer::sendBestEffort(
-            "verification for user {$userId} <{$email}>",
-            Templates::verification($email, EmailTokens::create($userId, 'verify')),
-        );
-
+        // Neutral message — true whether the account was just created or already
+        // existed. Identical status + body in both cases.
         Response::json([
-            'message' => 'Account created. Check your email to verify your address before signing in.',
+            'message' => 'Check your email to verify your address before signing in.',
             'email' => $email,
         ], 201);
     }

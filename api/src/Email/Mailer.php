@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Email;
 
 use App\Config;
+use App\Log;
 
 /** Email facade: picks the transport (Resend if a key is set, else console). */
 final class Mailer
@@ -38,7 +39,7 @@ final class Mailer
         try {
             self::send($message);
         } catch (\Throwable $e) {
-            error_log("[addiapp] email send failed ({$context}): " . $e->getMessage());
+            Log::error('email send failed', ['context' => $context, 'error' => $e->getMessage()]);
         }
     }
 }

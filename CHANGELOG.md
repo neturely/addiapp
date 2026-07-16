@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-07-16
+### Changed
+- TECH-3 — Lightweight structured logging (replace ad-hoc error_log calls) ([#122](https://github.com/neturely/addiapp/issues/122))
+- PERF-3 — Cap oversized request bodies before parsing into memory ([#114](https://github.com/neturely/addiapp/issues/114))
+- OPS-3 — Deepen /api/health to verify DB + external uptime monitoring ([#105](https://github.com/neturely/addiapp/issues/105))
+### Security
+- SEC-2 — Make /register non-enumerating (stop leaking account existence via 409) ([#118](https://github.com/neturely/addiapp/issues/118))
+
 ## [1.3.1] - 2026-07-16
 ### Changed
 - ERR-1 — Global 401 handling: silent redirect to /login on session expiry (unify fetch layers, absorbs ERR-2) ([#101](https://github.com/neturely/addiapp/issues/101))
@@ -35,7 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.2...HEAD
+[1.3.2]: https://github.com/neturely/addiapp/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/neturely/addiapp/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/neturely/addiapp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/neturely/addiapp/compare/v1.1.0...v1.2.0

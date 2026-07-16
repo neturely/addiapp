@@ -269,3 +269,32 @@ create via cPanel, as `addiapp_bak` can't `CREATE DATABASE`):
 zcat ~/backups/db/addiapp_prod-*.sql.gz | mysql addiapp_restore_test
 mysql addiapp_restore_test -e "SHOW TABLES; SELECT COUNT(*) FROM users;"
 ```
+
+## Monitoring (OPS-3, #105)
+
+`GET /api/health` is a real liveness probe, not a static OK: it runs one
+`SELECT 1` and answers **200** `{"status":"ok","checks":{"db":"ok"}}` when the DB
+is reachable, or **503** `{"status":"error","checks":{"db":"down"}}` when it isn't
+(the endpoint is public, unauthenticated, and `Cache-Control: no-store` so
+Cloudflare can't serve a stale 200 during an outage). Any non-2xx flags the
+monitor; 503 is the standard "process up, dependency down" signal.
+
+Account signup can't be automated — set up an external pinger by hand:
+
+1. Create a free **UptimeRobot** account (or any equivalent "free + simple"
+   uptime service).
+2. Add an **HTTP(s) monitor**:
+   - **URL:** `https://addiapp.com/api/health`
+   - **Interval:** 5 minutes (no live users — sub-minute is unnecessary load).
+   - Optional: a **keyword monitor** on `"db":"ok"` catches the 200-but-degraded
+     edge; the 503-on-failure already makes a plain status monitor sufficient.
+3. Add + verify an **alert contact** — use the **same inbox as the backup cron
+   `MAILTO`** (above), so there's one place to watch, not two.
+4. **Verify the pinger actually gets a `200`.** Cloudflare bot protection can
+   challenge an automated request and false-positive "down"; if so, add a WAF
+   skip (or an "essentially off" security-level) rule for the `/api/health` path.
+
+Scope note: this is external black-box liveness ("is it up? alert me"). Internal
+white-box logging ("why did it break?") is `App\Log` (TECH-3, #122) — the health
+check's own failure emits one `health db check failed` line so a pinger alert has
+a matching server breadcrumb.
