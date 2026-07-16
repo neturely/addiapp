@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { ApiError } from '@/lib/apiError'
 
 export function Login() {
   const { login, resendVerification } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Set when ProtectedRoute bounced the user here after a mid-use session expiry
+  // (#101). A courtesy note only — clears naturally on manual refresh.
+  const sessionExpired = (location.state as { sessionExpired?: boolean } | null)?.sessionExpired
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +50,11 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center bg-page p-4">
       <div className="w-full max-w-sm rounded-2xl bg-surface p-6">
         <h1 className="mb-4 text-center text-xl font-bold">Sign in to AddiApp</h1>
+        {sessionExpired && !error && (
+          <p className="mb-4 text-center text-sm text-muted">
+            Your session expired — please sign in again.
+          </p>
+        )}
         <form onSubmit={onSubmit} className="space-y-4">
           <input
             className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
