@@ -2,7 +2,7 @@
 -- Same tables/columns/constraints the Node backend used; consolidated for the
 -- fresh PHP backend. Applied by migrate.php, tracked in `_migrations`.
 
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id` int AUTO_INCREMENT NOT NULL,
   `email` varchar(255) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE `users` (
   UNIQUE KEY `users_email_unique` (`email`)
 );
 
-CREATE TABLE `sessions` (
+CREATE TABLE IF NOT EXISTS `sessions` (
   `id` varchar(64) NOT NULL,
   `user_id` int NOT NULL,
   `expires_at` timestamp NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE `sessions` (
   CONSTRAINT `sessions_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
 
-CREATE TABLE `tasks` (
+CREATE TABLE IF NOT EXISTS `tasks` (
   `id` int AUTO_INCREMENT NOT NULL,
   `user_id` int NOT NULL,
   `title` varchar(255) NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE `tasks` (
   CONSTRAINT `tasks_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
 
-CREATE TABLE `points_log` (
+CREATE TABLE IF NOT EXISTS `points_log` (
   `id` int AUTO_INCREMENT NOT NULL,
   `user_id` int NOT NULL,
   `task_id` int NULL DEFAULT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE `points_log` (
   CONSTRAINT `points_log_task_id_fk` FOREIGN KEY (`task_id`) REFERENCES `tasks`(`id`) ON DELETE SET NULL
 );
 
-CREATE TABLE `daily_stats` (
+CREATE TABLE IF NOT EXISTS `daily_stats` (
   `id` int AUTO_INCREMENT NOT NULL,
   `user_id` int NOT NULL,
   `stat_date` date NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE `daily_stats` (
   CONSTRAINT `daily_stats_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
 
-CREATE TABLE `email_tokens` (
+CREATE TABLE IF NOT EXISTS `email_tokens` (
   `token` varchar(64) NOT NULL,
   `user_id` int NOT NULL,
   `type` enum('verify','reset') NOT NULL,

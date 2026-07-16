@@ -6,13 +6,56 @@ just files + migrations — **no process to restart**.
 
 ## Pipeline (`.github/workflows/deploy.yml`)
 
-Runs on push to `main` (or manual dispatch):
+Runs on push to `main` (or manual dispatch). Schema migrates **before** code cuts
+over, gated by a fresh DB backup (OPS-2, #103):
 
 1. `npm ci` + `npm run build -w client` → `client/dist`.
-2. `rsync --delete` `client/dist/` → `~/public_html` (keeps `.well-known`,
-   `cgi-bin`, and the `api` symlink; old files are pruned).
-3. `rsync --delete` `api/` → `~/api` (keeps `config.php`).
-4. `ssh … php ~/api/migrate.php`.
+2. `rsync` `scripts/backup-db.sh` → `~/bin/` (keeps the box copy current — the
+   pre-deploy backup below is deploy-critical).
+3. `rsync` `api/migrations/` → `~/api/migrations/` (ship the `.sql` before running
+   them; no `--delete`).
+4. `ssh … '~/bin/backup-db.sh --pre-deploy && php ~/api/migrate.php'` — the backup
+   **gates** the migrate (`&&`), so a failed dump aborts the deploy *before* any
+   schema change, and a failed migrate aborts *before* code cuts over. This runs
+   the on-box (old) `migrate.php` against the just-shipped `.sql`; the runner
+   contract (per-file, split on `;`, exec) is stable, so that's safe. A deploy
+   that changes `migrate.php` itself runs that deploy's migrations under the prior
+   runner and the new one takes effect next time (harmless — migrations are SQL).
+5. `rsync --delete` `api/` → `~/api` (code cutover; keeps `config.php`).
+6. `rsync --delete` `client/dist/` → `~/public_html` (SPA cutover last; keeps
+   `.well-known`, `cgi-bin`, and the `api` symlink).
+
+> First-ever deploy on a fresh box (no `migrate.php`/tables yet) is a documented
+> manual step — this ordering is for steady-state deploys. The migrate-before-
+> cutover ordering is safe **because** migrations are additive (see convention
+> below): the still-live old code tolerates the freshly-migrated schema.
+
+### Migration convention (keeps re-runs safe)
+
+`migrate.php` tracks applied files by name in `_migrations` and records a file
+only after **all** its statements succeed; DDL auto-commits, so a file that dies
+mid-way is left partially applied and not recorded. To keep a re-run safe:
+
+- **One logical change (ideally one statement) per migration file** — a failure
+  then can't leave a file half-applied.
+- **Idempotent DDL**: `CREATE TABLE/INDEX IF NOT EXISTS`, `ALTER TABLE … ADD
+  COLUMN IF NOT EXISTS` (MariaDB 10.11 supports these). `001`/`002` carry
+  `IF NOT EXISTS` so a fresh apply is re-runnable.
+
+On failure `migrate.php` prints which statement index failed and whether the file
+is partially applied.
+
+### Pre-deploy backups + rollback
+
+`backup-db.sh --pre-deploy` writes to `~/backups/pre-deploy/pre-deploy-<ISO-ts>.sql.gz`
+(+ `.sha256`), separate from the nightly `~/backups/db/` so it never collides with
+that rotation. Retention is **count-based, newest 5** (deploys are irregular, so
+age-based is unpredictable). If a deploy's migration goes wrong, roll back the
+schema from the pre-deploy dump taken moments earlier:
+
+```bash
+zcat ~/backups/pre-deploy/pre-deploy-<ts>.sql.gz | mysql addiapp_prod
+```
 
 ### Required GitHub Actions secrets
 
@@ -224,7 +267,9 @@ hand (like `config.php`). All steps run on the box (`ssh addiapp@209.42.255.1`).
    mkdir -p ~/backups/db ~/bin
    chmod 600 ~/backups/.my.cnf
    ```
-3. **Install the script** (copy `scripts/backup-db.sh` from the repo to the box):
+3. **Install the script** — needed once for the *first* nightly run; after that
+   every deploy rsyncs `scripts/backup-db.sh` → `~/bin/` automatically (OPS-2,
+   #103), so the box copy stays current with the repo:
    ```bash
    # from a checkout, or scp the file up:
    install -m 755 scripts/backup-db.sh ~/bin/backup-db.sh

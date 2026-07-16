@@ -40,21 +40,41 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${{ secrets.DEPLOY_SSH_PORT }}" "${{ secrets.DEPLOY_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy SPA → public_html
-        run: |
-          rsync -az --delete \
-            --exclude='.well-known' --exclude='api' --exclude='cgi-bin' --exclude='.ftpquota' \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_SSH_PORT }}" \
-            client/dist/ "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:public_html/"
+      # --- Migrate BEFORE cutover (OPS-2, #103) -----------------------------
+      # Schema migrates before any new code goes live, and a pre-deploy DB backup
+      # gates the migration, so a failed migrate aborts the deploy before code
+      # cuts over — never the "new code stranded on un-migrated schema" state.
 
-      - name: Deploy PHP API → ~/api
+      - name: Ship ops script → ~/bin (keeps the box backup-db.sh current)
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_SSH_PORT }}" \
+            scripts/backup-db.sh "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:bin/"
+
+      - name: Ship migrations → ~/api/migrations (before running them)
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_SSH_PORT }}" \
+            api/migrations/ "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:api/migrations/"
+
+      - name: Pre-deploy backup + migrate
+        # The backup MUST succeed before migrate runs (&&). Runs the on-box (old)
+        # migrate.php against the just-shipped .sql — the runner contract is stable.
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_SSH_PORT }}" \
+            "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}" \
+            'chmod +x ~/bin/backup-db.sh && ~/bin/backup-db.sh --pre-deploy && php ~/api/migrate.php'
+
+      - name: Deploy PHP API → ~/api (code cutover)
         run: |
           rsync -az --delete \
             --exclude='config.php' --exclude='config.example.php' \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_SSH_PORT }}" \
             api/ "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:api/"
 
-      - name: Run migrations
+      - name: Deploy SPA → public_html (cutover last)
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_SSH_PORT }}" \
-            "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}" 'php ~/api/migrate.php'
+          rsync -az --delete \
+            --exclude='.well-known' --exclude='api' --exclude='cgi-bin' --exclude='.ftpquota' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_SSH_PORT }}" \
+            client/dist/ "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}:public_html/"
