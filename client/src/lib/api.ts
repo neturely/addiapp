@@ -3,6 +3,9 @@ import { notifyUnauthorized } from './authSignal'
 
 type ApiErrorBody = { error?: string; message?: string }
 
+/** Abort a request after this long so a stalled call can't hang the UI (#110). */
+const REQUEST_TIMEOUT_MS = 15_000
+
 export type ApiRequestOptions = RequestInit & {
   /**
    * Skip the global 401 handler for this call (issue #101). Set for `/auth/*`
@@ -26,11 +29,27 @@ export async function apiRequest<T = unknown>(
   options: ApiRequestOptions = {},
 ): Promise<T> {
   const { skipUnauthorizedHandler, ...init } = options
-  const res = await fetch(`/api${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-    ...init,
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let res: Response
+  try {
+    res = await fetch(`/api${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+      ...init,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    // A timeout surfaces as an abort — turn it into a normal ApiError so the
+    // existing catch/`sessionExpired` handling applies (#110). Re-throw real
+    // network failures untouched.
+    if (controller.signal.aborted) {
+      throw new ApiError('The request timed out. Please try again.', 408)
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 
   const isJson = res.headers.get('content-type')?.includes('application/json') ?? false
   const data = (isJson ? await res.json() : null) as (ApiErrorBody & T) | null
