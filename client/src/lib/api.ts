@@ -28,22 +28,31 @@ export async function apiRequest<T = unknown>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const { skipUnauthorizedHandler, ...init } = options
+  const { skipUnauthorizedHandler, signal: callerSignal, ...init } = options
+  // Our timeout gets its own controller; if the caller also passed a signal
+  // (e.g. cancel-on-unmount), honour both by aborting on whichever fires first.
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, REQUEST_TIMEOUT_MS)
+  const signal = callerSignal
+    ? AbortSignal.any([callerSignal, controller.signal])
+    : controller.signal
   let res: Response
   try {
     res = await fetch(`/api${path}`, {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...(init.headers ?? {}) },
       ...init,
-      signal: controller.signal,
+      signal,
     })
   } catch (err) {
-    // A timeout surfaces as an abort — turn it into a normal ApiError so the
-    // existing catch/`sessionExpired` handling applies (#110). Re-throw real
-    // network failures untouched.
-    if (controller.signal.aborted) {
+    // Only OUR timeout becomes a clean 408 (#110). A caller-initiated abort or a
+    // real network failure re-throws untouched, so the caller's cancel stays an
+    // AbortError it can recognise.
+    if (timedOut) {
       throw new ApiError('The request timed out. Please try again.', 408)
     }
     throw err
