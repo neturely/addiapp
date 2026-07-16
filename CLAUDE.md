@@ -44,7 +44,11 @@ the old app was never in real use.
 - Database: MySQL/MariaDB — not Postgres, not Supabase.
 - DB access: **plain PDO**, parameterized queries. Schema is hand-written SQL in
   `api/migrations/`, applied by `api/migrate.php` (tracked in a `_migrations`
-  table). No ORM (the Drizzle era ended with the PHP rewrite).
+  table). No ORM (the Drizzle era ended with the PHP rewrite). Migration
+  discipline (#103): **one logical change (ideally one statement) per file** +
+  idempotent DDL (`CREATE TABLE/INDEX IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`)
+  so a re-run/partial-failure can't wedge — the per-file tracker + auto-committing
+  DDL means a multi-statement file that dies mid-way is left partially applied.
 - Auth: custom, self-rolled — **DB-backed server-side sessions** (opaque random
   token in an httpOnly `sid` cookie, 7-day TTL; the `sessions` row is the source
   of truth, so logout/expiry revoke access immediately) + **bcrypt** via PHP's
@@ -63,8 +67,11 @@ the old app was never in real use.
 - Domain: `addiapp.com`, live, proxied through Cloudflare.
 - GitHub: org `neturely`, repo `addiapp`.
 - Deploy: **done (#39)** — GitHub Actions on push to `main` builds the SPA and
-  rsyncs it (+ the PHP `api/`) over SSH, then runs `php migrate.php`. No restart.
-  See docs/DEPLOY.md.
+  rsyncs it (+ the PHP `api/`) over SSH. Ordering is **migrate-before-cutover**
+  (#103): ship the ops script + migrations, run a **pre-deploy DB backup that
+  gates the migrate** (`backup-db.sh --pre-deploy && migrate.php`), THEN rsync
+  code + SPA — so a failed backup/migrate aborts before new code goes live. No
+  restart. See docs/DEPLOY.md.
 - Secrets: production config in `~/api/config.php` (a PHP array **outside** the
   web root, `chmod 600`, git-ignored, rsync-excluded) — NOT a `.env` (a PHP file
   isn't served as plaintext even if exposed; `.env` is).
