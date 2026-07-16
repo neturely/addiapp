@@ -1,10 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { apiRequest } from '@/lib/api'
+import { setUnauthorizedHandler } from '@/lib/authSignal'
 import { AuthContext, type AuthUser } from './authContext'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   useEffect(() => {
     apiRequest<{ user: AuthUser }>('/auth/me')
@@ -13,11 +15,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
+  // A 401 on any authenticated call means the session expired mid-use: drop the
+  // cached user (ProtectedRoute then redirects) and flag it for the login note.
+  useEffect(
+    () =>
+      setUnauthorizedHandler(() => {
+        setUser(null)
+        setSessionExpired(true)
+      }),
+    [],
+  )
+
   async function login(email: string, password: string) {
     const data = await apiRequest<{ user: AuthUser }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
+    setSessionExpired(false)
     setUser(data.user)
   }
 
@@ -56,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, register, verify, resendVerification, logout }}
+      value={{ user, loading, sessionExpired, login, register, verify, resendVerification, logout }}
     >
       {children}
     </AuthContext.Provider>

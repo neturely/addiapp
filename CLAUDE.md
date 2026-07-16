@@ -242,8 +242,13 @@ fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: so
 ## Coding standards
 
 - **Client**: TypeScript, React functional components + hooks (no classes).
-  API calls via the `apiRequest` wrapper (`client/src/lib/api.ts`) or plain
-  `fetch` with `credentials: 'include'` in the Play-mode clients.
+  **All** API calls go through the single `apiRequest` wrapper (`client/src/lib/api.ts`)
+  — `tasks.ts`/`points.ts` delegate to it, so every call throws a status-preserving
+  `ApiError` (#101). No raw `fetch` in feature code. `apiRequest` also handles session
+  expiry globally: a 401 on any non-`/auth/*` path fires `notifyUnauthorized()`
+  (`lib/authSignal.ts`) → `AuthProvider` clears the user and `ProtectedRoute` redirects
+  to `/login` with a muted note. `/auth/*` 401s stay local form errors (opt out elsewhere
+  with `skipUnauthorizedHandler`).
 - **Backend (PHP 8.2)**: plain PHP + PDO, no framework, no Composer runtime deps.
   Thin controllers; logic in modules (`Points/`, `Tasks/Selection.php`, `Auth/`).
   PDO **parameterized** queries only — never string-concatenate SQL. PSR-4-ish
