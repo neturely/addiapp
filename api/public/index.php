@@ -11,11 +11,12 @@ use App\Controllers\PointsController;
 use App\Controllers\TasksController;
 use App\Http\Request;
 use App\Http\Router;
+use App\Log;
 
 // Uncaught errors → JSON 500 (details logged, never leaked). Mirrors the Express
 // fallback error handler.
 set_exception_handler(static function (\Throwable $e): void {
-    error_log('[addiapp-api] unhandled error: ' . $e);
+    Log::error('unhandled error', ['exception' => (string) $e]);
     if (!headers_sent()) {
         http_response_code(500);
         header('Content-Type: application/json');
