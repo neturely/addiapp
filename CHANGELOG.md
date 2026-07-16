@@ -12,8 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ERR-1 — Global 401 handling: silent redirect to /login on session expiry (unify fetch layers, absorbs ERR-2) ([#101](https://github.com/neturely/addiapp/issues/101))
 ### Added
 - ERR-3 — Add ~15s request timeout to the shared fetch layer ([#110](https://github.com/neturely/addiapp/issues/110))
-### Removed
-- ERR-4 — Finalize optimistic delete on unmount instead of abandoning it ([#112](https://github.com/neturely/addiapp/issues/112))
+### Fixed
+- ERR-4 — Finalize optimistic delete on unmount instead of abandoning it, so a task deleted mid-undo-window isn't left alive server-side ([#112](https://github.com/neturely/addiapp/issues/112))
 
 ## [1.3.0] - 2026-07-16
 ### Added
