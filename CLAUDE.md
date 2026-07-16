@@ -253,7 +253,10 @@ fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: so
   Thin controllers; logic in modules (`Points/`, `Tasks/Selection.php`, `Auth/`).
   PDO **parameterized** queries only — never string-concatenate SQL. PSR-4-ish
   autoloader (`App\` → `api/src/`). Input validated server-side; the server is
-  authoritative (the client mirrors rules for UX).
+  authoritative (the client mirrors rules for UX). Log via `App\Log`
+  (`error`/`warn`/`info`, #122) — one structured JSON line to `error_log` with
+  request context; don't add ad-hoc `error_log('[addiapp-…] …')` strings. (The
+  dev `ConsoleTransport` email dump is not error logging and stays raw.)
 - Secrets: production `api/config.php` (PHP array, outside the web root, `600`,
   git-ignored). Never a committed/web-served `.env`.
 - Security headers (#107): set at the **origin, in-repo** (not Cloudflare) on both
