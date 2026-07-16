@@ -275,11 +275,17 @@ hand (like `config.php`). All steps run on the box (`ssh addiapp@209.42.255.1`).
    install -m 755 scripts/backup-db.sh ~/bin/backup-db.sh
    ```
 4. **Crontab** (`crontab -e`) — nightly at 03:30 server time. `MAILTO` sends
-   failures to you (stdout → log, stderr → mail), so a broken backup is noticed:
+   failures to you (stdout → log, stderr → mail), so a broken backup is noticed.
+   The second line is the expired-row cleanup (OPS-4, #109) — runs at 03:45,
+   after the backup, sharing the same `MAILTO`:
    ```cron
    MAILTO="you@example.com"
    30 3 * * * /home/addiapp/bin/backup-db.sh >> /home/addiapp/backups/db/backup.log
+   45 3 * * * /usr/bin/php /home/addiapp/api/cleanup.php >> /home/addiapp/backups/db/cleanup.log
    ```
+   `cleanup.php` deletes expired `sessions` / `email_tokens` rows and stale
+   `rate_limits` rows (idempotent — safe to re-run). It ships with the deploy
+   rsync (it's in `api/`), so no separate install; only this cron line is manual.
 
 ### Offsite handoff (external — not built here)
 
