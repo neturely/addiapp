@@ -35,7 +35,14 @@ function loadScript(): Promise<void> {
       s.async = true
       s.defer = true
       s.onload = () => resolve()
-      s.onerror = () => reject(new Error('Failed to load Turnstile'))
+      s.onerror = () => {
+        // Drop the cached rejected promise (and the dead <script>) so a later
+        // remount can retry after a transient CDN/network failure — otherwise the
+        // rejection sticks forever and the widget never recovers.
+        scriptPromise = null
+        s.remove()
+        reject(new Error('Failed to load Turnstile'))
+      }
       document.head.appendChild(s)
     })
   }

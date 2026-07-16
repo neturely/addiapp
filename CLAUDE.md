@@ -232,9 +232,10 @@ set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone a
 — WCAG's 3:1 large-text tier; white on `#FB5231` = 3.31). Applied to: the PointsCard/Stats
 large stat numbers, AND **all primary CTA buttons** — standardized to `text-xl` (20px)
 `font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
-read muddy). Everything else stays dark on-fill: small labels, badges, the filter/time
-pills, the initials avatar, and the compact utility buttons (Header "Add task", Dashboard
-inline "Save" — too small to bump without breaking their layout). success/accent/warning
+read muddy). This includes the compact utility buttons — Header "Add task" and Dashboard
+inline "Save" ARE primary CTAs and follow the same standardization (`text-xl font-bold
+text-white`; 20px bold clears the 3:1 large-text tier). Everything else stays dark on-fill:
+small labels, badges, the filter/time pills, and the initials avatar. success/accent/warning
 fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: solid vivid
 + on-fill = high; tint + ink = low.
 
