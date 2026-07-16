@@ -7,6 +7,13 @@ namespace App\Http;
 /** Parsed HTTP request. `user`/`userId` are populated by the auth middleware. */
 final class Request
 {
+    /**
+     * Cap the request body (PERF-3, #114). Every real payload here is tiny
+     * (title ≤255 + a few scalars), so 64 KB is generous; anything larger is
+     * junk/abuse and is rejected before it's decoded into memory.
+     */
+    private const MAX_BODY_BYTES = 64 * 1024;
+
     public ?int $userId = null;
     /** @var array{id:int,email:string,displayName:?string}|null */
     public ?array $user = null;
@@ -31,8 +38,8 @@ final class Request
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
         $body = [];
-        $raw = file_get_contents('php://input');
-        if ($raw !== false && $raw !== '') {
+        $raw = self::readBody();
+        if ($raw !== '') {
             $decoded = json_decode($raw, true);
             if (is_array($decoded)) {
                 $body = $decoded;
@@ -40,6 +47,36 @@ final class Request
         }
 
         return new self($method, $path, $_GET, $body, $_COOKIE);
+    }
+
+    /**
+     * Read the request body, capped at MAX_BODY_BYTES so an oversized payload is
+     * never fully inflated into memory just to be rejected (#114). A cheap
+     * Content-Length pre-check short-circuits when present; the length-capped read
+     * (one byte past the cap) is the real guard, since Content-Length is absent on
+     * chunked bodies and spoofable.
+     */
+    private static function readBody(): string
+    {
+        $declared = $_SERVER['CONTENT_LENGTH'] ?? null;
+        if (is_numeric($declared) && (int) $declared > self::MAX_BODY_BYTES) {
+            self::rejectTooLarge();
+        }
+
+        $raw = file_get_contents('php://input', false, null, 0, self::MAX_BODY_BYTES + 1);
+        if ($raw === false) {
+            return '';
+        }
+        if (strlen($raw) > self::MAX_BODY_BYTES) {
+            self::rejectTooLarge();
+        }
+        return $raw;
+    }
+
+    private static function rejectTooLarge(): never
+    {
+        Response::error('Payload too large', 413);
+        exit;
     }
 
     /** Raw string query param, or null. */
