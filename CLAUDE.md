@@ -119,8 +119,10 @@ to the old Node API.
 - **Auth (#26, #61, #62, #67, #79, #80)**: `/api/auth/{register,login,logout,me,verify,
   resend-verification,forgot-password,reset-password}`. DB-backed sessions, bcrypt.
   Email verification gates login; password reset revokes all sessions. register
-  survives email-send failures (best-effort, #67). login/register + the email
-  endpoints are rate-limited (#80). **Cloudflare Turnstile CAPTCHA** on register +
+  survives email-send failures (best-effort, #67) and is **non-enumerating** —
+  an existing email gets the same 201 + neutral body as a new one, no insert, no
+  re-sent email (#118); login/forgot/resend are neutral too. login/register + the
+  email endpoints are rate-limited (#80). **Cloudflare Turnstile CAPTCHA** on register +
   forgot-password, verified server-side via `siteverify` (#79) — all-or-nothing on
   `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
   disabled (dev default, fails closed if only the secret is set). Client pages:
