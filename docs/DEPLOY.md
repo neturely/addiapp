@@ -22,6 +22,7 @@ Runs on push to `main` (or manual dispatch):
 | `DEPLOY_SSH_USER` | `addiapp` |
 | `DEPLOY_SSH_PORT` | `22` |
 | `DEPLOY_SSH_KEY`  | private half of a dedicated deploy keypair (public half in the account's `~/.ssh/authorized_keys`) |
+| `TURNSTILE_SITE_KEY` | Cloudflare Turnstile **site** key (#79) — public, baked into the SPA build. Pairs with `turnstileSecret` in `config.php` |
 
 ## CI release gate (`.github/workflows/ci.yml`)
 
@@ -96,6 +97,7 @@ tests skip (they never touch dev/prod data).
      'appTimezone'  => 'Europe/Stockholm',
      'resendApiKey' => 'RESEND_KEY',   // real key + verified domain (#65) for live email
      'emailFrom'    => 'AddiApp <no-reply@addiapp.com>',
+     'turnstileSecret' => 'TURNSTILE_SECRET', // Cloudflare Turnstile secret (#79); empty → CAPTCHA disabled
      'isProd'       => true,
    ];
    ```
@@ -111,6 +113,28 @@ tests skip (they never touch dev/prod data).
 in Resend (#65) before live sends work — until then registration succeeds but
 verification emails aren't delivered (logged as best-effort failures). Set
 `emailFrom` to a verified-domain sender once #65 is done.
+
+## CAPTCHA in production (Cloudflare Turnstile, #79)
+
+The register and forgot-password forms carry a Turnstile widget, verified
+server-side via `siteverify` before the account is created / the reset email is
+sent. It's an **all-or-nothing pair** — both keys must be set together:
+
+1. Cloudflare dashboard → **Turnstile** → add a widget for `addiapp.com`. Copy the
+   **site key** (public) and **secret key** (private).
+2. Set the GitHub Actions secret `TURNSTILE_SITE_KEY` to the site key (baked into
+   the SPA at build via `VITE_TURNSTILE_SITE_KEY`).
+3. Set `turnstileSecret` in `~/api/config.php` to the secret key.
+
+If **neither** is set the CAPTCHA is disabled end-to-end (the widget renders
+nothing, the backend skips verification) — this is the local-dev default, no
+Cloudflare account needed. If the **secret is set but the site key isn't**, the
+client sends no token and the backend fails closed → registration is blocked, so
+always deploy the two together. Cloudflare's dummy test keys
+(`1x000…AA` / `1x000…AA`) exercise the flow without a real challenge.
+
+Edge-level protection (Bot Fight Mode, WAF rule on `/api/auth/*`, managed DDoS)
+is tracked separately — dashboard-only, no code.
 
 ## Backups
 

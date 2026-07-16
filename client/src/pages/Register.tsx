@@ -2,12 +2,15 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { Turnstile, TURNSTILE_SITE_KEY } from '@/components/Turnstile'
 
 export function Register() {
   const { register, resendVerification } = useAuth()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [registered, setRegistered] = useState(false)
@@ -18,10 +21,13 @@ export function Register() {
     setError(null)
     setSubmitting(true)
     try {
-      await register(email, password, displayName.trim() || undefined)
+      await register(email, password, displayName.trim() || undefined, captchaToken)
       setRegistered(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
+      // Turnstile tokens are single-use — get a fresh one for the next attempt.
+      setCaptchaToken('')
+      setWidgetKey((k) => k + 1)
     } finally {
       setSubmitting(false)
     }
@@ -95,10 +101,11 @@ export function Register() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <Turnstile key={widgetKey} onToken={setCaptchaToken} className="flex justify-center" />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (!!TURNSTILE_SITE_KEY && !captchaToken)}
             className="w-full rounded-lg bg-primary py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Creating account…' : 'Register'}

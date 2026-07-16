@@ -27,6 +27,7 @@ final class Config
             'appTimezone' => 'Europe/Stockholm',
             'resendApiKey' => '',
             'emailFrom' => 'AddiApp <onboarding@resend.dev>',
+            'turnstileSecret' => '',
             'isProd' => false,
         ];
 
@@ -36,6 +37,7 @@ final class Config
             'appTimezone' => getenv('APP_TIMEZONE') ?: null,
             'resendApiKey' => getenv('RESEND_API_KEY') !== false ? getenv('RESEND_API_KEY') : null,
             'emailFrom' => getenv('ADDIAPP_EMAIL_FROM') ?: null,
+            'turnstileSecret' => getenv('TURNSTILE_SECRET') !== false ? getenv('TURNSTILE_SECRET') : null,
             'isProd' => getenv('APP_ENV') !== false ? (getenv('APP_ENV') === 'production') : null,
         ], static fn ($v) => $v !== null);
 

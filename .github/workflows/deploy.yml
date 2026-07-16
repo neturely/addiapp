@@ -25,6 +25,10 @@ jobs:
           cache: npm
 
       - name: Build the SPA
+        # Public Turnstile site key (#79), baked into the client bundle. Not a
+        # secret, but kept in GH secrets so it isn't hardcoded in the repo.
+        env:
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
         run: |
           npm ci
           npm run build -w client
