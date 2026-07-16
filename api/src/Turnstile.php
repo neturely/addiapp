@@ -29,6 +29,9 @@ final class Turnstile
         }
 
         $ch = curl_init(self::SITEVERIFY);
+        if ($ch === false) {
+            return false; // fail closed: couldn't even init the request
+        }
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
@@ -41,9 +44,15 @@ final class Turnstile
         ]);
         $body = curl_exec($ch);
         $err = curl_error($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        // No curl_close(): it's a deprecated no-op since PHP 8.0 (the CurlHandle
+        // object is freed by GC when $ch goes out of scope) and emits a
+        // deprecation notice on 8.5+ that would leak into the response body.
 
-        if ($body === false || $err !== '') {
-            return false; // fail closed on an unverifiable challenge
+        // Fail closed on a transport error OR any non-2xx from siteverify — an
+        // unverifiable challenge must not be treated as a pass.
+        if ($body === false || $err !== '' || $status < 200 || $status >= 300) {
+            return false;
         }
         $data = json_decode((string) $body, true);
         return is_array($data) && ($data['success'] ?? false) === true;
