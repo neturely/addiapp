@@ -130,7 +130,7 @@ export function TaskForm({ initial, submitLabel, submittingLabel, onSubmit }: Ta
         <p className="mt-1 text-xs text-muted">Beat your estimate to earn a speed bonus.</p>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       <button
         type="submit"

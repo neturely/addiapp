@@ -93,7 +93,11 @@ export function TaskPresented() {
   }
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-muted">Finding you a task…</main>
+    return (
+      <main className="flex min-h-screen items-center justify-center text-muted">
+        <span role="status">Finding you a task…</span>
+      </main>
+    )
   }
 
   if (!task) {
@@ -125,7 +129,7 @@ export function TaskPresented() {
           </div>
         )}
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
 
         <button
           type="button"

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mascot } from '@/components/Mascot'
 import type { WinSize } from '@/lib/tasks'
@@ -25,6 +25,23 @@ export function Choice() {
     const params = new URLSearchParams({ size })
     if (minutes != null) params.set('minutes', String(minutes))
     navigate(`/play/task?${params.toString()}`)
+  }
+
+  // Roving-tabindex radiogroup for the time presets (A11Y-5, #126): only the
+  // checked pill is tabbable; arrow keys move the selection AND focus together,
+  // matching the WAI-ARIA radio pattern.
+  const pillRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onPillKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = TIME_OPTIONS.length - 1
+    let next = index
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = last
+    else return
+    e.preventDefault()
+    setMinutes(TIME_OPTIONS[next].minutes)
+    pillRefs.current[next]?.focus()
   }
 
   return (
@@ -55,15 +72,28 @@ export function Choice() {
       </div>
 
       <div className="w-full max-w-md">
-        <p className="mb-2 text-sm font-medium text-muted">How much time do you have?</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {TIME_OPTIONS.map((opt) => {
+        <p id="time-label" className="mb-2 text-sm font-medium text-muted">
+          How much time do you have?
+        </p>
+        <div
+          role="radiogroup"
+          aria-labelledby="time-label"
+          className="flex flex-wrap justify-center gap-2"
+        >
+          {TIME_OPTIONS.map((opt, i) => {
             const active = minutes === opt.minutes
             return (
               <button
                 key={opt.label}
+                ref={(el) => {
+                  pillRefs.current[i] = el
+                }}
                 type="button"
+                role="radio"
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setMinutes(opt.minutes)}
+                onKeyDown={(e) => onPillKeyDown(e, i)}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
                 }`}

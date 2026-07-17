@@ -102,7 +102,7 @@ export function Register() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <Turnstile key={widgetKey} onToken={setCaptchaToken} className="flex justify-center" />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={submitting || (!!TURNSTILE_SITE_KEY && !captchaToken)}
