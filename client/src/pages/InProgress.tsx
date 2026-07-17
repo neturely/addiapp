@@ -5,19 +5,8 @@ import { Mascot } from '@/components/Mascot'
 import { Completion } from '@/components/Completion'
 import { completeTask, getTask, parseMinutes, type AwardResult, type Task } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
-
-function pad(n: number): string {
-  return String(n).padStart(2, '0')
-}
-
-/** Elapsed seconds → M:SS, or H:MM:SS past an hour. */
-function formatClock(totalSeconds: number): string {
-  const s = Math.max(0, totalSeconds)
-  const hours = Math.floor(s / 3600)
-  const minutes = Math.floor((s % 3600) / 60)
-  const seconds = s % 60
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`
-}
+import { formatClock } from '@/lib/time'
+import { useInProgress } from '@/inprogress/useInProgress'
 
 /**
  * Play-mode task-in-progress screen (issue #33). A live count-up timer derived
@@ -30,6 +19,7 @@ export function InProgress() {
   const { id } = useParams()
   const taskId = Number(id)
   const navigate = useNavigate()
+  const { refresh: refreshActiveTask } = useInProgress()
 
   // Win/time filters carried from the task-presented screen (#31), so the #34
   // "Keep going" action can offer another task without re-asking.
@@ -101,15 +91,22 @@ export function InProgress() {
       const { pointsAwarded } = await completeTask(task.id)
       setAwarded(pointsAwarded ?? null)
       setDone(true)
+      // Completion renders in place (no route change), so refresh the header
+      // chip imperatively — otherwise it would linger on the finished task (#135).
+      void refreshActiveTask()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not complete the task')
     } finally {
       setCompleting(false)
     }
-  }, [task])
+  }, [task, refreshActiveTask])
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-muted">Loading…</main>
+    return (
+      <main className="flex min-h-screen items-center justify-center text-muted">
+        <span role="status">Loading…</span>
+      </main>
+    )
   }
 
   if (error && !task) {
@@ -191,7 +188,16 @@ export function InProgress() {
           )}
         </p>
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {/* SR-only milestone: announces ONCE when the bonus window closes. The
+            text only changes at the crossing (empty → message), so a screen
+            reader announces it a single time and the per-second clock is never
+            in a live region (would spam). A task resumed already-past-estimate
+            renders the text on first mount → not announced, which is correct. */}
+        <p role="status" className="sr-only">
+          {inBonus ? '' : 'Past the estimate — no speed bonus now.'}
+        </p>
+
+        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
 
         <button
           type="button"

@@ -281,7 +281,7 @@ hand (like `config.php`). All steps run on the box (`ssh addiapp@209.42.255.1`).
    ```cron
    MAILTO="you@example.com"
    30 3 * * * /home/addiapp/bin/backup-db.sh >> /home/addiapp/backups/db/backup.log
-   45 3 * * * /usr/bin/php /home/addiapp/api/cleanup.php >> /home/addiapp/backups/db/cleanup.log
+   45 3 * * * /usr/local/bin/php /home/addiapp/api/cleanup.php >> /home/addiapp/backups/db/cleanup.log
    ```
    `cleanup.php` deletes expired `sessions` / `email_tokens` rows and stale
    `rate_limits` rows (idempotent — safe to re-run). It ships with the deploy

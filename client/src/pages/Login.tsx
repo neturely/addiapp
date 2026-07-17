@@ -72,7 +72,7 @@ export function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           {needsVerify && !resent && (
             <button
               type="button"

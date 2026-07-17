@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutGrid, Play, Plus, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { useInProgress } from '@/inprogress/useInProgress'
+import { TimerChip } from './TimerChip'
 import type { AuthUser } from '@/auth/authContext'
 
 /** 1–2 uppercase initials from the display name, falling back to the email. */
@@ -29,6 +31,7 @@ const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => 
 export function Header() {
   const { user } = useAuth()
   const { pathname } = useLocation()
+  const { activeTask } = useInProgress()
 
   return (
     <header className="flex items-center justify-between gap-4 bg-surface px-4 py-3 sm:px-6">
@@ -37,6 +40,7 @@ export function Header() {
       </Link>
 
       <div className="flex items-center gap-4 sm:gap-5">
+        {activeTask && <TimerChip task={activeTask} />}
         <nav className="flex items-center gap-4">
           {NAV.map(({ to, label, Icon, match }) => {
             const active = match(pathname)

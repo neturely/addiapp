@@ -36,7 +36,11 @@ export function Stats() {
   }, [])
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-muted">Loading…</main>
+    return (
+      <main className="flex min-h-screen items-center justify-center text-muted">
+        <span role="status">Loading…</span>
+      </main>
+    )
   }
   if (error || !stats) {
     return (
