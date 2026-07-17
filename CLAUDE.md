@@ -258,6 +258,14 @@ fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: so
   (`lib/authSignal.ts`) → `AuthProvider` clears the user and `ProtectedRoute` redirects
   to `/login` with a muted note. `/auth/*` 401s stay local form errors (opt out elsewhere
   with `skipUnauthorizedHandler`).
+- **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
+  loading indicators and the undo toast use `role="status"` (toast also
+  `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).
+  Route changes move focus to `#main-content` via `RouteFocus` in `AppLayout` (which
+  also hosts the skip link); an in-place screen (e.g. `Completion`) focuses its own
+  heading. Segmented pill pickers use the `radiogroup` pattern (roving tabindex + arrow
+  keys + `aria-checked`); icon/text-only controls get `aria-label`s. Don't add ARIA
+  without verifying the SR/keyboard interaction it produces.
 - **Backend (PHP 8.2)**: plain PHP + PDO, no framework, no Composer runtime deps.
   Thin controllers; logic in modules (`Points/`, `Tasks/Selection.php`, `Auth/`).
   PDO **parameterized** queries only — never string-concatenate SQL. PSR-4-ish
