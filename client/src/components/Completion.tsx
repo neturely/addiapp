@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
 import type { WinSize } from '@/lib/tasks'
@@ -39,6 +40,19 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
   if (minutes != null) params.set('minutes', String(minutes))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
 
+  // This screen renders in place (no route change), so RouteFocus can't catch it
+  // (#126). Focus the heading on mount to move SR/keyboard focus here; its
+  // aria-label carries the full outcome incl. points so it's announced as one
+  // message (a live region wouldn't fire for content present on first render).
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  useEffect(() => {
+    headingRef.current?.focus()
+  }, [])
+  const announcement =
+    totalPoints != null
+      ? `Nice work! ${title} complete. You earned ${totalPoints} points.`
+      : `Nice work! ${title} complete.`
+
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center gap-6 overflow-hidden p-8 text-center">
       {CONFETTI.map((c, i) => (
@@ -51,7 +65,14 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
       ))}
 
       <Mascot expression="celebrating" />
-      <h1 className="text-3xl font-bold text-gray-800">Nice work!</h1>
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        aria-label={announcement}
+        className="text-3xl font-bold text-gray-800 focus:outline-none"
+      >
+        Nice work!
+      </h1>
       <p className="text-muted">{title}</p>
 
       {totalPoints != null && (

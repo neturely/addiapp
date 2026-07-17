@@ -110,6 +110,21 @@ export function Dashboard() {
     }
   }, [])
 
+  // Pause the undo auto-dismiss while the toast is hovered or focused, so
+  // keyboard/screen-reader users can reach Undo before it commits (A11Y-1, #126).
+  // Resuming starts a fresh full window — generous, but the point is only that it
+  // can't vanish mid-interaction.
+  function pauseUndo() {
+    const p = pendingRef.current
+    if (p) clearTimeout(p.timer)
+  }
+  function resumeUndo() {
+    const p = pendingRef.current
+    if (!p) return
+    clearTimeout(p.timer)
+    p.timer = window.setTimeout(commitPending, UNDO_MS)
+  }
+
   function onDelete(task: Task) {
     commitPending() // flush any earlier pending delete first
     setTasks((prev) => prev.filter((t) => t.id !== task.id))
@@ -217,10 +232,10 @@ export function Dashboard() {
         })}
       </div>
 
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="p-8 text-center text-muted">Loading…</p>
+        <p role="status" className="p-8 text-center text-muted">Loading…</p>
       ) : visible.length === 0 ? (
         <div className="rounded-2xl bg-surface p-10 text-center">
           <p className="text-muted">
@@ -233,13 +248,14 @@ export function Dashboard() {
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-surface">
           <table className="w-full min-w-[640px] text-left text-sm">
+            <caption className="sr-only">Your tasks</caption>
             <thead className="bg-gray-50 text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Effort</th>
-                <th className="px-4 py-3 font-medium">Est.</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Actions</th>
+                <th scope="col" className="px-4 py-3 font-medium">Title</th>
+                <th scope="col" className="px-4 py-3 font-medium">Effort</th>
+                <th scope="col" className="px-4 py-3 font-medium">Est.</th>
+                <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -247,19 +263,30 @@ export function Dashboard() {
                 const editing = editingId === task.id && editValues
                 if (editing) {
                   return (
-                    <tr key={task.id} className="bg-primary-tint align-top">
+                    <tr
+                      key={task.id}
+                      className="bg-primary-tint align-top"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          setEditingId(null)
+                          setRowError(null)
+                        }
+                      }}
+                    >
                       <td className="px-4 py-2">
                         <input
                           autoFocus
+                          aria-label="Title"
                           value={editValues.title}
                           maxLength={MAX_TITLE}
                           onChange={(e) => setEditValues({ ...editValues, title: e.target.value })}
                           className="w-full rounded bg-gray-100 p-1.5"
                         />
-                        {rowError && <p className="mt-1 text-xs text-red-600">{rowError}</p>}
+                        {rowError && <p role="alert" className="mt-1 text-xs text-red-600">{rowError}</p>}
                       </td>
                       <td className="px-4 py-2">
                         <select
+                          aria-label="Effort"
                           value={editValues.complexity}
                           onChange={(e) =>
                             setEditValues({ ...editValues, complexity: e.target.value as TaskComplexity })
@@ -274,6 +301,7 @@ export function Dashboard() {
                       <td className="px-4 py-2">
                         <input
                           type="number"
+                          aria-label="Estimated minutes"
                           min={1}
                           max={MAX_MINUTES}
                           value={editValues.estimatedMinutes}
@@ -285,6 +313,7 @@ export function Dashboard() {
                       </td>
                       <td className="px-4 py-2">
                         <select
+                          aria-label="Status"
                           value={editValues.status}
                           onChange={(e) =>
                             setEditValues({ ...editValues, status: e.target.value as TaskStatus })
@@ -322,12 +351,15 @@ export function Dashboard() {
                 const badge = STATUS_BADGE[task.status]
                 return (
                   <tr key={task.id} className="even:bg-gray-50 hover:bg-primary-tint">
-                    <td
-                      onClick={() => startEdit(task)}
-                      className="cursor-pointer px-4 py-3 font-medium text-gray-800"
-                      title="Click to edit"
-                    >
-                      {task.title}
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(task)}
+                        aria-label={`Edit ${task.title}`}
+                        className="w-full cursor-pointer text-left font-medium text-gray-800"
+                      >
+                        {task.title}
+                      </button>
                     </td>
                     <td onClick={() => startEdit(task)} className="cursor-pointer px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tag.className}`}>
@@ -381,7 +413,18 @@ export function Dashboard() {
       )}
 
       {pendingTask && (
-        <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          onMouseEnter={pauseUndo}
+          onMouseLeave={resumeUndo}
+          onFocus={pauseUndo}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) resumeUndo()
+          }}
+          className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white"
+        >
           <span>
             Deleted “{pendingTask.title.length > 32 ? pendingTask.title.slice(0, 32) + '…' : pendingTask.title}”
           </span>

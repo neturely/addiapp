@@ -109,7 +109,11 @@ export function InProgress() {
   }, [task])
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-muted">Loading…</main>
+    return (
+      <main className="flex min-h-screen items-center justify-center text-muted">
+        <span role="status">Loading…</span>
+      </main>
+    )
   }
 
   if (error && !task) {
@@ -191,7 +195,16 @@ export function InProgress() {
           )}
         </p>
 
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {/* SR-only milestone: announces ONCE when the bonus window closes. The
+            text only changes at the crossing (empty → message), so a screen
+            reader announces it a single time and the per-second clock is never
+            in a live region (would spam). A task resumed already-past-estimate
+            renders the text on first mount → not announced, which is correct. */}
+        <p role="status" className="sr-only">
+          {inBonus ? '' : 'Past the estimate — no speed bonus now.'}
+        </p>
+
+        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
 
         <button
           type="button"
