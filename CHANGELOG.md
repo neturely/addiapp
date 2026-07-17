@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0] - 2026-07-17
 ### Fixed
-- A11Y cluster — implement refresh-independent fixes (A11Y-1/2/4/5); hold shell/table-coupled items ([#126](https://github.com/neturely/addiapp/issues/126))
+- Accessibility across the app — route-change focus + skip link, live-region alerts and loading/undo-toast status (with pause-on-hover), a radiogroup time picker, labelled keyboard-reachable inline editing, and table caption/scope. Mobile-toast announce remains for the mobile dashboard ([#126](https://github.com/neturely/addiapp/issues/126))
 ### Added
 - Persistent in-progress task timer in the header ([#135](https://github.com/neturely/addiapp/issues/135))
 ### Changed
