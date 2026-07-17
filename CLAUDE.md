@@ -210,7 +210,11 @@ App shell (#92): authenticated routes render inside `AppLayout` (Header → Outl
 → Footer). The Header nav is intentionally **Play + Dashboard only** — the
 initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
 decision, not a missing nav item), and logout lives in the Footer. Add-task is a
-Header CTA button.
+Header CTA button. A live **in-progress timer chip** (#135) sits left of the Play
+icon when a task is in progress — `InProgressProvider` (wrapping `AppLayout`)
+tracks the most-recently-started in-progress task (fetch on mount + route change,
+no polling); `TimerChip` ticks client-side off `startedAt` and links to
+`/play/progress/:id`.
 
 Mascot: icon-style, expression-driven SVG (#96) — one `Mascot` component
 (`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
