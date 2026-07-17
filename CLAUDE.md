@@ -265,7 +265,11 @@ fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: so
   also hosts the skip link); an in-place screen (e.g. `Completion`) focuses its own
   heading. Segmented pill pickers use the `radiogroup` pattern (roving tabindex + arrow
   keys + `aria-checked`); icon/text-only controls get `aria-label`s. Don't add ARIA
-  without verifying the SR/keyboard interaction it produces.
+  without verifying the SR/keyboard interaction it produces — use the
+  `client/e2e/` harness (`npm run e2e:a11y -w client`, #170): puppeteer-core drives
+  the real app in system Chrome and asserts focus/keyboard/ARIA behavior. It's the
+  in-repo tool for live-verifying any client interaction; needs the dev stack up
+  (not in CI). See `client/e2e/README.md`.
 - **Backend (PHP 8.2)**: plain PHP + PDO, no framework, no Composer runtime deps.
   Thin controllers; logic in modules (`Points/`, `Tasks/Selection.php`, `Auth/`).
   PDO **parameterized** queries only — never string-concatenate SQL. PSR-4-ish
