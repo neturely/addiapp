@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-17
+### Fixed
+- A11Y cluster — implement refresh-independent fixes (A11Y-1/2/4/5); hold shell/table-coupled items ([#126](https://github.com/neturely/addiapp/issues/126))
+### Added
+- Persistent in-progress task timer in the header ([#135](https://github.com/neturely/addiapp/issues/135))
+### Changed
+- Preserve the Puppeteer-core e2e/a11y verification harness in the repo (client/e2e/) ([#170](https://github.com/neturely/addiapp/issues/170))
+
 ## [1.3.3] - 2026-07-16
 ### Changed
 - OPS-4 — Nightly cleanup of expired sessions / email_tokens / rate_limits rows ([#109](https://github.com/neturely/addiapp/issues/109))
@@ -48,7 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/neturely/addiapp/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/neturely/addiapp/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/neturely/addiapp/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/neturely/addiapp/compare/v1.3.0...v1.3.1
