@@ -111,7 +111,7 @@ export function TaskForm({
   return (
     <form onSubmit={handle} className="space-y-5">
       <div>
-        <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-600">
+        <label htmlFor="title" className="mb-2 block text-sm font-medium text-gray-600">
           What needs doing?
         </label>
         <input
@@ -126,7 +126,7 @@ export function TaskForm({
       </div>
 
       <div>
-        <span className="mb-1 block text-sm font-medium text-gray-600">How much effort?</span>
+        <span className="mb-3 block text-sm font-medium text-gray-600">How much effort?</span>
         <div className="grid grid-cols-3 gap-2">
           {COMPLEXITY_ORDER.map((c) => {
             const active = complexity === c
@@ -150,7 +150,7 @@ export function TaskForm({
       </div>
 
       <div>
-        <label htmlFor="minutes" className="mb-1 block text-sm font-medium text-gray-600">
+        <label htmlFor="minutes" className="mb-2 block text-sm font-medium text-gray-600">
           Estimated time (minutes)
         </label>
         <input
