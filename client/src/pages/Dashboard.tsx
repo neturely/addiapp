@@ -328,7 +328,9 @@ export function Dashboard() {
       ) : visible.length === 0 ? (
         <div className="rounded-2xl bg-surface p-10 text-center">
           <p className="text-muted">
-            {tasks.length === 0 ? 'No tasks yet.' : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} tasks.`}
+            {tasks.length === 0
+              ? 'No tasks yet.'
+              : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
           </p>
           <Link
             to="/tasks/new"

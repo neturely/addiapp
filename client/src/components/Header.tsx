@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutGrid, Play, Plus, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
@@ -36,6 +36,9 @@ export function Header() {
   // Gravatar loads over the initials fallback; d=404 makes Gravatar 404 when the
   // email has no avatar, so onError cleanly reveals the initials underneath (#174).
   const [avatarFailed, setAvatarFailed] = useState(false)
+  // Reset the failure flag when the account changes, so a user with no Gravatar
+  // doesn't permanently disable it for the next user in the same session (#195).
+  useEffect(() => setAvatarFailed(false), [user?.gravatarHash])
   const showGravatar = !!user?.gravatarHash && !avatarFailed
 
   return (
