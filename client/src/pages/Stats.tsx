@@ -4,12 +4,36 @@ import { Flame, Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { fetchUserStats, type UserStats } from '@/lib/points'
 
-function Tile({ label, value, hint }: { label: string; value: string; hint?: ReactNode }) {
+/**
+ * Color-identity stat card (#185). Each metric gets its own vivid fill with a
+ * white number (large → clears the 3:1 rule) and a dark on-fill label; the
+ * neutral "Tasks done" card overrides to a white surface + dark number. The
+ * optional icon inherits the label colour via currentColor.
+ */
+function StatCard({
+  label,
+  value,
+  icon,
+  fill,
+  labelText,
+  valueText = 'text-white',
+}: {
+  label: string
+  value: string
+  icon?: ReactNode
+  fill: string
+  labelText: string
+  valueText?: string
+}) {
   return (
-    <div className="rounded-2xl bg-surface p-5 text-center">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-3xl font-extrabold tabular-nums text-gray-800">{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-muted">{hint}</div>}
+    <div className={`rounded-2xl p-5 text-center ${fill}`}>
+      <div
+        className={`flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide ${labelText}`}
+      >
+        {label}
+        {icon}
+      </div>
+      <div className={`mt-1 text-3xl font-extrabold tabular-nums ${valueText}`}>{value}</div>
     </div>
   )
 }
@@ -69,29 +93,38 @@ export function Stats() {
         <div className="text-5xl font-extrabold tabular-nums text-white">{total.toLocaleString()}</div>
       </section>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="Tasks done" value={lifetime.tasksCompleted.toLocaleString()} />
-        <Tile
+      {/* 2×2 colour-identity grid (#185) — also the mobile fix (was a cramped
+          4-across row). Violet fill (#a855f7) is a one-off here: bg-accent is a
+          light blue not tuned for white, so the Daily-bonus card uses a mid-tone
+          violet where white (3.96) and the dark label #180938 (4.68) both pass. */}
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard
           label="Day streak"
           value={`${streak.currentDays}`}
-          hint={
-            <span className="inline-flex items-center gap-1">
-              {streak.currentDays === 1 ? 'day' : 'days'}
-              <Flame className="h-3.5 w-3.5 text-warning-ink" />
-            </span>
-          }
+          icon={<Flame className="h-3.5 w-3.5" />}
+          fill="bg-warning"
+          labelText="text-on-warning"
         />
-        <Tile
+        <StatCard
           label="Speed bonus"
           value={`+${lifetime.speedBonusTotal.toLocaleString()}`}
-          hint={
-            <span className="inline-flex items-center gap-1">
-              earned
-              <Zap className="h-3.5 w-3.5 text-warning-ink" fill="currentColor" strokeWidth={0} />
-            </span>
-          }
+          icon={<Zap className="h-3.5 w-3.5" fill="currentColor" strokeWidth={0} />}
+          fill="bg-success"
+          labelText="text-on-success"
         />
-        <Tile label="Daily bonus" value={`×${+today.currentMultiplier.toFixed(2)}`} hint="next task" />
+        <StatCard
+          label="Daily bonus"
+          value={`×${+today.currentMultiplier.toFixed(2)}`}
+          fill="bg-[#a855f7]"
+          labelText="text-[#180938]"
+        />
+        <StatCard
+          label="Tasks done"
+          value={lifetime.tasksCompleted.toLocaleString()}
+          fill="bg-surface"
+          labelText="text-muted"
+          valueText="text-gray-800"
+        />
       </div>
 
       <p className="mt-4 text-center text-sm text-muted">
