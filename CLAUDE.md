@@ -229,8 +229,10 @@ deliberate later design pass, likely in Claude Design.
 Color palette — **vivid v3** (#143; single source `client/src/index.css`, flat,
 no shadows/borders, AA-verified). Each hue has THREE roles — never one token doing
 double duty:
-- `--color-{h}` = **vivid FILL** (`bg-{h}`): primary `#FB5231`, success `#3ECF4C`,
-  accent `#1CB0F6`, warning `#FFC800`.
+- `--color-{h}` = **vivid FILL** (`bg-{h}`): primary `#FB5231`, success `#1F9E3E`,
+  accent `#1CB0F6`, warning `#FFC800`. (success deepened from `#3ECF4C` in #174 so
+  large white text clears 3:1 on the fill — like primary's `#FF5A36`→`#FB5231` tune;
+  its only solid-fill uses are the dashboard banner + the InProgress meter bar.)
 - `--color-{h}-ink` = **text on LIGHT** (`text-{h}-ink`, colored text/badges on
   cream/white): primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning
   `#8A5A00`. (These are the old v2 values — they were already AA as text.)
