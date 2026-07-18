@@ -24,7 +24,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timerRef = useRef<number | null>(null)
 
   const clearTimer = useCallback(() => {
-    if (timerRef.current) {
+    if (timerRef.current !== null) {
       clearTimeout(timerRef.current)
       timerRef.current = null
     }
@@ -75,7 +75,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <span
               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${TONE_BADGE[tone]}`}
             >
-              <Icon className="h-5 w-5 text-white" strokeWidth={2.5} />
+              {/* accent fill isn't tuned for white — use dark on-fill there (#195). */}
+              <Icon
+                className={`h-5 w-5 ${tone === 'accent' ? 'text-on-accent' : 'text-white'}`}
+                strokeWidth={2.5}
+              />
             </span>
           )}
           <span className="min-w-0 font-medium">{toast.message}</span>
