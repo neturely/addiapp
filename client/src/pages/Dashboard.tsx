@@ -211,7 +211,7 @@ export function Dashboard() {
       <header className="mb-6 flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
         {/* Total across every status (#174) — distinct from the banner's "Tasks today". */}
-        <span className="text-sm text-muted">
+        <span className="text-2xl font-bold text-muted">
           {tasks.length} total {tasks.length === 1 ? 'thing' : 'things'} to do
         </span>
       </header>

@@ -45,12 +45,12 @@ export function PointsCard({ refreshSignal = 0 }: { refreshSignal?: number }) {
   return (
     <Link
       to="/stats"
-      className="mb-6 grid grid-cols-3 gap-4 rounded-2xl bg-success p-5 text-on-success transition hover:opacity-90"
+      className="mb-6 flex items-center justify-between gap-4 rounded-2xl bg-success px-8 py-5 text-on-success transition hover:opacity-90"
     >
       {columns.map((c) => (
         <div key={c.label}>
           <div className="text-xs font-medium uppercase tracking-wide text-on-success">{c.label}</div>
-          <div className="text-3xl font-extrabold tabular-nums text-white">{c.value}</div>
+          <div className="text-4xl font-extrabold tabular-nums text-white">{c.value}</div>
         </div>
       ))}
     </Link>
