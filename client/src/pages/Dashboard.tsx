@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
+  Check,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
+import {
   deleteTask,
   fetchTasks,
   startTask,
@@ -15,21 +26,47 @@ type Filter = 'all' | TaskStatus
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'backlog', label: 'Backlog' },
+  { key: 'backlog', label: 'To do' }, // presentation label; enum value stays `backlog` (#178)
   { key: 'in_progress', label: 'In progress' },
   { key: 'done', label: 'Done' },
 ]
 
+// Brighter, more-saturated badge tints (#178) — dark on-fill text keeps them AA
+// (the pale `-ink`-on-`-tint` pairing couldn't go brighter without dropping below
+// 4.5:1). Colored, but deliberately NOT solid-vivid (reserved for singular
+// emphasis) so a dense table stays scannable.
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
-  low: { label: 'Low', className: 'bg-success-tint text-success-ink' },
-  medium: { label: 'Medium', className: 'bg-warning-tint text-warning-ink' },
-  high: { label: 'High', className: 'bg-primary-tint text-primary-ink' },
+  low: { label: 'Low', className: 'bg-[#bfe9cd] text-on-success' },
+  medium: { label: 'Medium', className: 'bg-[#ffe3a0] text-on-warning' },
+  high: { label: 'High', className: 'bg-[#ffcdb8] text-on-primary' },
 }
 
+// `backlog` shows as "To do" with its own violet/accent identity (was muted grey).
 const STATUS_BADGE: Record<TaskStatus, { label: string; className: string }> = {
-  backlog: { label: 'Backlog', className: 'bg-gray-100 text-muted' },
-  in_progress: { label: 'In progress', className: 'bg-warning-tint text-warning-ink' },
-  done: { label: 'Done', className: 'bg-success-tint text-success-ink' },
+  backlog: { label: 'To do', className: 'bg-[#ddd0fa] text-on-accent' },
+  in_progress: { label: 'In progress', className: 'bg-[#ffe3a0] text-on-warning' },
+  done: { label: 'Done', className: 'bg-[#bfe9cd] text-on-success' },
+}
+
+// Sortable columns (#178). Default: most-recently-created first (id desc).
+type SortKey = 'created' | 'title' | 'effort' | 'est' | 'status'
+const EFFORT_ORDER: Record<TaskComplexity, number> = { low: 0, medium: 1, high: 2 }
+const STATUS_ORDER: Record<TaskStatus, number> = { backlog: 0, in_progress: 1, done: 2 }
+
+function compareBy(a: Task, b: Task, key: SortKey): number {
+  switch (key) {
+    case 'title':
+      return a.title.localeCompare(b.title)
+    case 'effort':
+      return EFFORT_ORDER[a.complexity] - EFFORT_ORDER[b.complexity]
+    case 'est':
+      return a.estimatedMinutes - b.estimatedMinutes
+    case 'status':
+      return STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+    case 'created':
+    default:
+      return a.id - b.id
+  }
 }
 
 const MAX_TITLE = 255
@@ -60,6 +97,10 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
+    key: 'created',
+    dir: 'desc',
+  })
   const [pointsRefresh, setPointsRefresh] = useState(0)
 
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -203,12 +244,60 @@ export function Dashboard() {
     }
   }
 
-  const visible = (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter)).sort(byIdDesc)
+  const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === filter)
+  const visible = [...filtered].sort((a, b) => {
+    const c = compareBy(a, b, sort.key)
+    return sort.dir === 'asc' ? c : -c
+  })
+
+  // Click a header to sort by it; same column toggles direction. New columns
+  // start ascending, except "created" (newest-first is the useful default).
+  function toggleSort(key: SortKey) {
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: key === 'created' ? 'desc' : 'asc' },
+    )
+  }
+
+  function SortTh({ colKey, label, className = '' }: { colKey: SortKey; label: string; className?: string }) {
+    const active = sort.key === colKey
+    return (
+      <th
+        scope="col"
+        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+        className={`px-4 py-3 font-medium ${className}`}
+      >
+        <button
+          type="button"
+          onClick={() => toggleSort(colKey)}
+          className="inline-flex cursor-pointer items-center gap-1 uppercase tracking-wide hover:text-gray-700"
+        >
+          {label}
+          {/* Active column shows its direction; the rest show a faint up/down
+              hint so it's clear every column is sortable (#178 follow-up). */}
+          {active ? (
+            sort.dir === 'asc' ? (
+              <ChevronUp className="h-3 w-3" aria-hidden />
+            ) : (
+              <ChevronDown className="h-3 w-3" aria-hidden />
+            )
+          ) : (
+            <ChevronsUpDown className="h-3 w-3 opacity-40" aria-hidden />
+          )}
+        </button>
+      </th>
+    )
+  }
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl p-4 sm:p-8">
-      <header className="mb-6">
+    <main className="mx-auto min-h-screen w-full max-w-4xl p-4 sm:p-8">
+      <header className="mb-6 flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        {/* Total across every status (#174) — distinct from the banner's "Tasks today". */}
+        <span className="text-2xl font-bold text-muted">
+          {tasks.length} total {tasks.length === 1 ? 'thing' : 'things'} to do
+        </span>
       </header>
 
       <PointsCard refreshSignal={pointsRefresh} />
@@ -222,7 +311,7 @@ export function Dashboard() {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`rounded-full px-3 py-1 text-sm font-medium transition ${
+              className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
                 active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
               }`}
             >
@@ -239,33 +328,46 @@ export function Dashboard() {
       ) : visible.length === 0 ? (
         <div className="rounded-2xl bg-surface p-10 text-center">
           <p className="text-muted">
-            {tasks.length === 0 ? 'No tasks yet.' : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} tasks.`}
+            {tasks.length === 0
+              ? 'No tasks yet.'
+              : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
           </p>
-          <Link to="/tasks/new" className="mt-2 inline-block text-sm text-primary-ink underline">
+          <Link
+            to="/tasks/new"
+            state={{ from: '/dashboard' }}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
             Add a task
           </Link>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-surface">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          {/* table-fixed so column widths stay put when a row enters edit mode
+              (its inputs are wider than the display badges) — no jump (#178). */}
+          <table className="w-full min-w-[640px] table-fixed text-left text-sm">
             <caption className="sr-only">Your tasks</caption>
             <thead className="bg-gray-50 text-xs uppercase tracking-wide text-muted">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">Title</th>
-                <th scope="col" className="px-4 py-3 font-medium">Effort</th>
-                <th scope="col" className="px-4 py-3 font-medium">Est.</th>
-                <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
+                <SortTh colKey="title" label="Title" />
+                <SortTh colKey="effort" label="Effort" className="w-32" />
+                <SortTh colKey="est" label="Est." className="w-24" />
+                <SortTh colKey="status" label="Status" className="w-40" />
+                <th scope="col" className="w-36 px-4 py-3 text-right font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {visible.map((task) => {
                 const editing = editingId === task.id && editValues
                 if (editing) {
+                  // Fixed row height (h-14) matches the display row so entering
+                  // edit mode doesn't jump (#178); a one-line error fits inside it.
                   return (
                     <tr
                       key={task.id}
-                      className="bg-primary-tint align-top"
+                      className="bg-primary-tint"
                       onKeyDown={(e) => {
                         if (e.key === 'Escape') {
                           setEditingId(null)
@@ -273,7 +375,7 @@ export function Dashboard() {
                         }
                       }}
                     >
-                      <td className="px-4 py-2">
+                      <td className="h-14 px-4 align-middle">
                         <input
                           autoFocus
                           aria-label="Title"
@@ -284,21 +386,21 @@ export function Dashboard() {
                         />
                         {rowError && <p role="alert" className="mt-1 text-xs text-red-600">{rowError}</p>}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="h-14 px-4 align-middle">
                         <select
                           aria-label="Effort"
                           value={editValues.complexity}
                           onChange={(e) =>
                             setEditValues({ ...editValues, complexity: e.target.value as TaskComplexity })
                           }
-                          className="rounded bg-gray-100 p-1.5"
+                          className="w-full rounded bg-gray-100 p-1.5"
                         >
                           <option value="low">Low</option>
                           <option value="medium">Medium</option>
                           <option value="high">High</option>
                         </select>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="h-14 px-4 align-middle">
                         <input
                           type="number"
                           aria-label="Estimated minutes"
@@ -308,40 +410,44 @@ export function Dashboard() {
                           onChange={(e) =>
                             setEditValues({ ...editValues, estimatedMinutes: e.target.value })
                           }
-                          className="w-20 rounded bg-gray-100 p-1.5"
+                          className="w-full rounded bg-gray-100 p-1.5"
                         />
                       </td>
-                      <td className="px-4 py-2">
+                      <td className="h-14 px-4 align-middle">
                         <select
                           aria-label="Status"
                           value={editValues.status}
                           onChange={(e) =>
                             setEditValues({ ...editValues, status: e.target.value as TaskStatus })
                           }
-                          className="rounded bg-gray-100 p-1.5"
+                          className="w-full rounded bg-gray-100 p-1.5"
                         >
-                          <option value="backlog">Backlog</option>
+                          <option value="backlog">To do</option>
                           <option value="in_progress">In progress</option>
                           <option value="done">Done</option>
                         </select>
                       </td>
-                      <td className="px-4 py-2 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => void saveEdit(task)}
-                          disabled={savingId === task.id}
-                          className="rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
-                        >
-                          {savingId === task.id ? 'Saving…' : 'Save'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingId(null)
-                            setRowError(null)
-                          }}
-                          className="ml-2 text-sm text-muted underline hover:text-gray-700"
-                        >
-                          Cancel
-                        </button>
+                      <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => void saveEdit(task)}
+                            disabled={savingId === task.id}
+                            aria-label="Save changes"
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-success-ink transition hover:bg-success-tint disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Check className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingId(null)
+                              setRowError(null)
+                            }}
+                            aria-label="Cancel editing"
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+                          >
+                            <X className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -351,58 +457,64 @@ export function Dashboard() {
                 const badge = STATUS_BADGE[task.status]
                 return (
                   <tr key={task.id} className="even:bg-gray-50 hover:bg-primary-tint">
-                    <td className="px-4 py-3">
+                    <td className="h-14 px-4 align-middle">
                       <button
                         type="button"
                         onClick={() => startEdit(task)}
                         aria-label={`Edit ${task.title}`}
-                        className="w-full cursor-pointer text-left font-medium text-gray-800"
+                        className="block w-full cursor-pointer truncate text-left font-medium text-gray-800"
                       >
                         {task.title}
                       </button>
                     </td>
-                    <td onClick={() => startEdit(task)} className="cursor-pointer px-4 py-3">
+                    <td onClick={() => startEdit(task)} className="h-14 cursor-pointer px-4 align-middle">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tag.className}`}>
                         {tag.label}
                       </span>
                     </td>
-                    <td onClick={() => startEdit(task)} className="cursor-pointer px-4 py-3 text-muted">
+                    <td onClick={() => startEdit(task)} className="h-14 cursor-pointer px-4 align-middle text-muted">
                       {task.estimatedMinutes}m
                     </td>
-                    <td onClick={() => startEdit(task)} className="cursor-pointer px-4 py-3">
+                    <td onClick={() => startEdit(task)} className="h-14 cursor-pointer px-4 align-middle">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
                         {badge.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      {task.status === 'backlog' && (
-                        <button
-                          onClick={() => void onStart(task)}
-                          className="text-xs font-semibold text-primary-ink hover:underline"
-                        >
-                          Start
-                        </button>
-                      )}
-                      {task.status === 'in_progress' && (
+                    <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-1">
+                        {task.status === 'backlog' && (
+                          <button
+                            onClick={() => void onStart(task)}
+                            aria-label={`Start ${task.title}`}
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
+                          >
+                            <Play className="h-5 w-5" fill="currentColor" strokeWidth={0} aria-hidden />
+                          </button>
+                        )}
+                        {task.status === 'in_progress' && (
+                          <Link
+                            to={`/play/progress/${task.id}`}
+                            aria-label={`Resume ${task.title}`}
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
+                          >
+                            <Play className="h-5 w-5" fill="currentColor" strokeWidth={0} aria-hidden />
+                          </Link>
+                        )}
                         <Link
-                          to={`/play/progress/${task.id}`}
-                          className="text-xs font-semibold text-warning-ink hover:underline"
+                          to={`/tasks/${task.id}/edit`}
+                          aria-label={`Edit details for ${task.title}`}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
                         >
-                          Resume
+                          <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
                         </Link>
-                      )}
-                      <Link
-                        to={`/tasks/${task.id}/edit`}
-                        className="ml-3 text-xs text-muted hover:underline"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        onClick={() => onDelete(task)}
-                        className="ml-3 text-xs text-muted hover:text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
+                        <button
+                          onClick={() => onDelete(task)}
+                          aria-label={`Delete ${task.title}`}
+                          className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-red-500 transition hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

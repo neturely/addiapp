@@ -1,18 +1,25 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
+import { CardScreen } from './CardScreen'
+import { fetchUserStats } from '@/lib/points'
 import type { WinSize } from '@/lib/tasks'
 
-/** Confetti-dot accents — staggered CSS keyframe (pop/drift/fade), no library. */
+/**
+ * Confetti-dot accents (#94 B1), repositioned to the card's corners (#181) rather
+ * than scattered across the page. Positions are relative to the card wrapper;
+ * negative offsets let a few peek just outside the card edge. `animate-confetti`
+ * (pop/drift/fade) is disabled under prefers-reduced-motion.
+ */
 const CONFETTI = [
-  { color: 'var(--color-primary)', top: '14%', left: '16%', delay: '0s' },
-  { color: 'var(--color-success)', top: '22%', left: '80%', delay: '0.5s' },
-  { color: 'var(--color-warning)', top: '38%', left: '10%', delay: '0.9s' },
-  { color: 'var(--color-accent)', top: '12%', left: '58%', delay: '0.2s' },
-  { color: 'var(--color-success)', top: '30%', left: '38%', delay: '1.2s' },
-  { color: 'var(--color-warning)', top: '18%', left: '34%', delay: '0.7s' },
-  { color: 'var(--color-accent)', top: '40%', left: '72%', delay: '1.5s' },
-  { color: 'var(--color-primary)', top: '48%', left: '24%', delay: '0.35s' },
+  { color: 'var(--color-primary)', pos: '-top-2 left-6', delay: '0s' },
+  { color: 'var(--color-success)', pos: '-top-3 right-10', delay: '0.5s' },
+  { color: 'var(--color-accent)', pos: 'top-8 -left-2', delay: '0.2s' },
+  { color: 'var(--color-warning)', pos: 'top-12 -right-2', delay: '0.9s' },
+  { color: 'var(--color-accent)', pos: '-bottom-2 left-10', delay: '0.35s' },
+  { color: 'var(--color-primary)', pos: '-bottom-3 right-8', delay: '1.2s' },
+  { color: 'var(--color-success)', pos: 'bottom-10 -left-3', delay: '0.7s' },
+  { color: 'var(--color-warning)', pos: 'bottom-14 -right-3', delay: '1.5s' },
 ]
 
 type CompletionProps = {
@@ -27,18 +34,33 @@ type CompletionProps = {
 }
 
 /**
- * Play-mode completion / celebration screen (issue #34). Reached from #33's
- * Complete action, using the pointsAwarded already returned by that PATCH.
- * Shows the TOTAL only (the base/speed/multiplier breakdown belongs on the future
- * dashboard, not here). "Keep going" skips the choice screen and reuses the same
- * win/time filters for a frictionless next task; it falls back to the choice
- * screen when no filters are available.
+ * Play-mode completion / celebration screen (issue #34; card redesign #181).
+ * Reached from #33's Complete action, using the pointsAwarded already returned by
+ * that PATCH. Content sits in a white card (matching InProgress); the points land
+ * in a tinted panel with a streak/daily-bonus context line beneath. Shows the
+ * TOTAL only (the base/speed/multiplier breakdown belongs on the dashboard). "Keep
+ * going" skips the choice screen and reuses the same win/time filters.
+ *
+ * NOTE (#181): this white-card treatment is a good candidate to become the shared
+ * celebratory/confirmation pattern (the empty state, #183, is the next adopter).
  */
 export function Completion({ title, totalPoints, multiplier, size, minutes }: CompletionProps) {
   const params = new URLSearchParams()
   if (size) params.set('size', size)
   if (minutes != null) params.set('minutes', String(minutes))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
+
+  // Streak for the context line — post-completion, so it reflects this task (#181).
+  const [streak, setStreak] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetchUserStats()
+      .then((s) => !cancelled && setStreak(s.streak.currentDays))
+      .catch(() => undefined) // context line is best-effort, non-blocking
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // This screen renders in place (no route change), so RouteFocus can't catch it
   // (#126). Focus the heading on mount to move SR/keyboard focus here; its
@@ -53,42 +75,49 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
       ? `Nice work! ${title} complete. You earned ${totalPoints} points.`
       : `Nice work! ${title} complete.`
 
-  return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center gap-6 overflow-hidden p-8 text-center">
-      {CONFETTI.map((c, i) => (
-        <span
-          key={i}
-          aria-hidden
-          className="animate-confetti absolute h-2.5 w-2.5 rounded-full"
-          style={{ backgroundColor: c.color, top: c.top, left: c.left, animationDelay: c.delay }}
-        />
-      ))}
+  const contextParts: string[] = []
+  if (streak != null && streak > 0) contextParts.push(`🔥 Day ${streak} streak`)
+  if (multiplier != null && multiplier > 1) contextParts.push(`×${+multiplier.toFixed(2)} daily bonus`)
 
+  const confetti = CONFETTI.map((c, i) => (
+    <span
+      key={i}
+      aria-hidden
+      className={`animate-confetti absolute h-2.5 w-2.5 rounded-full ${c.pos}`}
+      style={{ backgroundColor: c.color, animationDelay: c.delay }}
+    />
+  ))
+
+  return (
+    <CardScreen decoration={confetti}>
       <Mascot expression="celebrating" />
-      <h1
-        ref={headingRef}
-        tabIndex={-1}
-        aria-label={announcement}
-        className="text-3xl font-bold text-gray-800 focus:outline-none"
-      >
-        Nice work!
-      </h1>
-      <p className="text-muted">{title}</p>
+      <div>
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          aria-label={announcement}
+          className="text-3xl font-bold text-gray-800 focus:outline-none"
+        >
+          Nice work!
+        </h1>
+        <p className="mt-1 text-muted">{title}</p>
+      </div>
 
       {totalPoints != null && (
-        <div className="text-6xl font-extrabold tabular-nums text-primary-ink">+{totalPoints}</div>
-      )}
-
-      {multiplier != null && multiplier > 1 && (
-        <p className="text-sm text-muted">Current daily bonus: {+multiplier.toFixed(2)}x</p>
+        <div className="w-full rounded-2xl bg-primary-tint px-6 py-4">
+          <div className="text-6xl font-extrabold tabular-nums text-primary-ink">+{totalPoints}</div>
+          {contextParts.length > 0 && (
+            <p className="mt-1 text-sm font-semibold text-primary-ink">{contextParts.join(' · ')}</p>
+          )}
+        </div>
       )}
 
       <Link
         to={keepGoingHref}
-        className="mt-2 rounded-xl bg-primary px-8 py-3 text-xl font-bold text-white transition hover:opacity-90"
+        className="mt-1 rounded-xl bg-primary px-8 py-3 text-xl font-bold text-white transition hover:opacity-90"
       >
         Keep going
       </Link>
-    </main>
+    </CardScreen>
   )
 }

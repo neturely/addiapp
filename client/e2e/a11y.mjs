@@ -112,7 +112,8 @@ await page.keyboard.press('Escape')
 await sleep(200)
 ok(!(await page.$('input[aria-label="Title"]')), 'A11Y-3: Escape cancels inline edit')
 
-await page.evaluate(() => [...document.querySelectorAll('tbody button')].find((b) => b.textContent?.trim() === 'Delete')?.click())
+// Delete is an icon-only button (#178) — select it by its aria-label.
+await page.evaluate(() => document.querySelector('tbody button[aria-label^="Delete "]')?.click())
 await page.waitForSelector('[role=status][aria-live=polite]', { timeout: 3000 }).catch(() => {})
 const toast = await page.evaluate(() => {
   const t = document.querySelector('[role=status][aria-live=polite]')
