@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from './Header'
 import { Footer } from './Footer'
 import { InProgressProvider } from '@/inprogress/InProgressProvider'
+import { ToastProvider } from '@/toast/ToastProvider'
 
 /**
  * Moves keyboard/screen-reader focus to the content region on route change so a
@@ -40,24 +41,26 @@ function RouteFocus() {
 export function AppLayout() {
   return (
     <InProgressProvider>
-      <div className="flex min-h-screen flex-col bg-page">
-        <RouteFocus />
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:font-semibold focus:text-on-primary"
-        >
-          Skip to main content
-        </a>
-        <Header />
-        <div
-          id="main-content"
-          tabIndex={-1}
-          className="app-shell-content flex flex-1 flex-col focus:outline-none"
-        >
-          <Outlet />
+      <ToastProvider>
+        <div className="flex min-h-screen flex-col bg-page">
+          <RouteFocus />
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:font-semibold focus:text-on-primary"
+          >
+            Skip to main content
+          </a>
+          <Header />
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="app-shell-content flex flex-1 flex-col focus:outline-none"
+          >
+            <Outlet />
+          </div>
+          <Footer />
         </div>
-        <Footer />
-      </div>
+      </ToastProvider>
     </InProgressProvider>
   )
 }

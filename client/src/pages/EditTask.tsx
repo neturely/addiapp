@@ -26,7 +26,9 @@ export function EditTask() {
     let cancelled = false
     getTask(taskId)
       .then((t) => !cancelled && setTask(t))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load the task'))
+      .catch(
+        (e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load the task'),
+      )
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -70,12 +72,8 @@ export function EditTask() {
           submitLabel="Save changes"
           submittingLabel="Saving…"
           onSubmit={onSubmit}
+          onCancel={() => navigate('/dashboard')}
         />
-        <div className="mt-4 text-center text-sm">
-          <Link to="/dashboard" className="text-muted underline hover:text-gray-700">
-            Cancel
-          </Link>
-        </div>
       </div>
     </main>
   )
