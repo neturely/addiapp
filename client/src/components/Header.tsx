@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutGrid, Play, Plus, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
@@ -32,6 +33,10 @@ export function Header() {
   const { user } = useAuth()
   const { pathname } = useLocation()
   const { activeTask } = useInProgress()
+  // Gravatar loads over the initials fallback; d=404 makes Gravatar 404 when the
+  // email has no avatar, so onError cleanly reveals the initials underneath (#174).
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  const showGravatar = !!user?.gravatarHash && !avatarFailed
 
   return (
     <header className="flex items-center justify-between gap-4 bg-surface px-4 py-3 sm:px-6">
@@ -73,9 +78,18 @@ export function Header() {
             aria-label="Your stats"
             aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
             title={user.displayName ?? user.email}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary transition hover:opacity-90"
+            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-bold text-on-primary transition hover:opacity-90"
           >
-            {initialsFor(user)}
+            {showGravatar ? (
+              <img
+                src={`https://www.gravatar.com/avatar/${user.gravatarHash}?s=72&d=404`}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              initialsFor(user)
+            )}
           </Link>
         )}
       </div>

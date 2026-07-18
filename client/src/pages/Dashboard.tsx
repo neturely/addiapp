@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Plus } from 'lucide-react'
 import {
   deleteTask,
   fetchTasks,
@@ -206,9 +207,13 @@ export function Dashboard() {
   const visible = (filter === 'all' ? tasks : tasks.filter((t) => t.status === filter)).sort(byIdDesc)
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl p-4 sm:p-8">
-      <header className="mb-6">
+    <main className="mx-auto min-h-screen w-full max-w-4xl p-4 sm:p-8">
+      <header className="mb-6 flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        {/* Total across every status (#174) — distinct from the banner's "Tasks today". */}
+        <span className="text-sm text-muted">
+          {tasks.length} total {tasks.length === 1 ? 'thing' : 'things'} to do
+        </span>
       </header>
 
       <PointsCard refreshSignal={pointsRefresh} />
@@ -222,7 +227,7 @@ export function Dashboard() {
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`rounded-full px-3 py-1 text-sm font-medium transition ${
+              className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
                 active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
               }`}
             >
@@ -241,7 +246,11 @@ export function Dashboard() {
           <p className="text-muted">
             {tasks.length === 0 ? 'No tasks yet.' : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} tasks.`}
           </p>
-          <Link to="/tasks/new" className="mt-2 inline-block text-sm text-primary-ink underline">
+          <Link
+            to="/tasks/new"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90"
+          >
+            <Plus className="h-5 w-5" strokeWidth={2.5} />
             Add a task
           </Link>
         </div>

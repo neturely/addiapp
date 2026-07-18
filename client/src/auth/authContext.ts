@@ -1,6 +1,13 @@
 import { createContext } from 'react'
 
-export type AuthUser = { id: number; email: string; displayName: string | null }
+export type AuthUser = {
+  id: number
+  email: string
+  displayName: string | null
+  // MD5 of the normalized email, computed server-side (#174) for the Gravatar
+  // avatar. Optional so a stale cached response degrades to the initials avatar.
+  gravatarHash?: string
+}
 
 export type AuthContextValue = {
   user: AuthUser | null

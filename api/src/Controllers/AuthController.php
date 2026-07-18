@@ -277,6 +277,10 @@ final class AuthController
             'id' => (int) $row['id'],
             'email' => $row['email'],
             'displayName' => $row['display_name'],
+            // Gravatar hash (#174): MD5 of the normalized email, per Gravatar's
+            // scheme. Computed once here so the client renders the avatar without
+            // any crypto/deps; the client falls back to initials on a 404 (d=404).
+            'gravatarHash' => md5(strtolower(trim((string) $row['email']))),
         ];
     }
 }
