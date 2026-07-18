@@ -70,8 +70,8 @@ export function Stats() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
         <p className="text-gray-700">{error ?? 'No stats yet'}</p>
-        <Link to="/" className="text-sm text-muted underline hover:text-gray-700">
-          Back home
+        <Link to="/play" className="text-sm text-muted underline hover:text-gray-700">
+          Back to Play
         </Link>
       </main>
     )
