@@ -1,5 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
-import { Home } from '@/pages/Home'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { Verify } from '@/pages/Verify'
@@ -30,7 +29,9 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: <Home /> },
+          // Home retired (#191): Choice is the Play-mode landing. `/` redirects
+          // to the canonical /play (still gated by ProtectedRoute above).
+          { path: '/', element: <Navigate to="/play" replace /> },
           { path: '/play', element: <Choice /> },
           { path: '/play/task', element: <TaskPresented /> },
           { path: '/play/progress/:id', element: <InProgress /> },

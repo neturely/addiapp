@@ -7,7 +7,7 @@ import { useToast } from '@/toast/useToast'
 /**
  * Add-task screen (issue #35). Wraps the shared TaskForm (also used by the
  * dashboard edit page, #36) and creates a task via the #27 POST /api/tasks.
- * Reachable from the empty state, Home, and the dashboard.
+ * Reachable from the empty state and the dashboard.
  *
  * On success it fires an app-wide toast ("Task added: …" + a Play action) and
  * returns to wherever the user came from (#176) — the origin is passed in

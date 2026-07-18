@@ -136,8 +136,10 @@ to the old Node API.
   `/verify`, `/forgot-password`, `/reset`.
 - **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
-- **Play mode (#29–#34, #69)**: Home `/`, Choice `/play`, Task `/play/task`,
-  In-progress `/play/progress/:id`, Completion, Empty state, Resume-from-home.
+- **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
+  to it — the standalone Home screen was retired in #191), Task `/play/task`,
+  In-progress `/play/progress/:id`, Completion, Empty state. A mid-flight task is
+  surfaced by a Resume banner on Choice **plus** the header timer chip.
 - **Dashboard (#36, #178)**: `/dashboard` — table + inline edit, full edit page
   `/tasks/:id/edit` (shared `TaskForm`), status filter tabs, sortable columns,
   per-row icon actions (Start/Resume=Play, Edit=Pencil, Delete=Trash; Save=Check
@@ -386,7 +388,6 @@ Genuinely still open:
   are done; Cloudflare edge config — Bot Fight Mode, WAF on `/api/auth/*`, managed
   DDoS — tracked as a separate dashboard-only issue)
 - [ ] Privacy policy / Terms of Service pages
-- [ ] Home secondary-link set (Add task / Dashboard / Stats) vs. a single entry (#29)
 - [ ] Final color palette / brand direction (placeholder warm coral in use)
 - [ ] Real mascot art (placeholder flat character in use)
 
@@ -400,3 +401,6 @@ Resolved (kept for reference):
 - [x] Points formulas + task-selection algorithm — finalized
 - [x] Play/dashboard designs — built
 - [x] Monorepo (client workspace) — kept
+- [x] Home screen — **retired (#191)**; `/` redirects to Choice as the single Play
+  landing (resume via the Choice banner + header chip), reversing the #29/#69 Home
+  + resume-from-home decisions
