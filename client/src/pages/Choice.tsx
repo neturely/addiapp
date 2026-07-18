@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Mountain, Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import type { WinSize } from '@/lib/tasks'
 
@@ -12,6 +13,20 @@ const TIME_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: '1 hour', minutes: 60 },
 ]
 
+/** Rotating heading (#183) — a random one is picked per mount. */
+const HEADINGS = [
+  'What kind of win do you want?',
+  'Ready for something?',
+  'Where should we start?',
+  "What's the move?",
+  "Let's pick a win",
+  'What sounds good?',
+  'Time to choose',
+  "What's calling you?",
+  'Pick your challenge',
+  "What'll it be?",
+]
+
 /**
  * Play-mode choice screen (issue #30): "What kind of win do you want?" plus a
  * time-available filter. Picking a win type carries both selections into the
@@ -20,6 +35,7 @@ const TIME_OPTIONS: { label: string; minutes: number | null }[] = [
 export function Choice() {
   const navigate = useNavigate()
   const [minutes, setMinutes] = useState<number | null>(null)
+  const [heading] = useState(() => HEADINGS[Math.floor(Math.random() * HEADINGS.length)])
 
   function go(size: WinSize) {
     const params = new URLSearchParams({ size })
@@ -46,28 +62,40 @@ export function Choice() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 text-center">
-      <h1 className="text-2xl font-bold text-gray-800">What kind of win do you want?</h1>
+      <h1 className="text-2xl font-bold text-gray-800">{heading}</h1>
 
-      {/* The mascot presents two equal paths — small (left) / big (right). */}
-      <div className="flex w-full max-w-2xl items-stretch justify-center gap-3 sm:gap-5">
+      {/* Two equal paths flanking the mascot on sm+ (small left / big right); on
+          narrow widths (app uses `sm`, not `md`) they stack full-width UNDER the
+          mascot — `order` puts the mascot first only when stacked (#183). The
+          varied colour lives on the icon badge; cards stay white/equal-weight. */}
+      <div className="flex w-full max-w-2xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:gap-5">
         <button
           type="button"
           onClick={() => go('small')}
-          className="flex flex-1 flex-col justify-center rounded-2xl bg-surface p-5 transition hover:bg-success-tint"
+          className="order-2 flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl bg-surface p-5 transition hover:bg-success-tint sm:order-1"
         >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success">
+            <Zap className="h-6 w-6 text-white" fill="currentColor" strokeWidth={0} aria-hidden />
+          </span>
           <div className="text-lg font-bold text-success-ink">Something small</div>
-          <div className="mt-1 text-sm text-muted">A quick, low-effort win</div>
+          <div className="text-sm text-muted">A quick, low-effort win</div>
         </button>
 
-        <Mascot expression="neutral" className="h-20 w-20 shrink-0 self-center sm:h-24 sm:w-24" />
+        <Mascot
+          expression="neutral"
+          className="order-1 h-20 w-20 shrink-0 self-center sm:order-2 sm:h-24 sm:w-24"
+        />
 
         <button
           type="button"
           onClick={() => go('big')}
-          className="flex flex-1 flex-col justify-center rounded-2xl bg-surface p-5 transition hover:bg-primary-tint"
+          className="order-3 flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl bg-surface p-5 transition hover:bg-primary-tint sm:order-3"
         >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary">
+            <Mountain className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden />
+          </span>
           <div className="text-lg font-bold text-primary-ink">Something big</div>
-          <div className="mt-1 text-sm text-muted">Real progress worth more points</div>
+          <div className="text-sm text-muted">Real progress worth more points</div>
         </button>
       </div>
 
@@ -94,7 +122,7 @@ export function Choice() {
                 tabIndex={active ? 0 : -1}
                 onClick={() => setMinutes(opt.minutes)}
                 onKeyDown={(e) => onPillKeyDown(e, i)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
                 }`}
               >
