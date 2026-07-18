@@ -138,9 +138,13 @@ to the old Node API.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69)**: Home `/`, Choice `/play`, Task `/play/task`,
   In-progress `/play/progress/:id`, Completion, Empty state, Resume-from-home.
-- **Dashboard (#36)**: `/dashboard` — table + inline edit, full edit page
-  `/tasks/:id/edit` (shared `TaskForm`), status filter tabs, per-row
-  Start/Resume/Edit/Delete, undo-toast delete.
+- **Dashboard (#36, #178)**: `/dashboard` — table + inline edit, full edit page
+  `/tasks/:id/edit` (shared `TaskForm`), status filter tabs, sortable columns,
+  per-row icon actions (Start/Resume=Play, Edit=Pencil, Delete=Trash; Save=Check
+  / Cancel=X while editing — all `aria-label`led), undo-toast delete. **The
+  `backlog` status DISPLAYS as "To do"** (filter tab, status badge, edit select) —
+  presentation-only; the enum value stays `backlog`, so never string-match the
+  label. Rows are a fixed `h-14` so inline-edit doesn't change row height.
 - **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
 - **Deploy (#39)** + **production email (#65)** done.
 
