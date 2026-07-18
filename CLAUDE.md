@@ -284,7 +284,11 @@ Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
   Route changes move focus to `#main-content` via `RouteFocus` in `AppLayout` (which
   also hosts the skip link); an in-place screen (e.g. `Completion`) focuses its own
   heading. Segmented pill pickers use the `radiogroup` pattern (roving tabindex + arrow
-  keys + `aria-checked`); icon/text-only controls get `aria-label`s. Don't add ARIA
+  keys + `aria-checked`); icon/text-only controls get `aria-label`s. **No native
+  `title=` tooltips** (removed sitewide in #181 — they render an ugly OS box for mouse
+  users and duplicate the `aria-label`); label with `aria-label` only. Any CSS motion
+  accent (e.g. the timer chip's `animate-pulse-dot`, the Completion confetti) must be
+  disabled under `prefers-reduced-motion` in `index.css`. Don't add ARIA
   without verifying the SR/keyboard interaction it produces — use the
   `client/e2e/` harness (`npm run e2e:a11y -w client`, #170): puppeteer-core drives
   the real app in system Chrome and asserts focus/keyboard/ARIA behavior. It's the

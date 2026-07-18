@@ -66,6 +66,21 @@
 
   /* Completion-screen confetti (#94 B1): pop-in, drift down, fade. */
   --animate-confetti: confetti 2.4s ease-in-out infinite;
+
+  /* Header timer-chip "live" dot (#181): gentle pulse to read as ongoing. */
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
 }
 
 @keyframes confetti {
@@ -84,7 +99,8 @@
 
 /* Respect reduced-motion: show the dots statically rather than animating. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-confetti {
+  .animate-confetti,
+  .animate-pulse-dot {
     animation: none;
   }
 }

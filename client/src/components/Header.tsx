@@ -54,7 +54,6 @@ export function Header() {
                 key={to}
                 to={to}
                 aria-label={label}
-                title={label}
                 aria-current={active ? 'page' : undefined}
                 className={active ? 'text-primary-ink' : 'text-muted hover:text-gray-900'}
               >
@@ -78,7 +77,6 @@ export function Header() {
             to="/stats"
             aria-label="Your stats"
             aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
-            title={user.displayName ?? user.email}
             className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-bold text-on-primary transition hover:opacity-90"
           >
             {showGravatar ? (
