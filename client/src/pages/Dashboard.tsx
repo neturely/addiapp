@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Check, ChevronDown, ChevronUp, Pencil, Play, Plus, Trash2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
 import {
   deleteTask,
   fetchTasks,
@@ -264,12 +274,17 @@ export function Dashboard() {
           className="inline-flex cursor-pointer items-center gap-1 uppercase tracking-wide hover:text-gray-700"
         >
           {label}
-          {active &&
-            (sort.dir === 'asc' ? (
+          {/* Active column shows its direction; the rest show a faint up/down
+              hint so it's clear every column is sortable (#178 follow-up). */}
+          {active ? (
+            sort.dir === 'asc' ? (
               <ChevronUp className="h-3 w-3" aria-hidden />
             ) : (
               <ChevronDown className="h-3 w-3" aria-hidden />
-            ))}
+            )
+          ) : (
+            <ChevronsUpDown className="h-3 w-3 opacity-40" aria-hidden />
+          )}
         </button>
       </th>
     )
@@ -326,15 +341,17 @@ export function Dashboard() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl bg-surface">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          {/* table-fixed so column widths stay put when a row enters edit mode
+              (its inputs are wider than the display badges) — no jump (#178). */}
+          <table className="w-full min-w-[640px] table-fixed text-left text-sm">
             <caption className="sr-only">Your tasks</caption>
             <thead className="bg-gray-50 text-xs uppercase tracking-wide text-muted">
               <tr>
                 <SortTh colKey="title" label="Title" />
-                <SortTh colKey="effort" label="Effort" />
-                <SortTh colKey="est" label="Est." />
-                <SortTh colKey="status" label="Status" />
-                <th scope="col" className="px-4 py-3 text-right font-medium">
+                <SortTh colKey="effort" label="Effort" className="w-32" />
+                <SortTh colKey="est" label="Est." className="w-24" />
+                <SortTh colKey="status" label="Status" className="w-40" />
+                <th scope="col" className="w-36 px-4 py-3 text-right font-medium">
                   Actions
                 </th>
               </tr>
@@ -374,7 +391,7 @@ export function Dashboard() {
                           onChange={(e) =>
                             setEditValues({ ...editValues, complexity: e.target.value as TaskComplexity })
                           }
-                          className="rounded bg-gray-100 p-1.5"
+                          className="w-full rounded bg-gray-100 p-1.5"
                         >
                           <option value="low">Low</option>
                           <option value="medium">Medium</option>
@@ -391,7 +408,7 @@ export function Dashboard() {
                           onChange={(e) =>
                             setEditValues({ ...editValues, estimatedMinutes: e.target.value })
                           }
-                          className="w-20 rounded bg-gray-100 p-1.5"
+                          className="w-full rounded bg-gray-100 p-1.5"
                         />
                       </td>
                       <td className="h-14 px-4 align-middle">
@@ -401,7 +418,7 @@ export function Dashboard() {
                           onChange={(e) =>
                             setEditValues({ ...editValues, status: e.target.value as TaskStatus })
                           }
-                          className="rounded bg-gray-100 p-1.5"
+                          className="w-full rounded bg-gray-100 p-1.5"
                         >
                           <option value="backlog">To do</option>
                           <option value="in_progress">In progress</option>
@@ -443,7 +460,7 @@ export function Dashboard() {
                         type="button"
                         onClick={() => startEdit(task)}
                         aria-label={`Edit ${task.title}`}
-                        className="w-full cursor-pointer text-left font-medium text-gray-800"
+                        className="block w-full cursor-pointer truncate text-left font-medium text-gray-800"
                       >
                         {task.title}
                       </button>
