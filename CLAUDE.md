@@ -230,29 +230,36 @@ Color palette — **vivid v3** (#143; single source `client/src/index.css`, flat
 no shadows/borders, AA-verified). Each hue has THREE roles — never one token doing
 double duty:
 - `--color-{h}` = **vivid FILL** (`bg-{h}`): primary `#FB5231`, success `#1F9E3E`,
-  accent `#1CB0F6`, warning `#FFC800`. (success deepened from `#3ECF4C` in #174 so
-  large white text clears 3:1 on the fill — like primary's `#FF5A36`→`#FB5231` tune;
-  its only solid-fill uses are the dashboard banner + the InProgress meter bar.)
+  accent `#1CB0F6`, warning `#C17F00`. (success deepened from `#3ECF4C` in #174,
+  warning from `#FFC800` in #176 — both so large/bold white text clears 3:1 on the
+  fill, like primary's `#FF5A36`→`#FB5231` tune. `accent` is NOT tuned — it still
+  fails white, stays dark-on-fill only. Solid-fill uses: the dashboard banner, the
+  AddTask effort picker, and the InProgress meter bars.)
 - `--color-{h}-ink` = **text on LIGHT** (`text-{h}-ink`, colored text/badges on
   cream/white): primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning
   `#8A5A00`. (These are the old v2 values — they were already AA as text.)
-- `--color-on-{h}` = **dark text ON the fill** (`text-on-{h}`): primary `#3D1200`, etc.
+- `--color-on-{h}` = **dark text ON the fill** (`text-on-{h}`): primary `#3D1200`,
+  success `#04240B` (deepened #174), warning `#2E2000` (deepened #176) — the last two
+  deepened alongside their fills so the small on-fill caption/label still clears 4.5:1.
 - `--color-{h}-tint` = soft tint for low-emphasis badges (`bg-{h}-tint` + `text-{h}-ink`).
 
 Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
 set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
 
 **Text-on-vivid rule (do not violate):** dark on-fill text (`text-on-{h}`) by default;
-**white is allowed on `--color-primary` only for large/bold text** (≥24px, or ≥19px bold
-— WCAG's 3:1 large-text tier; white on `#FB5231` = 3.31). Applied to: the PointsCard/Stats
-large stat numbers, AND **all primary CTA buttons** — standardized to `text-xl` (20px)
-`font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
+**white is allowed on the TUNED fills — `--color-primary`, `--color-success`,
+`--color-warning` — only for large/bold text** (≥24px, or ≥19px bold — WCAG's 3:1
+large-text tier; white on `#FB5231` = 3.31, on `#1F9E3E` = 3.49, on `#C17F00` = 3.33).
+Those three fills were deepened (#143/#174/#176) specifically so white clears 3:1;
+**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the
+PointsCard/Stats large stat numbers, the dashboard banner (#174), the AddTask effort-tile
+labels (#176, `text-xl` bold), AND **all primary CTA buttons** — standardized to `text-xl`
+(20px) `font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
 read muddy). This includes the compact utility buttons — Header "Add task" and Dashboard
-inline "Save" ARE primary CTAs and follow the same standardization (`text-xl font-bold
-text-white`; 20px bold clears the 3:1 large-text tier). Everything else stays dark on-fill:
-small labels, badges, the filter/time pills, and the initials avatar. success/accent/warning
-fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: solid vivid
-+ on-fill = high; tint + ink = low.
+inline "Save" ARE primary CTAs and follow the same standardization. Everything else stays
+dark on-fill: small labels/captions, badges, the filter/time pills, and the initials avatar
+(small on-fill text needs 4.5:1, which is why `text-on-{h}` was deepened for the tuned hues).
+Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
 
 ## Coding standards
 
@@ -264,6 +271,13 @@ fills use dark on-fill at any size (white fails 3:1 on them). Emphasis tiers: so
   (`lib/authSignal.ts`) → `AuthProvider` clears the user and `ProtectedRoute` redirects
   to `/login` with a muted note. `/auth/*` 401s stay local form errors (opt out elsewhere
   with `skipUnauthorizedHandler`).
+- **Toasts (#176)**: app-wide transient notices go through the `ToastProvider` (`client/src/toast/`,
+  mounted once in `AppLayout`) via `useToast().showToast({ message, icon, tone, action, duration })`.
+  One toast at a time, colored icon badge (tone → badge fill), optional inline action, auto-dismiss
+  (pauses on hover/focus), `role="status"`. It lives above the routes so a toast survives the
+  navigation that raised it (e.g. AddTask fires one, then returns to the origin route). Prefer it
+  over a bespoke per-page toast. The Dashboard undo-delete toast predates it and stays bespoke for
+  now (its deferred-commit/undo semantics are page-specific) — a candidate for later migration.
 - **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
   loading indicators and the undo toast use `role="status"` (toast also
   `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).

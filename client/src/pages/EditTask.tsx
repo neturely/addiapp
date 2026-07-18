@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { getTask, updateTask, type Task } from '@/lib/tasks'
 import { TaskForm, type TaskFormValues } from '@/components/TaskForm'
+import { useToast } from '@/toast/useToast'
 
 /**
  * Full-page task edit (issue #36). Opens from the dashboard's per-row Edit action.
@@ -13,6 +15,7 @@ export function EditTask() {
   const { id } = useParams()
   const taskId = Number(id)
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +29,9 @@ export function EditTask() {
     let cancelled = false
     getTask(taskId)
       .then((t) => !cancelled && setTask(t))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load the task'))
+      .catch(
+        (e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load the task'),
+      )
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -35,6 +40,7 @@ export function EditTask() {
 
   async function onSubmit(values: TaskFormValues) {
     await updateTask(taskId, values)
+    showToast({ message: `Task updated: ${values.title}`, icon: CircleCheck, tone: 'success' })
     navigate('/dashboard')
   }
 
@@ -70,12 +76,8 @@ export function EditTask() {
           submitLabel="Save changes"
           submittingLabel="Saving…"
           onSubmit={onSubmit}
+          onCancel={() => navigate('/dashboard')}
         />
-        <div className="mt-4 text-center text-sm">
-          <Link to="/dashboard" className="text-muted underline hover:text-gray-700">
-            Cancel
-          </Link>
-        </div>
       </div>
     </main>
   )

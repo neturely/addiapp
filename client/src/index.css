@@ -39,9 +39,15 @@
   --color-accent-ink: #6e3fd6;
   --color-on-accent: #04283a;
   --color-accent-tint: #f1ebfd;
-  --color-warning: #ffc800;
+  /* warning FILL deepened #ffc800 → #c17f00 (#176): bright yellow failed white
+     badly (1.55); the deepened amber lets white large/bold text clear WCAG 3:1
+     (3.33), matching the primary/success tunes — for the vivid effort picker.
+     on-warning deepened #3a2a00 → #2e2000 so the small on-fill caption clears
+     4.5:1 (4.77). Solid-fill uses: effort picker + InProgress meter bar (no text)
+     + Completion confetti dots. `-ink`/`-tint` (text-on-light) unchanged. */
+  --color-warning: #c17f00;
   --color-warning-ink: #8a5a00;
-  --color-on-warning: #3a2a00;
+  --color-on-warning: #2e2000;
   --color-warning-tint: #fbeed3;
   --color-muted: #5b6270;
   --color-page: #f6f1ea;

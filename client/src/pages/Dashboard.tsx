@@ -248,6 +248,7 @@ export function Dashboard() {
           </p>
           <Link
             to="/tasks/new"
+            state={{ from: '/dashboard' }}
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90"
           >
             <Plus className="h-5 w-5" strokeWidth={2.5} />
