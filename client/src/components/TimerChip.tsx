@@ -23,7 +23,7 @@ export function TimerChip({ task }: { task: Task }) {
     <Link
       to={`/play/progress/${task.id}`}
       aria-label={`Resume “${task.title}”`}
-      className="inline-flex items-center gap-2 text-base font-bold tabular-nums text-primary-ink transition hover:opacity-80"
+      className="inline-flex items-center gap-2 font-mono text-xl font-bold tabular-nums text-gray-900 transition hover:opacity-80"
     >
       {/* "Live/ongoing" indicator — a pulsing dot, not a duration icon (#181). */}
       <span aria-hidden className="animate-pulse-dot h-2 w-2 shrink-0 rounded-full bg-primary" />
