@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-18
+### Fixed
+- Play-loop Choice + empty-state fixes from live playthrough — responsive Choice layout, rotating heading, shared… ([#183](https://github.com/neturely/addiapp/issues/183))
+- Play-loop fixes from live playthrough — remove native tooltips, timer chip redesign (pulsing dot), Completion card… ([#181](https://github.com/neturely/addiapp/issues/181))
+- Dashboard table fixes from live playthrough — stable inline-edit row height, icon-only actions, "To do" relabel,… ([#178](https://github.com/neturely/addiapp/issues/178))
+- AddTask fixes from live playthrough — rotating placeholders, vivid effort picker (new deepened warning token),… ([#176](https://github.com/neturely/addiapp/issues/176))
+- Dashboard fixes from live playthrough — empty-state width, Gravatar avatar, banner redesign (green, 3 columns), filter… ([#174](https://github.com/neturely/addiapp/issues/174))
+
 ## [1.4.0] - 2026-07-17
 ### Fixed
 - Accessibility across the app — route-change focus + skip link, live-region alerts and loading/undo-toast status (with pause-on-hover), a radiogroup time picker, labelled keyboard-reachable inline editing, and table caption/scope. Mobile-toast announce remains for the mobile dashboard ([#126](https://github.com/neturely/addiapp/issues/126))
@@ -56,7 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/neturely/addiapp/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/neturely/addiapp/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/neturely/addiapp/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/neturely/addiapp/compare/v1.3.1...v1.3.2
