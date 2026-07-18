@@ -1,17 +1,18 @@
 import { Link } from 'react-router-dom'
+import { Plus, RotateCw } from 'lucide-react'
 import { Mascot } from './Mascot'
+import { CardScreen } from './CardScreen'
 
 /**
- * Play-mode empty state (issue #32): nothing to present. Shown when task
+ * Play-mode empty state (issue #32; card redesign #183). Shown when task
  * selection returns no match. `filtered` distinguishes "your filters matched
- * nothing" (offer to change them) from "no tasks at all".
- *
- * When filtered, the useful recovery is to widen the win/time filter; when the
- * backlog is genuinely empty, adding a task (#35) is the primary action.
+ * nothing" (widen the pick) from "no tasks at all" — it changes the copy; the
+ * actions are the same pair: Retry (re-pick a win) + Add (a task). Uses the
+ * shared white-card shell (#183) and the mascot's real golden colour, idle.
  */
 export function EmptyState({ filtered = false }: { filtered?: boolean }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
+    <CardScreen>
       <Mascot expression="idle" />
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-gray-800">Nothing here right now</h1>
@@ -21,20 +22,23 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
             : 'Your backlog is empty. Add a task to get the ball rolling.'}
         </p>
       </div>
-      <div className="flex flex-col gap-3">
+      <div className="flex w-full gap-3">
         <Link
-          to={filtered ? '/play' : '/tasks/new'}
-          className="rounded-lg bg-primary px-6 py-3 text-xl font-bold text-white transition hover:opacity-90"
+          to="/play"
+          className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-gray-100 py-3 text-xl font-bold text-gray-700 transition hover:bg-gray-200"
         >
-          {filtered ? 'Pick a different win' : 'Add a task'}
+          <RotateCw className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+          Retry
         </Link>
         <Link
-          to={filtered ? '/tasks/new' : '/play'}
-          className="text-sm text-muted underline hover:text-gray-700"
+          to="/tasks/new"
+          state={{ from: '/play' }}
+          className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90"
         >
-          {filtered ? 'Add a task' : 'Choose a win'}
+          <Plus className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+          Add
         </Link>
       </div>
-    </main>
+    </CardScreen>
   )
 }

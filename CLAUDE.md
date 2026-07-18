@@ -220,6 +220,15 @@ tracks the most-recently-started in-progress task (fetch on mount + route change
 no polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
 
+Shared **`CardScreen`** (`components/CardScreen.tsx`, #181/#183): the centered
+flat white rounded card used for celebratory/confirmation screens — Completion
+and the Play-mode empty state both render through it (`decoration` slot holds
+accents that spill past the card, e.g. Completion's corner confetti). Reach for
+it for new full-screen card moments rather than re-rolling the shell. Responsive
+note: the app's only breakpoint is **`sm`** (640px) — there is no `md`/`lg` in
+use; the Choice screen flanks the mascot side-by-side at `sm+` and stacks it
+above the two win cards below `sm`.
+
 Mascot: icon-style, expression-driven SVG (#96) — one `Mascot` component
 (`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
 celebrating | idle`); a penguin-ish icon (golden-yellow head + darker orange-gold

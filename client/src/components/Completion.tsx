@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
+import { CardScreen } from './CardScreen'
 import { fetchUserStats } from '@/lib/points'
 import type { WinSize } from '@/lib/tasks'
 
@@ -78,53 +79,45 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
   if (streak != null && streak > 0) contextParts.push(`🔥 Day ${streak} streak`)
   if (multiplier != null && multiplier > 1) contextParts.push(`×${+multiplier.toFixed(2)} daily bonus`)
 
+  const confetti = CONFETTI.map((c, i) => (
+    <span
+      key={i}
+      aria-hidden
+      className={`animate-confetti absolute h-2.5 w-2.5 rounded-full ${c.pos}`}
+      style={{ backgroundColor: c.color, animationDelay: c.delay }}
+    />
+  ))
+
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="relative w-full max-w-md">
-        {CONFETTI.map((c, i) => (
-          <span
-            key={i}
-            aria-hidden
-            className={`animate-confetti absolute h-2.5 w-2.5 rounded-full ${c.pos}`}
-            style={{ backgroundColor: c.color, animationDelay: c.delay }}
-          />
-        ))}
-
-        <div className="flex flex-col items-center gap-5 rounded-2xl bg-surface p-8 text-center">
-          <Mascot expression="celebrating" />
-          <div>
-            <h1
-              ref={headingRef}
-              tabIndex={-1}
-              aria-label={announcement}
-              className="text-3xl font-bold text-gray-800 focus:outline-none"
-            >
-              Nice work!
-            </h1>
-            <p className="mt-1 text-muted">{title}</p>
-          </div>
-
-          {totalPoints != null && (
-            <div className="w-full rounded-2xl bg-primary-tint px-6 py-4">
-              <div className="text-6xl font-extrabold tabular-nums text-primary-ink">
-                +{totalPoints}
-              </div>
-              {contextParts.length > 0 && (
-                <p className="mt-1 text-sm font-semibold text-primary-ink">
-                  {contextParts.join(' · ')}
-                </p>
-              )}
-            </div>
-          )}
-
-          <Link
-            to={keepGoingHref}
-            className="mt-1 rounded-xl bg-primary px-8 py-3 text-xl font-bold text-white transition hover:opacity-90"
-          >
-            Keep going
-          </Link>
-        </div>
+    <CardScreen decoration={confetti}>
+      <Mascot expression="celebrating" />
+      <div>
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          aria-label={announcement}
+          className="text-3xl font-bold text-gray-800 focus:outline-none"
+        >
+          Nice work!
+        </h1>
+        <p className="mt-1 text-muted">{title}</p>
       </div>
-    </main>
+
+      {totalPoints != null && (
+        <div className="w-full rounded-2xl bg-primary-tint px-6 py-4">
+          <div className="text-6xl font-extrabold tabular-nums text-primary-ink">+{totalPoints}</div>
+          {contextParts.length > 0 && (
+            <p className="mt-1 text-sm font-semibold text-primary-ink">{contextParts.join(' · ')}</p>
+          )}
+        </div>
+      )}
+
+      <Link
+        to={keepGoingHref}
+        className="mt-1 rounded-xl bg-primary px-8 py-3 text-xl font-bold text-white transition hover:opacity-90"
+      >
+        Keep going
+      </Link>
+    </CardScreen>
   )
 }
