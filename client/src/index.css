@@ -30,7 +30,10 @@
      dashboard banner. `-ink` (text on light) is unchanged. */
   --color-success: #1f9e3e;
   --color-success-ink: #0b7c63;
-  --color-on-success: #0a3d14;
+  /* on-fill dark text deepened #0a3d14 → #04240b (#174) so the small banner
+     labels clear WCAG AA 4.5:1 (4.77) on the deepened #1f9e3e fill; only use is
+     the dashboard banner. #0a3d14 was 3.56 (large-text tier only). */
+  --color-on-success: #04240b;
   --color-success-tint: #e5f5f0;
   --color-accent: #1cb0f6;
   --color-accent-ink: #6e3fd6;
