@@ -8,6 +8,20 @@ import { fetchPoints, type PointsStats } from '@/lib/points'
 import { formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
 
+/** Rotating "in progress" labels (#181) — a random one is picked per mount. */
+const WORKING_LABELS = [
+  'Working on it',
+  'Making progress',
+  'In the zone',
+  'Getting it done',
+  'Chipping away',
+  'On a roll',
+  'Almost there',
+  'Locked in',
+  'Doing the thing',
+  'Full steam ahead',
+]
+
 /**
  * Play-mode task-in-progress screen (issue #33). A live count-up timer derived
  * from the server's startedAt (so it survives a refresh) plus a speed-bonus meter
@@ -36,6 +50,9 @@ export function InProgress() {
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
   const [done, setDone] = useState(false)
+  const [workingLabel] = useState(
+    () => WORKING_LABELS[Math.floor(Math.random() * WORKING_LABELS.length)],
+  )
   const startedAtRef = useRef<number | null>(null)
 
   // Load the task + points context, and anchor the timer to the server start time.
@@ -145,7 +162,7 @@ export function InProgress() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
       <Mascot expression="idle" />
-      <p className="text-sm font-semibold uppercase tracking-wide text-muted">Working on it</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-muted">{workingLabel}</p>
 
       <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <h1 className="text-xl font-bold text-gray-800">{task.title}</h1>
@@ -203,7 +220,7 @@ export function InProgress() {
           type="button"
           onClick={() => void onComplete()}
           disabled={completing}
-          className="mt-5 w-full rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
+          className="mt-5 w-full cursor-pointer rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400"
         >
           {completing ? 'Completing…' : 'Complete'}
         </button>

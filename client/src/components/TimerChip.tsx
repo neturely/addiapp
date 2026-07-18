@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Timer } from 'lucide-react'
 import type { Task } from '@/lib/tasks'
 import { formatClock, elapsedSecondsSince } from '@/lib/time'
 
@@ -24,10 +23,10 @@ export function TimerChip({ task }: { task: Task }) {
     <Link
       to={`/play/progress/${task.id}`}
       aria-label={`Resume “${task.title}”`}
-      title={task.title}
-      className="inline-flex items-center gap-1.5 rounded-full bg-warning-tint px-3 py-1 text-sm font-semibold tabular-nums text-warning-ink transition hover:opacity-90"
+      className="inline-flex items-center gap-2 font-mono text-xl font-bold tabular-nums text-gray-900 transition hover:opacity-80"
     >
-      <Timer className="h-4 w-4" strokeWidth={2} aria-hidden />
+      {/* "Live/ongoing" indicator — a pulsing dot, not a duration icon (#181). */}
+      <span aria-hidden className="animate-pulse-dot h-2 w-2 shrink-0 rounded-full bg-primary" />
       {formatClock(elapsed)}
     </Link>
   )
