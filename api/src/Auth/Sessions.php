@@ -50,6 +50,9 @@ final class Sessions
             'id' => (int) $row['id'],
             'email' => $row['email'],
             'displayName' => $row['display_name'],
+            // Same Gravatar hash publicUser() emits (#174) — this array hydrates
+            // $req->user, so /auth/me (the client's hydration path) carries it too.
+            'gravatarHash' => md5(strtolower(trim((string) $row['email']))),
         ];
     }
 

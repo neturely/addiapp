@@ -32,32 +32,27 @@ export function PointsCard({ refreshSignal = 0 }: { refreshSignal?: number }) {
   const total = stats?.total ?? 0
   const multiplier = stats?.today.currentMultiplier ?? 1
   const tasksToday = stats?.today.tasksCompleted ?? 0
-  const pointsToday = stats?.today.pointsEarned ?? 0
+
+  // Three uniform columns (#174): Tasks Today · Daily Bonus · Total Points.
+  // Numbers are all the same size/weight so white legitimately clears WCAG's
+  // 3:1 large-text tier on the deepened success fill — never shrink one.
+  const columns: { label: string; value: string }[] = [
+    { label: 'Tasks today', value: tasksToday.toLocaleString() },
+    { label: 'Daily bonus', value: `×${+multiplier.toFixed(2)}` },
+    { label: 'Total points', value: total.toLocaleString() },
+  ]
 
   return (
     <Link
       to="/stats"
-      className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-on-primary transition hover:opacity-90"
+      className="mb-6 flex items-center justify-between gap-4 rounded-2xl bg-success px-8 py-5 text-on-success transition hover:opacity-90"
     >
-      {/* #143 rule: white only on the large (≥24px) stat numbers — WCAG 3:1 on
-          the vivid fill; the small labels stay dark (text-on-primary). */}
-      <div>
-        <div className="text-xs font-medium uppercase tracking-wide text-on-primary">Total points</div>
-        <div className="text-4xl font-extrabold tabular-nums text-white">{total.toLocaleString()}</div>
-      </div>
-      <div className="flex gap-6 text-right">
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-on-primary">Daily bonus</div>
-          <div className="text-2xl font-bold tabular-nums text-white">×{+multiplier.toFixed(2)}</div>
+      {columns.map((c) => (
+        <div key={c.label}>
+          <div className="text-xs font-medium uppercase tracking-wide text-on-success">{c.label}</div>
+          <div className="text-4xl font-extrabold tabular-nums text-white">{c.value}</div>
         </div>
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-on-primary">Today</div>
-          <div className="text-2xl font-bold tabular-nums text-white">{pointsToday}</div>
-          <div className="text-xs text-on-primary">
-            {tasksToday} {tasksToday === 1 ? 'task' : 'tasks'}
-          </div>
-        </div>
-      </div>
+      ))}
     </Link>
   )
 }
