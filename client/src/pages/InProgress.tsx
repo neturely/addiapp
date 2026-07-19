@@ -167,6 +167,12 @@ export function InProgress() {
       <div className="w-full max-w-md rounded-2xl bg-surface p-6">
         <h1 className="text-xl font-bold text-gray-800">{task.title}</h1>
 
+        {task.description && (
+          <p className="mt-2 text-left text-sm whitespace-pre-wrap text-gray-600">
+            {task.description}
+          </p>
+        )}
+
         <div className="mt-4 font-mono text-5xl font-bold tabular-nums text-gray-900">
           {formatClock(elapsed)}
         </div>
