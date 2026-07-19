@@ -46,9 +46,14 @@ the old app was never in real use.
   `api/migrations/`, applied by `api/migrate.php` (tracked in a `_migrations`
   table). No ORM (the Drizzle era ended with the PHP rewrite). Migration
   discipline (#103): **one logical change (ideally one statement) per file** +
-  idempotent DDL (`CREATE TABLE/INDEX IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`)
-  so a re-run/partial-failure can't wedge — the per-file tracker + auto-committing
-  DDL means a multi-statement file that dies mid-way is left partially applied.
+  idempotent DDL (`CREATE TABLE/INDEX IF NOT EXISTS`) so a re-run/partial-failure
+  can't wedge — the per-file tracker + auto-committing DDL means a multi-statement
+  file that dies mid-way is left partially applied. **Engine caveat (#184):** dev
+  is MySQL 8.0 but prod is MariaDB 10.11 — `ADD COLUMN IF NOT EXISTS` is
+  **MariaDB-only** and errors on the dev DB. For a **single-statement** ALTER, use
+  plain `ADD COLUMN` (no `IF NOT EXISTS`): the tracker runs it exactly once and one
+  statement can't leave a partial state. `CREATE TABLE/INDEX IF NOT EXISTS` is fine
+  (both engines support it).
 - Auth: custom, self-rolled — **DB-backed server-side sessions** (opaque random
   token in an httpOnly `sid` cookie, 7-day TTL; the `sessions` row is the source
   of truth, so logout/expiry revoke access immediately) + **bcrypt** via PHP's
@@ -134,7 +139,11 @@ to the old Node API.
   `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
   disabled (dev default, fails closed if only the secret is set). Client pages:
   `/verify`, `/forgot-password`, `/reset`.
-- **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
+- **Task CRUD (#27, #184)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
+  Tasks have an optional plain-text **`description`** (#184, `varchar(1000)` NULL, empty→NULL,
+  line breaks kept via `whitespace-pre-wrap`): a textarea in the shared `TaskForm`, shown on the
+  TaskPresented **and InProgress** cards, and an **expandable chevron row** on the dashboard table (chevron only when a
+  description exists — a sibling button beside the click-to-edit title, expanding a colSpan `<tr>`).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,

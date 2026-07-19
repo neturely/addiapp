@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronsUpDown,
   ChevronUp,
   Pencil,
@@ -103,6 +104,7 @@ export function Dashboard() {
   })
   const [pointsRefresh, setPointsRefresh] = useState(0)
 
+  const [expandedId, setExpandedId] = useState<number | null>(null) // description row (#184)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
@@ -260,7 +262,15 @@ export function Dashboard() {
     )
   }
 
-  function SortTh({ colKey, label, className = '' }: { colKey: SortKey; label: string; className?: string }) {
+  function SortTh({
+    colKey,
+    label,
+    className = '',
+  }: {
+    colKey: SortKey
+    label: string
+    className?: string
+  }) {
     const active = sort.key === colKey
     return (
       <th
@@ -312,7 +322,9 @@ export function Dashboard() {
               key={f.key}
               onClick={() => setFilter(f.key)}
               className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
-                active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
+                active
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface text-muted hover:bg-primary-tint'
               }`}
             >
               {f.label} <span className={active ? 'text-on-primary' : 'text-muted'}>{count}</span>
@@ -321,10 +333,16 @@ export function Dashboard() {
         })}
       </div>
 
-      {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="mb-3 text-sm text-red-600">
+          {error}
+        </p>
+      )}
 
       {loading ? (
-        <p role="status" className="p-8 text-center text-muted">Loading…</p>
+        <p role="status" className="p-8 text-center text-muted">
+          Loading…
+        </p>
       ) : visible.length === 0 ? (
         <div className="rounded-2xl bg-surface p-10 text-center">
           <p className="text-muted">
@@ -359,7 +377,7 @@ export function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((task) => {
+              {visible.map((task, i) => {
                 const editing = editingId === task.id && editValues
                 if (editing) {
                   // Fixed row height (h-14) matches the display row so entering
@@ -384,14 +402,21 @@ export function Dashboard() {
                           onChange={(e) => setEditValues({ ...editValues, title: e.target.value })}
                           className="w-full rounded bg-gray-100 p-1.5"
                         />
-                        {rowError && <p role="alert" className="mt-1 text-xs text-red-600">{rowError}</p>}
+                        {rowError && (
+                          <p role="alert" className="mt-1 text-xs text-red-600">
+                            {rowError}
+                          </p>
+                        )}
                       </td>
                       <td className="h-14 px-4 align-middle">
                         <select
                           aria-label="Effort"
                           value={editValues.complexity}
                           onChange={(e) =>
-                            setEditValues({ ...editValues, complexity: e.target.value as TaskComplexity })
+                            setEditValues({
+                              ...editValues,
+                              complexity: e.target.value as TaskComplexity,
+                            })
                           }
                           className="w-full rounded bg-gray-100 p-1.5"
                         >
@@ -455,68 +480,123 @@ export function Dashboard() {
 
                 const tag = COMPLEXITY_TAG[task.complexity]
                 const badge = STATUS_BADGE[task.status]
+                const stripe = i % 2 ? 'bg-gray-50' : ''
+                const expanded = expandedId === task.id
                 return (
-                  <tr key={task.id} className="even:bg-gray-50 hover:bg-primary-tint">
-                    <td className="h-14 px-4 align-middle">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(task)}
-                        aria-label={`Edit ${task.title}`}
-                        className="block w-full cursor-pointer truncate text-left font-medium text-gray-800"
-                      >
-                        {task.title}
-                      </button>
-                    </td>
-                    <td onClick={() => startEdit(task)} className="h-14 cursor-pointer px-4 align-middle">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tag.className}`}>
-                        {tag.label}
-                      </span>
-                    </td>
-                    <td onClick={() => startEdit(task)} className="h-14 cursor-pointer px-4 align-middle text-muted">
-                      {task.estimatedMinutes}m
-                    </td>
-                    <td onClick={() => startEdit(task)} className="h-14 cursor-pointer px-4 align-middle">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
-                        {badge.label}
-                      </span>
-                    </td>
-                    <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
-                      <div className="inline-flex items-center justify-end gap-1">
-                        {task.status === 'backlog' && (
+                  <Fragment key={task.id}>
+                    <tr className={`${stripe} hover:bg-primary-tint`}>
+                      <td className="h-14 px-4 align-middle">
+                        <div className="flex items-center gap-1.5">
+                          {task.description && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedId((cur) => (cur === task.id ? null : task.id))
+                              }
+                              aria-expanded={expanded}
+                              aria-label={`${expanded ? 'Hide' : 'Show'} description for ${task.title}`}
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+                            >
+                              <ChevronRight
+                                className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                                aria-hidden
+                              />
+                            </button>
+                          )}
                           <button
-                            onClick={() => void onStart(task)}
-                            aria-label={`Start ${task.title}`}
-                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
+                            type="button"
+                            onClick={() => startEdit(task)}
+                            aria-label={`Edit ${task.title}`}
+                            className="block min-w-0 flex-1 cursor-pointer truncate text-left font-medium text-gray-800"
                           >
-                            <Play className="h-5 w-5" fill="currentColor" strokeWidth={0} aria-hidden />
+                            {task.title}
                           </button>
-                        )}
-                        {task.status === 'in_progress' && (
+                        </div>
+                      </td>
+                      <td
+                        onClick={() => startEdit(task)}
+                        className="h-14 cursor-pointer px-4 align-middle"
+                      >
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tag.className}`}
+                        >
+                          {tag.label}
+                        </span>
+                      </td>
+                      <td
+                        onClick={() => startEdit(task)}
+                        className="h-14 cursor-pointer px-4 align-middle text-muted"
+                      >
+                        {task.estimatedMinutes}m
+                      </td>
+                      <td
+                        onClick={() => startEdit(task)}
+                        className="h-14 cursor-pointer px-4 align-middle"
+                      >
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1">
+                          {task.status === 'backlog' && (
+                            <button
+                              onClick={() => void onStart(task)}
+                              aria-label={`Start ${task.title}`}
+                              className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
+                            >
+                              <Play
+                                className="h-5 w-5"
+                                fill="currentColor"
+                                strokeWidth={0}
+                                aria-hidden
+                              />
+                            </button>
+                          )}
+                          {task.status === 'in_progress' && (
+                            <Link
+                              to={`/play/progress/${task.id}`}
+                              aria-label={`Resume ${task.title}`}
+                              className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
+                            >
+                              <Play
+                                className="h-5 w-5"
+                                fill="currentColor"
+                                strokeWidth={0}
+                                aria-hidden
+                              />
+                            </Link>
+                          )}
                           <Link
-                            to={`/play/progress/${task.id}`}
-                            aria-label={`Resume ${task.title}`}
-                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
+                            to={`/tasks/${task.id}/edit`}
+                            aria-label={`Edit details for ${task.title}`}
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
                           >
-                            <Play className="h-5 w-5" fill="currentColor" strokeWidth={0} aria-hidden />
+                            <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
                           </Link>
-                        )}
-                        <Link
-                          to={`/tasks/${task.id}/edit`}
-                          aria-label={`Edit details for ${task.title}`}
-                          className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+                          <button
+                            onClick={() => onDelete(task)}
+                            aria-label={`Delete ${task.title}`}
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-red-500 transition hover:bg-red-50 hover:text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expanded && task.description && (
+                      <tr className={stripe}>
+                        <td
+                          colSpan={5}
+                          className="px-4 pb-3 text-sm whitespace-pre-wrap text-gray-600"
                         >
-                          <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
-                        </Link>
-                        <button
-                          onClick={() => onDelete(task)}
-                          aria-label={`Delete ${task.title}`}
-                          className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-red-500 transition hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                          {task.description}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 )
               })}
             </tbody>
@@ -538,7 +618,11 @@ export function Dashboard() {
           className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white"
         >
           <span>
-            Deleted “{pendingTask.title.length > 32 ? pendingTask.title.slice(0, 32) + '…' : pendingTask.title}”
+            Deleted “
+            {pendingTask.title.length > 32
+              ? pendingTask.title.slice(0, 32) + '…'
+              : pendingTask.title}
+            ”
           </span>
           <button onClick={undoDelete} className="font-semibold text-warning-ink hover:underline">
             Undo
