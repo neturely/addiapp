@@ -1,7 +1,9 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-07-12
-(batched documentation sync folding in issues #25–#70; see §11).
+Living document. Updated as decisions are made. Last updated: 2026-07-19
+(mascot v3 star-character rebuild + PlayCard placement + a currency sync; see §11).
+Note: **CLAUDE.md is the more frequently-synced authoritative reference** — where the
+two disagree, prefer CLAUDE.md and the code on `develop`.
 
 ## 1. Overview
 
@@ -74,23 +76,32 @@ Everything in §2 is resolved. Remaining open items are product/scope (§10).
   cluttered chrome.
 - **Structure idea from Trello**: liked conceptually, but not literally
   adopted (see §5 — home flow is single-task-at-a-time, not a board).
-- **Mascot**: placeholder only for now (simple flat character used in
-  mockups below). Real mascot design + expression variations (celebration,
-  encouragement, idle, etc.) is a later, deliberate design pass — likely
-  in Claude Design once UX flow is locked.
-- **Color palette used in mockups so far**: warm coral primary
-  (`#D85A30`), supporting teal/amber/purple for badges — not literally
-  Duolingo green. Not yet locked as final brand palette.
+- **Mascot**: an **expression-driven SVG icon is built and live** — v2 penguin-ish
+  icon (#96); one `Mascot` component with a `neutral | celebrating | idle`
+  `expression` prop, single flat body colour, `--color-mascot-*` tokens. A **v3
+  "star character" full rebuild is DECIDED + FILED (#210, not yet built)** that
+  **supersedes the v2 penguin**: round golden face + posable chunky star-point limbs,
+  big cartoony eyes, blush cheeks (new `--color-mascot-blush`), look-down idle, crown
+  cowlick, and a `halo` prop — placed **half-out over the PlayCard top edge** (#211).
+  Still SVG icon art, not final illustrated art. Full spec: CLAUDE.md + #210's body.
+- **Color palette**: the placeholder warm coral (`#D85A30`) is **fully retired**. Live
+  palette is **vivid v3** (#143) — three token roles per hue (vivid fill / ink-on-light /
+  dark-on-fill) + tints; primary `#FB5231`, success `#1F9E3E`, accent `#1CB0F6`, warning
+  `#C17F00`; **flat surfaces**, AA-verified (see CLAUDE.md for the text-on-vivid rule).
+  **Flat "no shadows/borders" remains the rule** — with one scoped exception (the half-out
+  mascot's halo + light mascot-only shadow, #210/#211) and one open proposal to revisit it
+  (#213 "spit & polish": card drop-shadows + button polish — **not yet adopted**).
 
 ## 5. Core UX flow — "Play" mode (mascot-guided home)
 
-**Status: all Play-mode screens are BUILT** (issues #29–#34, #69), not just
-mocked. They share one mascot / coral / spacing language. The flow:
+**Status: all Play-mode screens are BUILT** (issues #29–#34, #69) and have since been
+restyled (visual refresh v2 #91/#92/#94, vivid palette v3 #143). They share one mascot /
+palette / spacing language. **The standalone Home screen was RETIRED (#191)** — `/` now
+redirects to the Choice screen as the single Play landing. The flow:
 
-1. **Home** (#29, `/`) — mascot + "Ready to do something great today?" + single
-   "Let's go" primary CTA into the choice screen. Secondary links: "Add a task"
-   (#35), "Dashboard" (#36), "Stats" (#38). If a task is mid-flight it also
-   shows a **Resume** affordance (#69, see below).
+1. **~~Home~~ — RETIRED (#191)** — the mascot-led landing + "Let's go" CTA is gone; `/`
+   redirects to **Choice**. A mid-flight task is now surfaced by a **Resume banner on
+   Choice** plus the header in-progress **timer chip** (#135), not a Home affordance.
 2. **Choice screen** (#30, `/play`) — "What kind of win do you want?" →
    Something small (quick/low effort) vs Something big (real progress). A
    time-available filter (preset chips) sits alongside. Selections are carried
@@ -106,7 +117,8 @@ mocked. They share one mascot / coral / spacing language. The flow:
 5. **Completion / celebration** (#34) — mascot + confetti-dot accents, "Nice
    work!", the TOTAL points earned (large, primary), and the current daily
    multiplier as brief context. **Keep going** skips the choice screen and offers
-   another task reusing the same win/time filters; **Back to home** returns Home.
+   another task reusing the same win/time filters. (The old "Back to home" is gone —
+   Home was retired, #191.)
 6. **Empty state** (#32) — when selection returns nothing: mascot + "Nothing
    here right now". Primary action is "Add a task" when the backlog is empty, or
    "Pick a different win" when filters just matched nothing.
@@ -117,6 +129,20 @@ recently started in-progress task as a "Resume: <title>" link to
 `/play/progress/:id`; when more than one is in progress, a small "N tasks in
 progress" link points to the Dashboard. This is an extension of the original
 four-screen flow.
+
+### Shared PlayCard skeleton (#204 epic)
+
+The four single-message Play screens (TaskPresented, InProgress, Completion, EmptyState)
+are being unified onto **one shared `PlayCard`** — a centred flat card with a fixed slot
+order (`eyebrow → mascot → title → body? → hero? → context? → primary → secondary? →
+footer?`). **Phase 1 (#208, DONE)** built it + migrated Completion + EmptyState. **Phase 2
+(#211, FILED not built, `blocked_by #210`)** migrates TaskPresented + InProgress and adopts
+the **half-out mascot** placement (mascot straddles the card's top edge with a thin halo +
+a light mascot-only shadow; cards stay flat) — **revising** the epic's original "mascot
+inside" plan. Settled slot semantics (#204): `title` = task name always; `eyebrow` =
+celebratory/status framing; `secondary` shape-flexible (link row OR button pair);
+TaskPresented's effort badge stays a colored badge. The **Choice** screen is deliberately
+NOT on PlayCard (its two-option layout is structurally different).
 
 ### Task-selection algorithm (resolved — was §10's oldest open item)
 
@@ -235,7 +261,8 @@ actually built and merged to `develop`.
 - ✅ Task CRUD, user-scoped (title, complexity, estimated time) — #27
 - ✅ Points system as defined in §7 (all numbers finalized) — #28
 - ✅ Play mode: Home → Choice → Task presented → Start → In-progress →
-  Completion, plus Empty state and Resume — #29–#34, #69
+  Completion, plus Empty state and Resume — #29–#34, #69 (**Home later retired, #191**
+  — `/` now redirects to Choice; see §5)
 - ✅ Task-selection algorithm (weighted-random, swappable) — part of #31
 - ✅ Dashboard: task list/management + inline edit + full edit page — #36
 - ✅ Dashboard user points card — #37
@@ -253,7 +280,9 @@ actually built and merged to `develop`.
 - Multi-user competitive features: leaderboards, scoreboard
 - Projects (grouping tasks), Teams, task sharing for bonus points
 - Per-user task-selection preference + settings page (interface is ready)
-- Real mascot art + expression variations (placeholder used in v1)
+- Real (illustrated) mascot art — an expression-driven SVG **icon** shipped (#96, v2)
+  and a v3 "star character" icon rebuild is filed (#210); fully **illustrated** art
+  remains the deferred pass
 - Anything else from `OLD_SPEC.md` not listed above (categories, tags, due
   dates, recurring tasks, attachments, notifications, dark mode, search,
   filtering, drag & drop, PWA/offline, audit history, AI-assisted management)
@@ -292,10 +321,13 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
   edge protection (WAF/Bot Fight). Login/register rate-limiting is done (#80); the
   rest is #79.
 - [ ] **Privacy policy / Terms of Service** pages (needed before public launch).
-- [ ] **Home secondary-link set** — Add task / Dashboard / Stats vs. a single
-  Dashboard entry (open UX call, #29).
-- [ ] Final color palette / brand direction (placeholder warm coral in use).
-- [ ] Real mascot art (placeholder flat character in use).
+- [ ] Final color palette / brand direction — **vivid v3 is live (#143)** and current;
+  only a "final/locked brand" sign-off remains (placeholder coral `#D85A30` retired).
+- [ ] Real mascot art — **v2 icon live (#96); v3 "star character" rebuild DECIDED +
+  FILED (#210, placement #211) but not built.** Still SVG icon art (advanced, not closed).
+- [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes card drop-shadows +
+  button polish (would revise the flat "no shadows/borders" rule); triage / not adopted.
+  (Resolved & removed: the "Home secondary-link set" question — Home was retired, #191.)
 
 Resolved since the last sync: backend language (**PHP**, #77), hosting (**same
 Basic Plus Reseller as wptips**), SSH availability (**yes**), deploy (**#39**),
@@ -313,3 +345,18 @@ production email (**#65, live**).
   login/register **rate-limiting** (#80) landed. Corrected the hosting note (same
   Basic Plus Reseller box as wptips.com). AddiApp is now **live at addiapp.com**.
   Where docs and code disagreed, code won.
+- **2026-07-19** — currency sync (this doc had lagged since 2026-07-13; **CLAUDE.md
+  stayed current in the interim and is the authoritative reference**). Folded into the
+  spec: **Home retired (#191)** (`/`→Choice); **visual refresh v2** (#91/#92/#94 — design
+  tokens + Header/Footer/AppLayout shell, all screens restyled flat, borders/shadows/
+  gradients stripped); **vivid palette v3** (#143, coral `#D85A30` retired); **Settings**
+  (#187 account + #200 email-change-re-verification); **task descriptions** (#184);
+  **effort radiogroup** (#197); **shared PlayCard epic** (#204/#208, Phase 1 done); **header
+  timer chip + InProgressProvider** (#135); **A11Y cluster** (#126); the **resilience**
+  (#101/#110/#112), **security** (#79 Turnstile + #107 headers + #118/#120) and
+  **ops-hardening** (#103/#105/#109/#122) batches — all shipped across releases v1.2.0–v1.6.0;
+  in-repo **puppeteer e2e a11y harness** (#170). **Headline of this pass:** the **mascot v3
+  "star character" rebuild** (#210 — supersedes the #96 penguin; adds `--color-mascot-blush`
+  + a `halo` prop; look-down idle) with its **half-out PlayCard placement** (#211), plus the
+  **#213 "spit & polish"** proposal to revisit the flat "no shadows" rule — all **FILED, not
+  yet built** (build order #210→#211, #213 whenever). CLAUDE.md holds the authoritative detail.

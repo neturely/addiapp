@@ -245,22 +245,49 @@ old `CardScreen`): the canonical Play-moment card — a centred flat white round
 card rendering a fixed slot order (`eyebrow? → mascot → title/body? → hero? →
 context? → primary → secondary? → footer?`, plus a `decoration` slot that spills
 past the card edge, e.g. Completion's corner confetti). **Completion** and the
-Play-mode **EmptyState** ride it (Phase 1); **TaskPresented + InProgress** migrate
-in Phase 2 (#204), where the mascot moves inside the card. Reach for `PlayCard`
+Play-mode **EmptyState** ride it (Phase 1, #208); **TaskPresented + InProgress**
+migrate in **Phase 2 (#211, child of #204 — FILED, not built; `blocked_by #210`)**.
+**Mascot placement REVISED (#210/#211):** the mascot no longer sits *inside* the
+card (Phase 1's arrangement) — it goes **half-out, straddling the card's top edge**,
+with a thin white halo + a light drop-shadow **on the mascot only** (the card stays
+flat). This becomes the PlayCard standard for all four adopters (Completion +
+EmptyState move from the inside-slot to half-out too). **Slot semantics settled on
+#204 (2026-07-19):** `title` = the task name **always**; `eyebrow` = the
+celebratory/status framing ("NICE WORK", the rotating working label — NOT the
+reverse, so Completion flips from `title="Nice work!"` to `eyebrow="NICE WORK"` +
+`title`=task name); `secondary` is **shape-flexible** (an icon+text link row OR a
+button pair, e.g. EmptyState's Retry/Add); TaskPresented's effort badge **stays a
+colored badge** (not flattened into muted eyebrow text). Reach for `PlayCard`
 for any single-message Play screen rather than re-rolling the shell. Responsive
 note: the app's only breakpoint is **`sm`** (640px) — no `md`/`lg`; the Choice
 screen (deliberately NOT on `PlayCard`) flanks the mascot side-by-side at `sm+`
 and stacks it above the two win cards below `sm`.
 
-Mascot: icon-style, expression-driven SVG (#96) — one `Mascot` component
+Mascot — **currently LIVE = v2 penguin icon (#96)** — one `Mascot` component
 (`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
 celebrating | idle`); a penguin-ish icon (golden-yellow head + darker orange-gold
 crest, pale-cream eye patches, orange-red beak) whose FACE carries emotion while
-the body colour stays constant — deliberately distinct from both the UI palette
-and Duolingo's green. Colours are dedicated `--color-mascot-*` tokens in
-`index.css`. This is
-the SVG icon-system pass, NOT final illustrated art — real mascot art is still a
-deliberate later design pass, likely in Claude Design.
+the body colour stays constant. Colours are dedicated `--color-mascot-*` tokens in
+`index.css`. This is the SVG icon-system pass, NOT final illustrated art.
+
+**Mascot v3 — "star character" (#210: DECIDED in chat, FILED, NOT yet built; #211
+consumes it):** a **full REBUILD that supersedes the v2 penguin entirely** —
+foundational, inherited by every screen that renders `<Mascot>`. A round golden face
+(`#ffc800`) with **four chunky rounded star-point limbs** (2 arms upper, 2 legs
+lower) that **pose per expression**, **big cartoony eyes** (cream whites + dark
+pupils + catch-light), **soft blush cheeks**, a low coral smile sitting on its own,
+and a **front cowlick** on the crown. Same `expression`-swap mechanism (no per-state
+redraw); **idle = "look-down"** (eyes open, pupils low — attentive). Keeps the
+single-flat-body-colour rule + `--color-mascot-*` tokens, **adds
+`--color-mascot-blush #ff9a7a`** and deepens the pupil to `#4a3208`. New **`halo`
+prop** — a thin, **theme-aware sticker outline** (surface-coloured, via a stacked
+`drop-shadow` filter) — used for the half-out PlayCard placement (see PlayCard
+above); pairs with a light drop-shadow on the mascot only. **Full drop-in SVG
+geometry is in #210's body** — port verbatim. Still SVG ICON art (advances but does
+NOT close the "real mascot art" open decision). **Known follow-up (flagged in #210,
+unresolved):** at ~20px the star limbs melt into the circle, so the header **timer
+chip** (#135) likely needs a **face-only crop** companion asset. Build order:
+**#210 → #211**; #213 (below) whenever.
 
 Color palette — **vivid v3** (#143; single source `client/src/index.css`, flat,
 no shadows/borders, AA-verified). Each hue has THREE roles — never one token doing
@@ -281,6 +308,17 @@ double duty:
 
 Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
 set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
+
+**⚠ Flat-surface rule — STILL the rule, with one scoped exception and one open proposal.**
+The UI is deliberately **FLAT — no shadows/borders**, colour separation only (established
+across #91/#92/#94/#143; the palette leans on this). Two qualifications to track:
+- **Scoped exception (mascot only, #210/#211):** the half-out mascot on PlayCard carries a
+  thin halo + a **light drop-shadow on the mascot itself** — the *cards/surfaces stay flat*.
+- **Open proposal — #213 "spit & polish" (NOT adopted):** a filed *candidate/triage* issue to
+  revisit the flat rule by adding **super-light card drop-shadows** + button/UI polish. Read
+  #213's body for the actual (still-being-triaged) scope. **The flat rule remains authoritative
+  until a #213 batch actually ships** — do NOT add card shadows outside that issue. If/when a
+  #213 batch lands, update THIS section (and PROJECT_SPEC §4) to match what shipped.
 
 **Text-on-vivid rule (do not violate):** dark on-fill text (`text-on-{h}`) by default;
 **white is allowed on the TUNED fills — `--color-primary`, `--color-success`,
@@ -409,8 +447,16 @@ Genuinely still open:
   are done; Cloudflare edge config — Bot Fight Mode, WAF on `/api/auth/*`, managed
   DDoS — tracked as a separate dashboard-only issue)
 - [ ] Privacy policy / Terms of Service pages
-- [ ] Final color palette / brand direction (placeholder warm coral in use)
-- [ ] Real mascot art (placeholder flat character in use)
+- [ ] Final color palette / brand direction — **vivid v3 is live and treated as current
+  (#143)**; only a "final/locked brand" sign-off remains open (placeholder warm coral
+  `#D85A30` is fully retired).
+- [ ] Real mascot art — the **v2 icon is live (#96)**; the **v3 "star character" rebuild is
+  DECIDED + FILED (#210 foundational, placement #211) but not built.** Still SVG icon art, so
+  this is *advanced, not closed* (illustrated art remains a later pass).
+- [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes super-light card
+  drop-shadows + button polish, which would revise the long-standing flat "no shadows/borders"
+  rule; **triage / not adopted** (the flat rule holds until it ships). The mascot half-out
+  halo + light mascot-only shadow (#210/#211) is a scoped exception already decided.
 
 Resolved (kept for reference):
 
