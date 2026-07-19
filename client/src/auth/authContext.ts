@@ -28,6 +28,8 @@ export type AuthContextValue = {
   verify: (token: string) => Promise<void>
   resendVerification: (email: string) => Promise<void>
   logout: () => Promise<void>
+  /** Replace the cached user after an account change (e.g. Settings, #187). */
+  updateUser: (user: AuthUser) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

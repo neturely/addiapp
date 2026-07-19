@@ -67,6 +67,18 @@ final class Sessions
         Db::pdo()->prepare('DELETE FROM sessions WHERE user_id = ?')->execute([$userId]);
     }
 
+    /** Revoke all of a user's sessions except one (keep the caller signed in after
+     *  an in-settings password change, #187). Null $exceptSid revokes all. */
+    public static function deleteUserSessionsExcept(int $userId, ?string $exceptSid): void
+    {
+        if ($exceptSid === null || $exceptSid === '') {
+            self::deleteUserSessions($userId);
+            return;
+        }
+        Db::pdo()->prepare('DELETE FROM sessions WHERE user_id = ? AND id <> ?')
+            ->execute([$userId, $exceptSid]);
+    }
+
     public static function setCookie(string $sid): void
     {
         setcookie(self::COOKIE, $sid, self::cookieOptions(time() + self::TTL_DAYS * 86400));
