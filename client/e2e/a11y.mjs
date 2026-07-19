@@ -86,6 +86,35 @@ ok(arrow.checked === 1 && arrow.focused === 1, 'A11Y-5: ArrowRight moves checked
 await page.keyboard.press('ArrowLeft')
 ok((await page.evaluate(() => [...document.querySelectorAll('[role=radio]')].findIndex((r) => r.getAttribute('aria-checked') === 'true'))) === 0, 'A11Y-5: ArrowLeft moves selection back')
 
+// ── A11Y-5: AddTask effort-picker radiogroup (#197) ──────────────────────────
+await page.goto(`${BASE}/tasks/new`, { waitUntil: 'networkidle0' })
+const eg = await page.evaluate(() => {
+  const group = document.querySelector('[role=radiogroup]')
+  const radios = [...document.querySelectorAll('[role=radio]')]
+  return {
+    hasGroup: !!group,
+    labelled: group?.getAttribute('aria-labelledby'),
+    count: radios.length,
+    checked: radios.filter((r) => r.getAttribute('aria-checked') === 'true').length,
+    tabbable: radios.filter((r) => r.getAttribute('tabindex') === '0').length,
+  }
+})
+ok(eg.hasGroup && eg.count === 3, `A11Y-5: effort radiogroup with ${eg.count} radios`)
+ok(eg.labelled === 'effort-label', 'A11Y-5: effort radiogroup aria-labelledby the question')
+ok(eg.checked === 1, 'A11Y-5: effort — exactly one radio aria-checked')
+ok(eg.tabbable === 1, 'A11Y-5: effort — roving tabindex (only checked is tabbable)')
+// default selection is Medium (index 1); ArrowRight → High (index 2)
+await page.evaluate(() => document.querySelector('[role=radio][aria-checked=true]').focus())
+await page.keyboard.press('ArrowRight')
+const earrow = await page.evaluate(() => {
+  const radios = [...document.querySelectorAll('[role=radio]')]
+  return {
+    checked: radios.findIndex((r) => r.getAttribute('aria-checked') === 'true'),
+    focused: radios.indexOf(document.activeElement),
+  }
+})
+ok(earrow.checked === 2 && earrow.focused === 2, 'A11Y-5: effort — ArrowRight moves checked + focus together')
+
 // ── A11Y-5 table + A11Y-3 inline edit + A11Y-1 toast ─────────────────────────
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 await page.waitForSelector('table')

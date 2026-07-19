@@ -46,9 +46,14 @@ the old app was never in real use.
   `api/migrations/`, applied by `api/migrate.php` (tracked in a `_migrations`
   table). No ORM (the Drizzle era ended with the PHP rewrite). Migration
   discipline (#103): **one logical change (ideally one statement) per file** +
-  idempotent DDL (`CREATE TABLE/INDEX IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`)
-  so a re-run/partial-failure can't wedge — the per-file tracker + auto-committing
-  DDL means a multi-statement file that dies mid-way is left partially applied.
+  idempotent DDL (`CREATE TABLE/INDEX IF NOT EXISTS`) so a re-run/partial-failure
+  can't wedge — the per-file tracker + auto-committing DDL means a multi-statement
+  file that dies mid-way is left partially applied. **Engine caveat (#184):** dev
+  is MySQL 8.0 but prod is MariaDB 10.11 — `ADD COLUMN IF NOT EXISTS` is
+  **MariaDB-only** and errors on the dev DB. For a **single-statement** ALTER, use
+  plain `ADD COLUMN` (no `IF NOT EXISTS`): the tracker runs it exactly once and one
+  statement can't leave a partial state. `CREATE TABLE/INDEX IF NOT EXISTS` is fine
+  (both engines support it).
 - Auth: custom, self-rolled — **DB-backed server-side sessions** (opaque random
   token in an httpOnly `sid` cookie, 7-day TTL; the `sessions` row is the source
   of truth, so logout/expiry revoke access immediately) + **bcrypt** via PHP's
@@ -134,10 +139,16 @@ to the old Node API.
   `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
   disabled (dev default, fails closed if only the secret is set). Client pages:
   `/verify`, `/forgot-password`, `/reset`.
-- **Task CRUD (#27)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
+- **Task CRUD (#27, #184)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
+  Tasks have an optional plain-text **`description`** (#184, `varchar(1000)` NULL, empty→NULL,
+  line breaks kept via `whitespace-pre-wrap`): a textarea in the shared `TaskForm`, shown on the
+  TaskPresented **and InProgress** cards, and an **expandable chevron row** on the dashboard table (chevron only when a
+  description exists — a sibling button beside the click-to-edit title, expanding a colSpan `<tr>`).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
-- **Play mode (#29–#34, #69)**: Home `/`, Choice `/play`, Task `/play/task`,
-  In-progress `/play/progress/:id`, Completion, Empty state, Resume-from-home.
+- **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
+  to it — the standalone Home screen was retired in #191), Task `/play/task`,
+  In-progress `/play/progress/:id`, Completion, Empty state. A mid-flight task is
+  surfaced by a Resume banner on Choice **plus** the header timer chip.
 - **Dashboard (#36, #178)**: `/dashboard` — table + inline edit, full edit page
   `/tasks/:id/edit` (shared `TaskForm`), status filter tabs, sortable columns,
   per-row icon actions (Start/Resume=Play, Edit=Pencil, Delete=Trash; Save=Check
@@ -146,6 +157,11 @@ to the old Node API.
   presentation-only; the enum value stays `backlog`, so never string-match the
   label. Rows are a fixed `h-14` so inline-edit doesn't change row height.
 - **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
+- **Settings (#187)**: `/settings` (gear nav) — account management. `AccountController`:
+  `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
+  empty→NULL, now also enforced on register) + `POST /api/account/password` (needs current
+  password, keeps this session and revokes the rest via `Sessions::deleteUserSessionsExcept`).
+  Email is read-only here — **changing it is its own re-verification flow (#200, not built)**.
 - **Deploy (#39)** + **production email (#65)** done.
 
 NOT yet built: marketing homepage (#40, unscoped), user guide (#41, unscoped).
@@ -211,8 +227,8 @@ only screens not built are the marketing/landing homepage (#40) and user
 guide/help content (#41) — both unscoped.
 
 App shell (#92): authenticated routes render inside `AppLayout` (Header → Outlet
-→ Footer). The Header nav is intentionally **Play + Dashboard only** — the
-initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
+→ Footer). The Header nav is icon-only **Play + Dashboard + Settings (gear, #187)** —
+the initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
 decision, not a missing nav item), and logout lives in the Footer. Add-task is a
 Header CTA button. A live **in-progress timer chip** (#135) sits left of the Play
 icon when a task is in progress — `InProgressProvider` (wrapping `AppLayout`)
@@ -386,7 +402,6 @@ Genuinely still open:
   are done; Cloudflare edge config — Bot Fight Mode, WAF on `/api/auth/*`, managed
   DDoS — tracked as a separate dashboard-only issue)
 - [ ] Privacy policy / Terms of Service pages
-- [ ] Home secondary-link set (Add task / Dashboard / Stats) vs. a single entry (#29)
 - [ ] Final color palette / brand direction (placeholder warm coral in use)
 - [ ] Real mascot art (placeholder flat character in use)
 
@@ -400,3 +415,6 @@ Resolved (kept for reference):
 - [x] Points formulas + task-selection algorithm — finalized
 - [x] Play/dashboard designs — built
 - [x] Monorepo (client workspace) — kept
+- [x] Home screen — **retired (#191)**; `/` redirects to Choice as the single Play
+  landing (resume via the Choice banner + header chip), reversing the #29/#69 Home
+  + resume-from-home decisions

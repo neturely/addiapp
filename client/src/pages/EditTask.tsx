@@ -70,6 +70,7 @@ export function EditTask() {
         <TaskForm
           initial={{
             title: task.title,
+            description: task.description ?? '',
             complexity: task.complexity,
             estimatedMinutes: task.estimatedMinutes,
           }}

@@ -41,6 +41,10 @@ final class AuthController
             Response::error('Password must be at least 8 characters', 400);
             return;
         }
+        if ($displayName === false) {
+            Response::error('Invalid display name (up to 50 characters, no line breaks)', 400);
+            return;
+        }
 
         $pdo = Db::pdo();
         $exists = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
@@ -261,17 +265,32 @@ final class AuthController
         return is_string($v) && filter_var($v, FILTER_VALIDATE_EMAIL) ? $v : null;
     }
 
-    private static function displayName(mixed $v): ?string
+    /**
+     * Display name (#187): trimmed single-line, empty → null. Returns null
+     * (absent/empty) | string (valid) | false (present but invalid: not a string,
+     * a control char / newline, or over 50 chars). Shared by register + the
+     * account update so both enforce the same rule.
+     */
+    public static function displayName(mixed $v): string|false|null
     {
-        if (!is_string($v)) {
+        if ($v === null) {
             return null;
         }
+        if (!is_string($v)) {
+            return false;
+        }
         $t = trim($v);
-        return $t === '' ? null : mb_substr($t, 0, 100);
+        if ($t === '') {
+            return null;
+        }
+        if (preg_match('/[\x00-\x1F\x7F]/u', $t) || mb_strlen($t) > 50) {
+            return false;
+        }
+        return $t;
     }
 
-    /** @return array{id:int,email:string,displayName:?string} */
-    private static function publicUser(array $row): array
+    /** @return array{id:int,email:string,displayName:?string,gravatarHash:string} */
+    public static function publicUser(array $row): array
     {
         return [
             'id' => (int) $row['id'],

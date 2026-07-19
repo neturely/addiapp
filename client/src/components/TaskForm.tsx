@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { type TaskComplexity } from '@/lib/tasks'
 import { fetchPoints } from '@/lib/points'
 
@@ -35,10 +35,13 @@ const TITLE_PLACEHOLDERS = [
 
 // Mirror the server's CRUD validation (#27) so we fail fast client-side.
 const MAX_TITLE = 255
+const MAX_DESCRIPTION = 1000
 const MAX_MINUTES = 100_000
 
 export type TaskFormValues = {
   title: string
+  /** Optional free-text note (#184); '' means "no description". */
+  description: string
   complexity: TaskComplexity
   estimatedMinutes: number
 }
@@ -70,12 +73,30 @@ export function TaskForm({
     () => TITLE_PLACEHOLDERS[Math.floor(Math.random() * TITLE_PLACEHOLDERS.length)],
   )
   const [title, setTitle] = useState(initial?.title ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
   const [complexity, setComplexity] = useState<TaskComplexity>(initial?.complexity ?? 'medium')
   const [minutes, setMinutes] = useState(
     initial?.estimatedMinutes != null ? String(initial.estimatedMinutes) : '',
   )
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Roving-tabindex radiogroup for the effort tiles (a11y #197), matching the
+  // Choice time-pills pattern: only the checked tile is tabbable; arrow keys move
+  // the selection AND focus together (WAI-ARIA radio pattern).
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onEffortKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = COMPLEXITY_ORDER.length - 1
+    let next = index
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = last
+    else return
+    e.preventDefault()
+    setComplexity(COMPLEXITY_ORDER[next])
+    tileRefs.current[next]?.focus()
+  }
 
   useEffect(() => {
     fetchPoints()
@@ -100,7 +121,12 @@ export function TaskForm({
 
     setSubmitting(true)
     try {
-      await onSubmit({ title: trimmed, complexity, estimatedMinutes: mins })
+      await onSubmit({
+        title: trimmed,
+        description: description.trim(),
+        complexity,
+        estimatedMinutes: mins,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -126,17 +152,41 @@ export function TaskForm({
       </div>
 
       <div>
-        <span className="mb-3 block text-sm font-medium text-gray-600">How much effort?</span>
-        <div className="grid grid-cols-3 gap-2">
-          {COMPLEXITY_ORDER.map((c) => {
+        <label htmlFor="description" className="mb-2 block text-sm font-medium text-gray-600">
+          Notes <span className="text-muted">(optional)</span>
+        </label>
+        <textarea
+          id="description"
+          rows={2}
+          value={description}
+          maxLength={MAX_DESCRIPTION}
+          placeholder="Any details or steps to remember…"
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full resize-y rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <span id="effort-label" className="mb-3 block text-sm font-medium text-gray-600">
+          How much effort?
+        </span>
+        <div role="radiogroup" aria-labelledby="effort-label" className="grid grid-cols-3 gap-2">
+          {COMPLEXITY_ORDER.map((c, i) => {
             const active = complexity === c
             const style = COMPLEXITY_STYLE[c]
             return (
               <button
                 key={c}
+                ref={(el) => {
+                  tileRefs.current[i] = el
+                }}
                 type="button"
-                aria-pressed={active}
+                role="radio"
+                aria-checked={active}
+                aria-label={`${COMPLEXITY_LABEL[c]} — ${basePoints[c]} points`}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setComplexity(c)}
+                onKeyDown={(e) => onEffortKeyDown(e, i)}
                 className={`cursor-pointer rounded-lg py-3 text-center transition ${style.fill} ${
                   active ? 'ring-4 ring-gray-900 ring-offset-2' : 'hover:opacity-90'
                 }`}

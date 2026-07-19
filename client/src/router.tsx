@@ -1,5 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
-import { Home } from '@/pages/Home'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 import { Verify } from '@/pages/Verify'
@@ -12,6 +11,7 @@ import { AddTask } from '@/pages/AddTask'
 import { EditTask } from '@/pages/EditTask'
 import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
+import { Settings } from '@/pages/Settings'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AppLayout } from '@/components/AppLayout'
@@ -30,7 +30,9 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: '/', element: <Home /> },
+          // Home retired (#191): Choice is the Play-mode landing. `/` redirects
+          // to the canonical /play (still gated by ProtectedRoute above).
+          { path: '/', element: <Navigate to="/play" replace /> },
           { path: '/play', element: <Choice /> },
           { path: '/play/task', element: <TaskPresented /> },
           { path: '/play/progress/:id', element: <InProgress /> },
@@ -38,6 +40,7 @@ export const router = createBrowserRouter([
           { path: '/tasks/:id/edit', element: <EditTask /> },
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/stats', element: <Stats /> },
+          { path: '/settings', element: <Settings /> },
         ],
       },
     ],

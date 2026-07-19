@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-19
+### Added
+- A11Y — convert the AddTask effort picker from aria-pressed to a proper radiogroup ([#197](https://github.com/neturely/addiapp/issues/197))
+- Feature: Settings page (/settings) — account management (username, email, password) + header gear entry — scoping… ([#187](https://github.com/neturely/addiapp/issues/187))
+- Feature: optional task description field (AddTask/Edit textarea, Dashboard expandable row, TaskPresented) — scoping… ([#184](https://github.com/neturely/addiapp/issues/184))
+### Fixed
+- Stats page redesign — hero primary card + 2×2 color-identity stat grid (also the mobile fix) ([#185](https://github.com/neturely/addiapp/issues/185))
+### Changed
+- Drop the Home screen — make Choice the Play-mode landing (/ → Choice) ([#191](https://github.com/neturely/addiapp/issues/191))
+
 ## [1.5.0] - 2026-07-18
 ### Fixed
 - Play-loop Choice + empty-state fixes from live playthrough — responsive Choice layout, rotating heading, shared… ([#183](https://github.com/neturely/addiapp/issues/183))
@@ -64,7 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/neturely/addiapp/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/neturely/addiapp/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/neturely/addiapp/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/neturely/addiapp/compare/v1.3.2...v1.3.3

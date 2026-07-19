@@ -34,3 +34,8 @@ Thumbs.db
 .vercel
 *.pem
 coverage/
+# env files — never commit (any variant or backup)
+*.env
+*.env.bak
+!.env.sample
+!.env-example

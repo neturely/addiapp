@@ -100,9 +100,18 @@ final class TasksController
             return;
         }
 
+        $description = null;
+        if (array_key_exists('description', $req->body)) {
+            $description = self::description($req->input('description'));
+            if ($description === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+
         $pdo = Db::pdo();
-        $pdo->prepare('INSERT INTO tasks (user_id, title, complexity, estimated_minutes) VALUES (?, ?, ?, ?)')
-            ->execute([$req->userId, $title, $complexity, $minutes]);
+        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$req->userId, $title, $description, $complexity, $minutes]);
 
         $created = self::findOwned($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
         if ($created === null) {
@@ -166,6 +175,15 @@ final class TasksController
             }
             $sets[] = 'estimated_minutes = ?';
             $args[] = $m;
+        }
+        if (array_key_exists('description', $req->body)) {
+            $description = self::description($req->input('description'));
+            if ($description === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $sets[] = 'description = ?';
+            $args[] = $description;
         }
 
         $newStatus = null;
@@ -276,6 +294,7 @@ final class TasksController
             'id' => (int) $r['id'],
             'userId' => (int) $r['user_id'],
             'title' => $r['title'],
+            'description' => $r['description'],
             'complexity' => $r['complexity'],
             'estimatedMinutes' => (int) $r['estimated_minutes'],
             'status' => $r['status'],
@@ -308,6 +327,26 @@ final class TasksController
         }
         $t = trim($v);
         return $t !== '' && mb_strlen($t) <= 255 ? $t : null;
+    }
+
+    /**
+     * Optional description (#184): trimmed, empty → null (so "has a description"
+     * is unambiguous). Returns null (absent/empty) | string (valid) | false
+     * (present but invalid: not a string, or over the 1000-char cap).
+     */
+    private static function description(mixed $v): string|false|null
+    {
+        if ($v === null) {
+            return null;
+        }
+        if (!is_string($v)) {
+            return false;
+        }
+        $t = trim($v);
+        if (mb_strlen($t) > 1000) {
+            return false;
+        }
+        return $t === '' ? null : $t;
     }
 
     private static function enum(mixed $v, array $allowed): ?string
