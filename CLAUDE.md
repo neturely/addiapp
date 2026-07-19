@@ -240,14 +240,17 @@ tracks the most-recently-started in-progress task (fetch on mount + route change
 no polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
 
-Shared **`CardScreen`** (`components/CardScreen.tsx`, #181/#183): the centered
-flat white rounded card used for celebratory/confirmation screens — Completion
-and the Play-mode empty state both render through it (`decoration` slot holds
-accents that spill past the card, e.g. Completion's corner confetti). Reach for
-it for new full-screen card moments rather than re-rolling the shell. Responsive
-note: the app's only breakpoint is **`sm`** (640px) — there is no `md`/`lg` in
-use; the Choice screen flanks the mascot side-by-side at `sm+` and stacks it
-above the two win cards below `sm`.
+Shared **`PlayCard`** (`components/PlayCard.tsx`, #204 epic / #208; supersedes the
+old `CardScreen`): the canonical Play-moment card — a centred flat white rounded
+card rendering a fixed slot order (`eyebrow? → mascot → title/body? → hero? →
+context? → primary → secondary? → footer?`, plus a `decoration` slot that spills
+past the card edge, e.g. Completion's corner confetti). **Completion** and the
+Play-mode **EmptyState** ride it (Phase 1); **TaskPresented + InProgress** migrate
+in Phase 2 (#204), where the mascot moves inside the card. Reach for `PlayCard`
+for any single-message Play screen rather than re-rolling the shell. Responsive
+note: the app's only breakpoint is **`sm`** (640px) — no `md`/`lg`; the Choice
+screen (deliberately NOT on `PlayCard`) flanks the mascot side-by-side at `sm+`
+and stacks it above the two win cards below `sm`.
 
 Mascot: icon-style, expression-driven SVG (#96) — one `Mascot` component
 (`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
