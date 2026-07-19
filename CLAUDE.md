@@ -157,6 +157,11 @@ to the old Node API.
   presentation-only; the enum value stays `backlog`, so never string-match the
   label. Rows are a fixed `h-14` so inline-edit doesn't change row height.
 - **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
+- **Settings (#187)**: `/settings` (gear nav) — account management. `AccountController`:
+  `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
+  empty→NULL, now also enforced on register) + `POST /api/account/password` (needs current
+  password, keeps this session and revokes the rest via `Sessions::deleteUserSessionsExcept`).
+  Email is read-only here — **changing it is its own re-verification flow (#200, not built)**.
 - **Deploy (#39)** + **production email (#65)** done.
 
 NOT yet built: marketing homepage (#40, unscoped), user guide (#41, unscoped).
@@ -222,8 +227,8 @@ only screens not built are the marketing/landing homepage (#40) and user
 guide/help content (#41) — both unscoped.
 
 App shell (#92): authenticated routes render inside `AppLayout` (Header → Outlet
-→ Footer). The Header nav is intentionally **Play + Dashboard only** — the
-initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
+→ Footer). The Header nav is icon-only **Play + Dashboard + Settings (gear, #187)** —
+the initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
 decision, not a missing nav item), and logout lives in the Footer. Add-task is a
 Header CTA button. A live **in-progress timer chip** (#135) sits left of the Play
 icon when a task is in progress — `InProgressProvider` (wrapping `AppLayout`)

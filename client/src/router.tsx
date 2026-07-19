@@ -11,6 +11,7 @@ import { AddTask } from '@/pages/AddTask'
 import { EditTask } from '@/pages/EditTask'
 import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
+import { Settings } from '@/pages/Settings'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AppLayout } from '@/components/AppLayout'
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
           { path: '/tasks/:id/edit', element: <EditTask /> },
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/stats', element: <Stats /> },
+          { path: '/settings', element: <Settings /> },
         ],
       },
     ],

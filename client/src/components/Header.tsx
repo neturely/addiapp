@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutGrid, Play, Plus, type LucideIcon } from 'lucide-react'
+import { LayoutGrid, Play, Plus, Settings, type LucideIcon } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useInProgress } from '@/inprogress/useInProgress'
 import { TimerChip } from './TimerChip'
@@ -20,6 +20,7 @@ function initialsFor(user: AuthUser): string {
 const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => boolean }[] = [
   { to: '/play', label: 'Play', Icon: Play, match: (p) => p === '/' || p.startsWith('/play') },
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutGrid, match: (p) => p.startsWith('/dashboard') },
+  { to: '/settings', label: 'Settings', Icon: Settings, match: (p) => p.startsWith('/settings') },
 ]
 
 /**
