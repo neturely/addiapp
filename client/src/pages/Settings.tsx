@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/toast/useToast'
-import { changePassword, updateAccount } from '@/lib/account'
+import { changePassword, requestEmailChange, updateAccount } from '@/lib/account'
 
 /**
  * Account settings (#187): username (display name) + password. Email display is
@@ -16,6 +16,11 @@ export function Settings() {
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+
+  const [newEmail, setNewEmail] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [emailSent, setEmailSent] = useState<string | null>(null)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -34,6 +39,22 @@ export function Settings() {
       setProfileError(err instanceof Error ? err.message : 'Could not save your profile.')
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  async function saveEmail(e: FormEvent) {
+    e.preventDefault()
+    setEmailError(null)
+    setEmailSent(null)
+    setSavingEmail(true)
+    try {
+      const { message } = await requestEmailChange({ email: newEmail.trim() })
+      setEmailSent(message)
+      setNewEmail('')
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Could not request the change.')
+    } finally {
+      setSavingEmail(false)
     }
   }
 
@@ -85,13 +106,6 @@ export function Settings() {
               Shown on your avatar. Leave blank to use your email initial.
             </p>
           </div>
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-600">
-              Email
-            </label>
-            <input id="email" type="email" value={user?.email ?? ''} disabled className={`${field} text-muted`} />
-            <p className="mt-1 text-xs text-muted">Changing your email is coming soon.</p>
-          </div>
           {profileError && (
             <p role="alert" className="text-sm text-red-600">
               {profileError}
@@ -99,6 +113,55 @@ export function Settings() {
           )}
           <button type="submit" disabled={savingProfile} className={cta}>
             {savingProfile ? 'Saving…' : 'Save profile'}
+          </button>
+        </form>
+      </section>
+
+      <section className="mb-6 rounded-2xl bg-surface p-6">
+        <h2 className="mb-4 text-lg font-bold text-gray-800">Email</h2>
+        <form onSubmit={saveEmail} className="space-y-4">
+          <div>
+            <label htmlFor="currentEmail" className="mb-1 block text-sm font-medium text-gray-600">
+              Current email
+            </label>
+            <input
+              id="currentEmail"
+              type="email"
+              value={user?.email ?? ''}
+              disabled
+              className={`${field} text-muted`}
+            />
+          </div>
+          <div>
+            <label htmlFor="newEmail" className="mb-1 block text-sm font-medium text-gray-600">
+              New email
+            </label>
+            <input
+              id="newEmail"
+              type="email"
+              autoComplete="email"
+              value={newEmail}
+              placeholder="you@example.com"
+              onChange={(e) => setNewEmail(e.target.value)}
+              className={field}
+            />
+            <p className="mt-1 text-xs text-muted">
+              We'll email a confirmation link to the new address; your email changes only after you
+              click it (and you'll be signed out on your other devices).
+            </p>
+          </div>
+          {emailError && (
+            <p role="alert" className="text-sm text-red-600">
+              {emailError}
+            </p>
+          )}
+          {emailSent && (
+            <p role="status" className="text-sm text-success-ink">
+              {emailSent}
+            </p>
+          )}
+          <button type="submit" disabled={savingEmail} className={cta}>
+            {savingEmail ? 'Sending…' : 'Send confirmation'}
           </button>
         </form>
       </section>

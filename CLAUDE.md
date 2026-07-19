@@ -157,11 +157,15 @@ to the old Node API.
   presentation-only; the enum value stays `backlog`, so never string-match the
   label. Rows are a fixed `h-14` so inline-edit doesn't change row height.
 - **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
-- **Settings (#187)**: `/settings` (gear nav) — account management. `AccountController`:
+- **Settings (#187, #200)**: `/settings` (gear nav) — account management. `AccountController`:
   `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
   empty→NULL, now also enforced on register) + `POST /api/account/password` (needs current
   password, keeps this session and revokes the rest via `Sessions::deleteUserSessionsExcept`).
-  Email is read-only here — **changing it is its own re-verification flow (#200, not built)**.
+  **Email change (#200)** is a re-verification flow: a `pending_email` column (migration 004) + an
+  `email_change` `EmailTokens` type (enum extended, migration 005); `POST /api/account/email` stores
+  the pending address (non-enumerating, rate-limited) and Resends a confirm link to it; the
+  UNauthenticated `POST /api/auth/confirm-email-change` (client `/confirm-email-change`) swaps it in
+  and revokes ALL sessions (login identifier changed → re-sign-in with the new address).
 - **Deploy (#39)** + **production email (#65)** done.
 
 NOT yet built: marketing homepage (#40, unscoped), user guide (#41, unscoped).
