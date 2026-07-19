@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { type TaskComplexity } from '@/lib/tasks'
 import { fetchPoints } from '@/lib/points'
 
@@ -81,6 +81,23 @@ export function TaskForm({
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Roving-tabindex radiogroup for the effort tiles (a11y #197), matching the
+  // Choice time-pills pattern: only the checked tile is tabbable; arrow keys move
+  // the selection AND focus together (WAI-ARIA radio pattern).
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onEffortKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = COMPLEXITY_ORDER.length - 1
+    let next = index
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = last
+    else return
+    e.preventDefault()
+    setComplexity(COMPLEXITY_ORDER[next])
+    tileRefs.current[next]?.focus()
+  }
+
   useEffect(() => {
     fetchPoints()
       .then((p) => setBasePoints(p.basePoints))
@@ -150,17 +167,26 @@ export function TaskForm({
       </div>
 
       <div>
-        <span className="mb-3 block text-sm font-medium text-gray-600">How much effort?</span>
-        <div className="grid grid-cols-3 gap-2">
-          {COMPLEXITY_ORDER.map((c) => {
+        <span id="effort-label" className="mb-3 block text-sm font-medium text-gray-600">
+          How much effort?
+        </span>
+        <div role="radiogroup" aria-labelledby="effort-label" className="grid grid-cols-3 gap-2">
+          {COMPLEXITY_ORDER.map((c, i) => {
             const active = complexity === c
             const style = COMPLEXITY_STYLE[c]
             return (
               <button
                 key={c}
+                ref={(el) => {
+                  tileRefs.current[i] = el
+                }}
                 type="button"
-                aria-pressed={active}
+                role="radio"
+                aria-checked={active}
+                aria-label={`${COMPLEXITY_LABEL[c]} — ${basePoints[c]} points`}
+                tabIndex={active ? 0 : -1}
                 onClick={() => setComplexity(c)}
+                onKeyDown={(e) => onEffortKeyDown(e, i)}
                 className={`cursor-pointer rounded-lg py-3 text-center transition ${style.fill} ${
                   active ? 'ring-4 ring-gray-900 ring-offset-2' : 'hover:opacity-90'
                 }`}
