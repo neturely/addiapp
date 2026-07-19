@@ -35,10 +35,13 @@ const TITLE_PLACEHOLDERS = [
 
 // Mirror the server's CRUD validation (#27) so we fail fast client-side.
 const MAX_TITLE = 255
+const MAX_DESCRIPTION = 1000
 const MAX_MINUTES = 100_000
 
 export type TaskFormValues = {
   title: string
+  /** Optional free-text note (#184); '' means "no description". */
+  description: string
   complexity: TaskComplexity
   estimatedMinutes: number
 }
@@ -70,6 +73,7 @@ export function TaskForm({
     () => TITLE_PLACEHOLDERS[Math.floor(Math.random() * TITLE_PLACEHOLDERS.length)],
   )
   const [title, setTitle] = useState(initial?.title ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
   const [complexity, setComplexity] = useState<TaskComplexity>(initial?.complexity ?? 'medium')
   const [minutes, setMinutes] = useState(
     initial?.estimatedMinutes != null ? String(initial.estimatedMinutes) : '',
@@ -100,7 +104,12 @@ export function TaskForm({
 
     setSubmitting(true)
     try {
-      await onSubmit({ title: trimmed, complexity, estimatedMinutes: mins })
+      await onSubmit({
+        title: trimmed,
+        description: description.trim(),
+        complexity,
+        estimatedMinutes: mins,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -122,6 +131,21 @@ export function TaskForm({
           placeholder={`e.g. ${placeholder}`}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="description" className="mb-2 block text-sm font-medium text-gray-600">
+          Notes <span className="text-muted">(optional)</span>
+        </label>
+        <textarea
+          id="description"
+          rows={2}
+          value={description}
+          maxLength={MAX_DESCRIPTION}
+          placeholder="Any details or steps to remember…"
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full resize-y rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
         />
       </div>
 

@@ -113,11 +113,19 @@ export function TaskPresented() {
       <Mascot expression="neutral" />
 
       <div className="w-full max-w-md rounded-2xl bg-surface p-6">
-        <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${tag.className}`}>
+        <span
+          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${tag.className}`}
+        >
           {tag.label}
         </span>
         <h1 className="mt-3 text-2xl font-bold text-gray-800">{task.title}</h1>
         <p className="mt-1 text-muted">~{formatMinutes(task.estimatedMinutes)}</p>
+
+        {task.description && (
+          <p className="mt-3 text-left text-sm whitespace-pre-wrap text-gray-600">
+            {task.description}
+          </p>
+        )}
 
         {basePoints != null && (
           <div className="mt-4 rounded-xl bg-primary-tint p-3">
@@ -129,7 +137,11 @@ export function TaskPresented() {
           </div>
         )}
 
-        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
         <button
           type="button"

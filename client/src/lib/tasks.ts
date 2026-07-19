@@ -6,6 +6,8 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'done'
 export type Task = {
   id: number
   title: string
+  /** Optional free-text description (#184); null when none. */
+  description?: string | null
   complexity: TaskComplexity
   estimatedMinutes: number
   status: TaskStatus
@@ -35,6 +37,8 @@ export function parseMinutes(raw: string | null): number | undefined {
 /** Fields for creating a task (issue #35 add-task form). */
 export type NewTaskInput = {
   title: string
+  /** Optional description (#184); empty string is normalized to NULL server-side. */
+  description?: string | null
   complexity: TaskComplexity
   estimatedMinutes: number
 }
@@ -120,7 +124,9 @@ export async function getTask(id: number): Promise<Task> {
  * Complete a task → done. Awards points on the first completion (issue #28), so
  * `pointsAwarded` is present the first time and omitted if it was already done.
  */
-export async function completeTask(id: number): Promise<{ task: Task; pointsAwarded?: AwardResult }> {
+export async function completeTask(
+  id: number,
+): Promise<{ task: Task; pointsAwarded?: AwardResult }> {
   return requestJson<{ task: Task; pointsAwarded?: AwardResult }>(`/tasks/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),
