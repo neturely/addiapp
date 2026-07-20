@@ -240,54 +240,61 @@ tracks the most-recently-started in-progress task (fetch on mount + route change
 no polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
 
-Shared **`PlayCard`** (`components/PlayCard.tsx`, #204 epic / #208; supersedes the
-old `CardScreen`): the canonical Play-moment card — a centred flat white rounded
-card rendering a fixed slot order (`eyebrow? → mascot → title/body? → hero? →
-context? → primary → secondary? → footer?`, plus a `decoration` slot that spills
-past the card edge, e.g. Completion's corner confetti). **Completion** and the
-Play-mode **EmptyState** ride it (Phase 1, #208); **TaskPresented + InProgress**
-migrate in **Phase 2 (#211, child of #204 — FILED, not built; `blocked_by #210`)**.
-**Mascot placement REVISED (#210/#211):** the mascot no longer sits *inside* the
-card (Phase 1's arrangement) — it goes **half-out, straddling the card's top edge**,
-with a thin white halo + a light drop-shadow **on the mascot only** (the card stays
-flat). This becomes the PlayCard standard for all four adopters (Completion +
-EmptyState move from the inside-slot to half-out too). **Slot semantics settled on
-#204 (2026-07-19):** `title` = the task name **always**; `eyebrow` = the
-celebratory/status framing ("NICE WORK", the rotating working label — NOT the
-reverse, so Completion flips from `title="Nice work!"` to `eyebrow="NICE WORK"` +
-`title`=task name); `secondary` is **shape-flexible** (an icon+text link row OR a
-button pair, e.g. EmptyState's Retry/Add); TaskPresented's effort badge **stays a
-colored badge** (not flattened into muted eyebrow text). Reach for `PlayCard`
-for any single-message Play screen rather than re-rolling the shell. Responsive
-note: the app's only breakpoint is **`sm`** (640px) — no `md`/`lg`; the Choice
-screen (deliberately NOT on `PlayCard`) flanks the mascot side-by-side at `sm+`
-and stacks it above the two win cards below `sm`.
+Shared **`PlayCard`** (`components/PlayCard.tsx`, #204 epic / #208 Phase 1 / #211
+Phase 2; supersedes the old `CardScreen`): the canonical Play-moment card — a
+centred flat white rounded card rendering a fixed slot order (`eyebrow? →
+title/body? → hero? → context? → primary → secondary? → footer?`, plus a
+`decoration` slot that spills past the card edge, e.g. Completion's corner
+confetti). **All four** single-message Play screens now ride it: **Completion +
+EmptyState** (Phase 1, #208) and **TaskPresented + InProgress** (Phase 2, #211 —
+their bespoke `<main>`/white-card markup was removed). **The #204 epic is CLOSED.**
+**Mascot placement (LIVE, #210/#211):** the mascot is **half-out, straddling the
+card's top edge** (half on the cream page, half over the card), with a thin
+theme-aware sticker **halo** + a light drop-shadow **on the mascot only** (the card
+stays flat). It's an absolutely-positioned slot (`pointer-events-none`) over the top
+edge, card top-padding clearing its lower half; adopters pass the mascot with `halo`
++ a sizing class (`<Mascot halo className="h-24 w-24" />`). Confetti and the
+celebrating arms-up pose coexist with it without collision. **Slot semantics (#204):**
+`eyebrow` = the celebratory/status framing (the rotating working label, etc.);
+`secondary` is **shape-flexible** (an icon+text link row OR a button pair, e.g.
+EmptyState's Retry/Add); TaskPresented's effort badge **stays a colored badge** (not
+flattened into muted eyebrow text). **Remaining #204 cleanup (deferred):** Completion
+still uses `title="Nice work!"` + `body`=task name — the `eyebrow="NICE WORK"` +
+`title`=task-name re-slot was NOT applied in #211 (placement-only scope); pick it up
+in a later polish pass. Reach for `PlayCard` for any single-message Play screen
+rather than re-rolling the shell. Responsive note: the app's only breakpoint is
+**`sm`** (640px) — no `md`/`lg`; the Choice screen (deliberately NOT on `PlayCard`)
+flanks the mascot side-by-side at `sm+` and stacks it above the two win cards below `sm`.
 
-Mascot — **currently LIVE = v2 penguin icon (#96)** — one `Mascot` component
-(`client/src/components/Mascot.tsx`) with an `expression` prop (`neutral |
-celebrating | idle`); a penguin-ish icon (golden-yellow head + darker orange-gold
-crest, pale-cream eye patches, orange-red beak) whose FACE carries emotion while
-the body colour stays constant. Colours are dedicated `--color-mascot-*` tokens in
-`index.css`. This is the SVG icon-system pass, NOT final illustrated art.
+Shared **`FormCard`** (`components/FormCard.tsx`, #206): the **utility/admin
+counterpart** to `PlayCard` — the titled flat surface box (`rounded-2xl bg-surface
+p-6` + heading) that the form screens each hand-rolled, with **no mascot and no
+celebratory framing** (forms aren't part of the game loop). **AddTask** + **EditTask**
+each wrap one (centred `h1`); **Settings** stacks three sections (left-aligned `h2`).
+Page-level layout stays per screen; FormCard only unifies the card + heading. The
+**EditTask desktop-modal** half of #206 (over the dashboard, `sm+`, with focus
+trap / return-focus / Escape / `role="dialog"`) was split to **#218** — filed, not
+built; mobile stays the full page pending #98.
 
-**Mascot v3 — "star character" (#210: DECIDED in chat, FILED, NOT yet built; #211
-consumes it):** a **full REBUILD that supersedes the v2 penguin entirely** —
-foundational, inherited by every screen that renders `<Mascot>`. A round golden face
-(`#ffc800`) with **four chunky rounded star-point limbs** (2 arms upper, 2 legs
-lower) that **pose per expression**, **big cartoony eyes** (cream whites + dark
-pupils + catch-light), **soft blush cheeks**, a low coral smile sitting on its own,
-and a **front cowlick** on the crown. Same `expression`-swap mechanism (no per-state
-redraw); **idle = "look-down"** (eyes open, pupils low — attentive). Keeps the
-single-flat-body-colour rule + `--color-mascot-*` tokens, **adds
-`--color-mascot-blush #ff9a7a`** and deepens the pupil to `#4a3208`. New **`halo`
-prop** — a thin, **theme-aware sticker outline** (surface-coloured, via a stacked
-`drop-shadow` filter) — used for the half-out PlayCard placement (see PlayCard
-above); pairs with a light drop-shadow on the mascot only. **Full drop-in SVG
-geometry is in #210's body** — port verbatim. Still SVG ICON art (advances but does
-NOT close the "real mascot art" open decision). **Known follow-up (flagged in #210,
-unresolved):** at ~20px the star limbs melt into the circle, so the header **timer
-chip** (#135) likely needs a **face-only crop** companion asset. Build order:
-**#210 → #211**; #213 (below) whenever.
+Mascot — **currently LIVE = v3 "star character" (#210; supersedes the v2 penguin
+#96 entirely)** — one `Mascot` component (`client/src/components/Mascot.tsx`) with
+an `expression` prop (`neutral | celebrating | idle`) **plus an opt-in `halo` prop**.
+A **round golden face** (`--color-mascot-body #ffc800`) with **four chunky rounded
+star-point limbs** (2 arms upper, 2 legs lower) that **pose per expression** (a
+second expression channel on top of the face), **big cartoony eyes** (cream whites +
+dark pupils + catch-light), **soft blush cheeks**, a low coral smile, and a **front
+cowlick** on the crown. Same `expression`-swap mechanism (no per-state redraw);
+**idle = "look-down"** (eyes open, pupils low — attentive). Keeps the
+single-flat-body-colour rule + `--color-mascot-*` tokens; **`--color-mascot-blush
+#ff9a7a`** was added and the pupil deepened to `#4a3208`. The **`halo`** prop draws a
+thin **theme-aware sticker outline** (surface-coloured, via a stacked `drop-shadow`
+filter) + a light lift shadow on the mascot only — for the half-out PlayCard
+placement (see above); default off, so any non-card placement is unchanged. Still the
+**SVG ICON art** pass — advances but does NOT close the "real mascot art" open
+decision (illustrated art is a later pass). **Timer-chip note (was flagged in #210):**
+the header **timer chip** (#135) uses a **pulse dot, not the mascot**, so the feared
+"star limbs melt at ~20px" face-only-crop companion asset is **NOT needed** — no
+current usage renders the mascot that small.
 
 Color palette — **vivid v3** (#143; single source `client/src/index.css`, flat,
 no shadows/borders, AA-verified). Each hue has THREE roles — never one token doing
@@ -450,13 +457,15 @@ Genuinely still open:
 - [ ] Final color palette / brand direction — **vivid v3 is live and treated as current
   (#143)**; only a "final/locked brand" sign-off remains open (placeholder warm coral
   `#D85A30` is fully retired).
-- [ ] Real mascot art — the **v2 icon is live (#96)**; the **v3 "star character" rebuild is
-  DECIDED + FILED (#210 foundational, placement #211) but not built.** Still SVG icon art, so
-  this is *advanced, not closed* (illustrated art remains a later pass).
+- [ ] Real mascot art — the **v3 "star character" is now LIVE (#210, superseding the v2 icon
+  #96); the half-out PlayCard placement shipped (#211).** Still SVG icon art, so this is
+  *advanced, not closed* — illustrated art remains a later pass.
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes super-light card
   drop-shadows + button polish, which would revise the long-standing flat "no shadows/borders"
   rule; **triage / not adopted** (the flat rule holds until it ships). The mascot half-out
-  halo + light mascot-only shadow (#210/#211) is a scoped exception already decided.
+  halo + light mascot-only shadow (#210/#211) is a scoped exception already live. **Open thread
+  to test under #213:** how a card drop-shadow reads against the mascot's own drop-shadow at the
+  half-out overlap.
 
 Resolved (kept for reference):
 
