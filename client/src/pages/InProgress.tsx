@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
+import { PlayCard } from '@/components/PlayCard'
 import { Completion } from '@/components/Completion'
 import { completeTask, getTask, parseMinutes, type AwardResult, type Task } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
@@ -160,24 +161,24 @@ export function InProgress() {
   const basePoints = points?.basePoints[task.complexity]
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot expression="idle" />
-      <p className="text-sm font-semibold uppercase tracking-wide text-muted">{workingLabel}</p>
-
-      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
-        <h1 className="text-xl font-bold text-gray-800">{task.title}</h1>
-
-        {task.description && (
+    <PlayCard
+      mascot={<Mascot expression="idle" halo className="h-24 w-24" />}
+      eyebrow={workingLabel}
+      title={<h1 className="text-xl font-bold text-gray-800">{task.title}</h1>}
+      body={
+        task.description ? (
           <p className="mt-2 text-left text-sm whitespace-pre-wrap text-gray-600">
             {task.description}
           </p>
-        )}
-
-        <div className="mt-4 font-mono text-5xl font-bold tabular-nums text-gray-900">
+        ) : undefined
+      }
+      hero={
+        <div className="font-mono text-5xl font-bold tabular-nums text-gray-900">
           {formatClock(elapsed)}
         </div>
-
-        <div className="mt-4">
+      }
+      context={
+        <>
           {/* #143: vivid meter fills are a DELIBERATE choice — their contrast vs
               the track is below 1.4.11's 3:1 (green 1.86, gold 1.41), accepted
               because this is a decorative indicator and the exact elapsed/estimate
@@ -193,48 +194,47 @@ export function InProgress() {
           <div className="mt-1 text-xs text-muted">
             {elapsedMin} / {task.estimatedMinutes} min
           </div>
-        </div>
 
-        <p className="mt-4 text-sm font-medium text-gray-600">
-          {inBonus ? (
-            <>
-              <Zap className="mb-0.5 inline h-4 w-4 text-warning-ink" fill="currentColor" strokeWidth={0} />{' '}
-              Finish within{' '}
-              <span className="font-bold text-success-ink">{formatClock(estimateSec - elapsed)}</span>{' '}
-              for a speed bonus
-            </>
-          ) : (
-            <>
-              Past the estimate — no speed bonus now
-              {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish strong.
-            </>
-          )}
-        </p>
+          <p className="mt-4 text-sm font-medium text-gray-600">
+            {inBonus ? (
+              <>
+                <Zap className="mb-0.5 inline h-4 w-4 text-warning-ink" fill="currentColor" strokeWidth={0} />{' '}
+                Finish within{' '}
+                <span className="font-bold text-success-ink">{formatClock(estimateSec - elapsed)}</span>{' '}
+                for a speed bonus
+              </>
+            ) : (
+              <>
+                Past the estimate — no speed bonus now
+                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish strong.
+              </>
+            )}
+          </p>
 
-        {/* SR-only milestone: announces ONCE when the bonus window closes. The
-            text only changes at the crossing (empty → message), so a screen
-            reader announces it a single time and the per-second clock is never
-            in a live region (would spam). A task resumed already-past-estimate
-            renders the text on first mount → not announced, which is correct. */}
-        <p role="status" className="sr-only">
-          {inBonus ? '' : 'Past the estimate — no speed bonus now.'}
-        </p>
-
-        {error && <p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
-
-        <button
-          type="button"
-          onClick={() => void onComplete()}
-          disabled={completing}
-          className="mt-5 w-full cursor-pointer rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400"
-        >
-          {completing ? 'Completing…' : 'Complete'}
-        </button>
-      </div>
-
-      <p className="text-sm text-muted">
-        You can leave any time — this task stays in progress until you complete it.
-      </p>
-    </main>
+          {/* SR-only milestone: announces ONCE when the bonus window closes. The
+              text only changes at the crossing (empty → message), so a screen
+              reader announces it a single time and the per-second clock is never
+              in a live region (would spam). A task resumed already-past-estimate
+              renders the text on first mount → not announced, which is correct. */}
+          <p role="status" className="sr-only">
+            {inBonus ? '' : 'Past the estimate — no speed bonus now.'}
+          </p>
+        </>
+      }
+      primary={
+        <>
+          {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
+          <button
+            type="button"
+            onClick={() => void onComplete()}
+            disabled={completing}
+            className="w-full cursor-pointer rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {completing ? 'Completing…' : 'Complete'}
+          </button>
+        </>
+      }
+      footer="You can leave any time — this task stays in progress until you complete it."
+    />
   )
 }

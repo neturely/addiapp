@@ -13,7 +13,7 @@ import { PlayCard } from './PlayCard'
 export function EmptyState({ filtered = false }: { filtered?: boolean }) {
   return (
     <PlayCard
-      mascot={<Mascot expression="idle" />}
+      mascot={<Mascot expression="idle" halo className="h-24 w-24" />}
       title={<h1 className="text-2xl font-bold text-gray-800">Nothing here right now</h1>}
       body={
         <p className="text-muted">

@@ -91,7 +91,7 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
   return (
     <PlayCard
       decoration={confetti}
-      mascot={<Mascot expression="celebrating" />}
+      mascot={<Mascot expression="celebrating" halo className="h-24 w-24" />}
       title={
         <h1
           ref={headingRef}
