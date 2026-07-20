@@ -101,6 +101,11 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  // Latest filter for the deferred delete/undo paths (#100): those fire from a
+  // timer or after a tab switch, so they must read the CURRENT filter, not the one
+  // captured when the timer was armed.
+  const filterRef = useRef<Filter>(filter)
+  filterRef.current = filter
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'created',
     dir: 'desc',
@@ -171,6 +176,17 @@ export function Dashboard() {
     setCounts((c) => (c ? { ...c, all: c.all + delta, [status]: c[status] + delta } : c))
   }
 
+  // Re-insert an undone / restore-on-failure row ONLY if it belongs in the current
+  // filter view (#100). `tasks` is server-filtered per tab, so appending a row
+  // whose status doesn't match the active tab would mix statuses in. Counts are
+  // restored separately (they're global); a later switch to a matching tab
+  // re-fetches the row from the server.
+  function restoreRow(task: Task) {
+    if (filterRef.current === 'all' || task.status === filterRef.current) {
+      setTasks((prev) => [...prev, task].sort(byIdDesc))
+    }
+  }
+
   // Commit any deferred delete to the server; restore the row if it fails.
   function commitPending() {
     const p = pendingRef.current
@@ -179,7 +195,7 @@ export function Dashboard() {
     pendingRef.current = null
     setPendingTask(null)
     deleteTask(p.task.id).catch(() => {
-      setTasks((prev) => [...prev, p.task].sort(byIdDesc))
+      restoreRow(p.task)
       adjustCounts(p.task.status, 1) // undo the optimistic decrement
       setError('Could not delete that task — it has been restored.')
     })
@@ -232,7 +248,7 @@ export function Dashboard() {
     clearTimeout(p.timer)
     pendingRef.current = null
     setPendingTask(null)
-    setTasks((prev) => [...prev, p.task].sort(byIdDesc))
+    restoreRow(p.task)
     adjustCounts(p.task.status, 1)
   }
 
