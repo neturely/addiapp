@@ -22,6 +22,7 @@ import {
   type TaskStatus,
 } from '@/lib/tasks'
 import { PointsCard } from '@/components/PointsCard'
+import { EditTaskModal } from '@/components/EditTaskModal'
 
 type Filter = 'all' | TaskStatus
 
@@ -105,6 +106,7 @@ export function Dashboard() {
   const [pointsRefresh, setPointsRefresh] = useState(0)
 
   const [expandedId, setExpandedId] = useState<number | null>(null) // description row (#184)
+  const [editModalTask, setEditModalTask] = useState<Task | null>(null) // desktop edit modal (#218)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
@@ -569,10 +571,23 @@ export function Dashboard() {
                               />
                             </Link>
                           )}
+                          {/* Edit (#218): desktop opens a modal over the list (kept
+                              in context); mobile (< sm) keeps the full-page route,
+                              which also still backs deep links + refresh everywhere.
+                              Only one is in the a11y tree per breakpoint (the other
+                              is display:none). */}
+                          <button
+                            type="button"
+                            onClick={() => setEditModalTask(task)}
+                            aria-label={`Edit details for ${task.title}`}
+                            className="hidden cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800 sm:inline-flex"
+                          >
+                            <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
+                          </button>
                           <Link
                             to={`/tasks/${task.id}/edit`}
                             aria-label={`Edit details for ${task.title}`}
-                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800 sm:hidden"
                           >
                             <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
                           </Link>
@@ -628,6 +643,17 @@ export function Dashboard() {
             Undo
           </button>
         </div>
+      )}
+
+      {editModalTask && (
+        <EditTaskModal
+          task={editModalTask}
+          onClose={() => setEditModalTask(null)}
+          onSaved={(updated) => {
+            setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)).sort(byIdDesc))
+            setEditModalTask(null)
+          }}
+        />
       )}
     </main>
   )
