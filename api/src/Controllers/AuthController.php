@@ -258,9 +258,53 @@ final class AuthController
         Response::json(['user' => $req->user]);
     }
 
+    /**
+     * POST /api/auth/confirm-email-change — token-based (unauthenticated): confirms a
+     * pending email change (#200), swapping `pending_email` into `email`. The login
+     * identifier changes, so all the user's sessions are revoked — they re-sign-in
+     * with the new address.
+     */
+    public function confirmEmailChange(Request $req, array $params): void
+    {
+        $token = $req->input('token');
+        if (!is_string($token) || $token === '') {
+            Response::error('Invalid token', 400);
+            return;
+        }
+        $userId = EmailTokens::consume($token, 'email_change');
+        if ($userId === null) {
+            Response::error('This link is invalid or has expired.', 400);
+            return;
+        }
+
+        $pdo = Db::pdo();
+        $stmt = $pdo->prepare('SELECT pending_email FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch();
+        $pending = $row !== false ? $row['pending_email'] : null;
+        if ($pending === null || $pending === '') {
+            Response::error('No pending email change for this account.', 400);
+            return;
+        }
+
+        // The address could have been taken by another account since the request.
+        $taken = $pdo->prepare('SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1');
+        $taken->execute([$pending, $userId]);
+        if ($taken->fetch() !== false) {
+            $pdo->prepare('UPDATE users SET pending_email = NULL WHERE id = ?')->execute([$userId]);
+            Response::error('That email is no longer available.', 409);
+            return;
+        }
+
+        $pdo->prepare('UPDATE users SET email = ?, pending_email = NULL WHERE id = ?')
+            ->execute([$pending, $userId]);
+        Sessions::deleteUserSessions($userId);
+        Response::json(['message' => 'Your email has been updated. Please sign in with your new address.']);
+    }
+
     // --- helpers ---
 
-    private static function email(mixed $v): ?string
+    public static function email(mixed $v): ?string
     {
         return is_string($v) && filter_var($v, FILTER_VALIDATE_EMAIL) ? $v : null;
     }

@@ -4,6 +4,7 @@ import { Register } from '@/pages/Register'
 import { Verify } from '@/pages/Verify'
 import { ForgotPassword } from '@/pages/ForgotPassword'
 import { ResetPassword } from '@/pages/ResetPassword'
+import { ConfirmEmailChange } from '@/pages/ConfirmEmailChange'
 import { Choice } from '@/pages/Choice'
 import { TaskPresented } from '@/pages/TaskPresented'
 import { InProgress } from '@/pages/InProgress'
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
   { path: '/verify', element: <Verify /> },
   { path: '/forgot-password', element: <ForgotPassword /> },
   { path: '/reset', element: <ResetPassword /> },
+  { path: '/confirm-email-change', element: <ConfirmEmailChange /> },
   {
     // ProtectedRoute gates; AppLayout wraps every authed route in the shared
     // Header/Footer shell at one seam (visual refresh v2, #92).

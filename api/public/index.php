@@ -74,6 +74,7 @@ $router->post('/api/auth/resend-verification', [$auth, 'resendVerification']);
 $router->post('/api/auth/forgot-password', [$auth, 'forgotPassword']);
 $router->post('/api/auth/reset-password', [$auth, 'resetPassword']);
 $router->post('/api/auth/logout', [$auth, 'logout']);
+$router->post('/api/auth/confirm-email-change', [$auth, 'confirmEmailChange']);
 $router->get('/api/auth/me', [$auth, 'me'], true);
 
 // Tasks — all require auth. `/next` is registered before `/{id}` so it wins.
@@ -87,8 +88,9 @@ $router->delete('/api/tasks/{id}', [$tasks, 'destroy'], true);
 $router->get('/api/points', [$points, 'index'], true);
 $router->get('/api/points/stats', [$points, 'stats'], true);
 
-// Account settings (#187) — all require auth.
+// Account settings (#187, #200) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);
 $router->post('/api/account/password', [$account, 'changePassword'], true);
+$router->post('/api/account/email', [$account, 'changeEmail'], true);
 
 $router->dispatch(Request::fromGlobals());

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CircleCheck } from 'lucide-react'
 import { getTask, updateTask, type Task } from '@/lib/tasks'
 import { TaskForm, type TaskFormValues } from '@/components/TaskForm'
+import { FormCard } from '@/components/FormCard'
 import { useToast } from '@/toast/useToast'
 
 /**
@@ -65,8 +66,7 @@ export function EditTask() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
-        <h1 className="mb-5 text-center text-2xl font-bold text-gray-800">Edit task</h1>
+      <FormCard title="Edit task" headingLevel="h1" align="center" className="w-full max-w-md">
         <TaskForm
           initial={{
             title: task.title,
@@ -79,7 +79,7 @@ export function EditTask() {
           onSubmit={onSubmit}
           onCancel={() => navigate('/dashboard')}
         />
-      </div>
+      </FormCard>
     </main>
   )
 }

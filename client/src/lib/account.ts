@@ -20,3 +20,20 @@ export async function changePassword(input: {
     body: JSON.stringify(input),
   })
 }
+
+/** Request an email change (#200) — sends a confirm link to the new address.
+ *  Response is neutral (non-enumerating); the swap happens on confirm. */
+export async function requestEmailChange(input: { email: string }): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/account/email', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** Confirm an email change from the emailed token (#200). Revokes all sessions. */
+export async function confirmEmailChange(token: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/confirm-email-change', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  })
+}

@@ -32,6 +32,23 @@ final class Templates
         );
     }
 
+    public static function emailChange(string $to, string $token): EmailMessage
+    {
+        $link = rtrim((string) Config::get('appUrl'), '/') . '/confirm-email-change?token=' . $token;
+        return new EmailMessage(
+            $to,
+            'Confirm your new AddiApp email',
+            self::wrap(
+                'Confirm your new email',
+                '<p>Confirm this address to make it your new AddiApp sign-in email:</p>'
+                . "<p><a href=\"{$link}\">Confirm my new email</a></p>"
+                . "<p style=\"color:#666;font-size:13px\">Or paste this link into your browser:<br>{$link}</p>"
+                . "<p style=\"color:#666;font-size:13px\">This link expires in 24 hours. If you didn't request this, you can ignore it — your email won't change.</p>",
+            ),
+            "Confirm your new AddiApp email: {$link} (expires in 24 hours). If you didn't request this, ignore it — your email won't change.",
+        );
+    }
+
     public static function passwordReset(string $to, string $token): EmailMessage
     {
         $link = rtrim((string) Config::get('appUrl'), '/') . '/reset?token=' . $token;

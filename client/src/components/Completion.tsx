@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
-import { CardScreen } from './CardScreen'
+import { PlayCard } from './PlayCard'
 import { fetchUserStats } from '@/lib/points'
 import type { WinSize } from '@/lib/tasks'
 
@@ -89,9 +89,10 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
   ))
 
   return (
-    <CardScreen decoration={confetti}>
-      <Mascot expression="celebrating" />
-      <div>
+    <PlayCard
+      decoration={confetti}
+      mascot={<Mascot expression="celebrating" halo className="h-24 w-24" />}
+      title={
         <h1
           ref={headingRef}
           tabIndex={-1}
@@ -100,24 +101,30 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
         >
           Nice work!
         </h1>
-        <p className="mt-1 text-muted">{title}</p>
-      </div>
-
-      {totalPoints != null && (
-        <div className="w-full rounded-2xl bg-primary-tint px-6 py-4">
-          <div className="text-6xl font-extrabold tabular-nums text-primary-ink">+{totalPoints}</div>
-          {contextParts.length > 0 && (
-            <p className="mt-1 text-sm font-semibold text-primary-ink">{contextParts.join(' · ')}</p>
-          )}
-        </div>
-      )}
-
-      <Link
-        to={keepGoingHref}
-        className="mt-1 rounded-xl bg-primary px-8 py-3 text-xl font-bold text-white transition hover:opacity-90"
-      >
-        Keep going
-      </Link>
-    </CardScreen>
+      }
+      body={<p className="text-muted">{title}</p>}
+      context={
+        totalPoints != null ? (
+          <div className="rounded-2xl bg-primary-tint px-6 py-4">
+            <div className="text-6xl font-extrabold tabular-nums text-primary-ink">
+              +{totalPoints}
+            </div>
+            {contextParts.length > 0 && (
+              <p className="mt-1 text-sm font-semibold text-primary-ink">
+                {contextParts.join(' · ')}
+              </p>
+            )}
+          </div>
+        ) : undefined
+      }
+      primary={
+        <Link
+          to={keepGoingHref}
+          className="block w-full rounded-xl bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90"
+        >
+          Keep going
+        </Link>
+      }
+    />
   )
 }
