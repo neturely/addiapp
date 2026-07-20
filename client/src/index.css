@@ -61,8 +61,9 @@
   --color-mascot-body: #ffc800;
   --color-mascot-crest: #e08800;
   --color-mascot-patch: #fff3d6;
-  --color-mascot-pupil: #5a3a00;
+  --color-mascot-pupil: #4a3208;
   --color-mascot-beak: #ff5a36;
+  --color-mascot-blush: #ff9a7a;
 
   /* Completion-screen confetti (#94 B1): pop-in, drift down, fade. */
   --animate-confetti: confetti 2.4s ease-in-out infinite;
