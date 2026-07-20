@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-20
+### Changed
+- Docs sync — mascot v3 / PlayCard Phase 2 / FormCard now BUILT (CLAUDE.md, PROJECT_SPEC.md) ([#220](https://github.com/neturely/addiapp/issues/220))
+- Docs sync — mascot v3 star-character rebuild + PlayCard half-out placement + currency (CLAUDE.md / PROJECT_SPEC.md) ([#215](https://github.com/neturely/addiapp/issues/215))
+- Play-moment card Phase 2 (#204 epic): migrate TaskPresented + InProgress onto PlayCard, mascot half-out ([#211](https://github.com/neturely/addiapp/issues/211))
+- Play-moment card — Phase 1: build the shared PlayCard skeleton + migrate Completion & EmptyState ([#208](https://github.com/neturely/addiapp/issues/208))
+- Settings: change email with re-verification (pending-email + confirm flow) ([#200](https://github.com/neturely/addiapp/issues/200))
+### Added
+- Rebuild the mascot as the star character (new Mascot.tsx) — supersedes #96 SVG ([#210](https://github.com/neturely/addiapp/issues/210))
+- Form template — shared FormCard for AddTask / EditTask / Settings ([#206](https://github.com/neturely/addiapp/issues/206))
+
 ## [1.6.0] - 2026-07-19
 ### Added
 - A11Y — convert the AddTask effort picker from aria-pressed to a proper radiogroup ([#197](https://github.com/neturely/addiapp/issues/197))
@@ -74,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/neturely/addiapp/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/neturely/addiapp/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/neturely/addiapp/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/neturely/addiapp/compare/v1.3.3...v1.4.0
