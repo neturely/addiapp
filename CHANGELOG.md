@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-20
+### Changed
+- Docs sync — EditTask desktop modal + dashboard pagination + test tiers (CLAUDE.md, PROJECT_SPEC.md) ([#228](https://github.com/neturely/addiapp/issues/228))
+- EditTask → desktop modal over the dashboard (a11y: focus trap, Escape, role=dialog) ([#218](https://github.com/neturely/addiapp/issues/218))
+- TECH-1 Tier 3 — Integration test: task access returns 404 (not 403) for non-owners ([#129](https://github.com/neturely/addiapp/issues/129))
+- TECH-1 Tier 2 — Auth/session test coverage (Passwords, Sessions, RateLimit) ([#128](https://github.com/neturely/addiapp/issues/128))
+- PERF-1 — Paginate the dashboard task list ("Load more", keyset cursor) ([#100](https://github.com/neturely/addiapp/issues/100))
+
 ## [1.7.0] - 2026-07-20
 ### Changed
 - Docs sync — mascot v3 / PlayCard Phase 2 / FormCard now BUILT (CLAUDE.md, PROJECT_SPEC.md) ([#220](https://github.com/neturely/addiapp/issues/220))
@@ -85,7 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/neturely/addiapp/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/neturely/addiapp/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/neturely/addiapp/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/neturely/addiapp/compare/v1.4.0...v1.5.0
