@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { CircleCheck } from 'lucide-react'
 import { createTask } from '@/lib/tasks'
 import { TaskForm, type TaskFormValues } from '@/components/TaskForm'
+import { FormCard } from '@/components/FormCard'
 import { useToast } from '@/toast/useToast'
 
 /**
@@ -35,15 +36,14 @@ export function AddTask() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
-        <h1 className="mb-5 text-center text-2xl font-bold text-gray-800">Add a task</h1>
+      <FormCard title="Add a task" headingLevel="h1" align="center" className="w-full max-w-md">
         <TaskForm
           submitLabel="Add task"
           submittingLabel="Adding…"
           onSubmit={onSubmit}
           onCancel={returnToOrigin}
         />
-      </div>
+      </FormCard>
     </main>
   )
 }
