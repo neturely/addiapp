@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Shuffle, SlidersHorizontal } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
+import { PlayCard } from '@/components/PlayCard'
 import { EmptyState } from '@/components/EmptyState'
 import {
   fetchNextTask,
@@ -109,50 +110,58 @@ export function TaskPresented() {
   const multiplier = points?.today.currentMultiplier
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
-      <Mascot expression="neutral" />
-
-      <div className="w-full max-w-md rounded-2xl bg-surface p-6">
+    <PlayCard
+      mascot={<Mascot expression="neutral" halo className="h-24 w-24" />}
+      eyebrow={
+        // Effort stays a COLORED badge (not flattened to muted eyebrow text, per
+        // the #204 slot decision); the eyebrow slot only positions it.
         <span
-          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${tag.className}`}
+          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold normal-case tracking-normal ${tag.className}`}
         >
           {tag.label}
         </span>
-        <h1 className="mt-3 text-2xl font-bold text-gray-800">{task.title}</h1>
-        <p className="mt-1 text-muted">~{formatMinutes(task.estimatedMinutes)}</p>
-
-        {task.description && (
-          <p className="mt-3 text-left text-sm whitespace-pre-wrap text-gray-600">
-            {task.description}
-          </p>
-        )}
-
-        {basePoints != null && (
-          <div className="mt-4 rounded-xl bg-primary-tint p-3">
+      }
+      title={<h1 className="text-2xl font-bold text-gray-800">{task.title}</h1>}
+      body={
+        <>
+          <p className="text-muted">~{formatMinutes(task.estimatedMinutes)}</p>
+          {task.description && (
+            <p className="mt-3 text-left text-sm whitespace-pre-wrap text-gray-600">
+              {task.description}
+            </p>
+          )}
+        </>
+      }
+      context={
+        basePoints != null ? (
+          <div className="rounded-xl bg-primary-tint p-3">
             <div className="text-lg font-bold text-primary-ink">≈ {basePoints} pts</div>
             <div className="text-xs text-muted">
               + speed bonus if you beat the estimate
               {multiplier && multiplier > 1 ? ` · ×${multiplier.toFixed(2)} today` : ''}
             </div>
           </div>
-        )}
-
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-red-600">
-            {error}
-          </p>
-        )}
-
-        <button
-          type="button"
-          onClick={onStart}
-          disabled={starting}
-          className="mt-5 w-full rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
-        >
-          {starting ? 'Starting…' : 'Start'}
-        </button>
-
-        <div className="mt-3 flex flex-col gap-1">
+        ) : undefined
+      }
+      primary={
+        <>
+          {error && (
+            <p role="alert" className="mb-3 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={starting}
+            className="w-full rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
+          >
+            {starting ? 'Starting…' : 'Start'}
+          </button>
+        </>
+      }
+      secondary={
+        <div className="flex flex-col gap-1">
           <button
             type="button"
             onClick={() => void roll(task.id)}
@@ -169,7 +178,7 @@ export function TaskPresented() {
             Change my pick
           </Link>
         </div>
-      </div>
-    </main>
+      }
+    />
   )
 }
