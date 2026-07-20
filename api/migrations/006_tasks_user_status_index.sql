@@ -1,0 +1,12 @@
+-- Composite index for the dashboard keyset pagination (#100; absorbs PERF-2).
+-- The paginated query is `WHERE user_id = ? AND status = ? AND id < ? ORDER BY
+-- id DESC` — `(user_id, status)` serves the equality columns, and InnoDB appends
+-- the PK (`id`) to every secondary index, so this one index also covers the
+-- `id < ?` range + `ORDER BY id DESC` with no filesort. Without it every "Load
+-- more" would filesort the whole per-user set.
+--
+-- NOTE: plain CREATE INDEX (no IF NOT EXISTS) on purpose — `CREATE INDEX ... IF
+-- NOT EXISTS` is MariaDB-only and errors on the local MySQL 8.0 dev DB. A single
+-- statement is safe without it: migrate.php's per-file tracker runs it exactly
+-- once, and one statement can't leave a partial-failure state (#103).
+CREATE INDEX `tasks_user_status` ON `tasks` (`user_id`, `status`);

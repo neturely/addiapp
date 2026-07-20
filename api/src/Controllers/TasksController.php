@@ -17,6 +17,8 @@ final class TasksController
     private const COMPLEXITY = ['low', 'medium', 'high'];
     private const STATUS = ['backlog', 'in_progress', 'done'];
     private const MAX_MINUTES = 100000;
+    /** Upper bound on the opt-in dashboard page size (#100). */
+    private const MAX_PAGE_SIZE = 100;
 
     /** Play-mode win type → task complexity (medium sits in both pools). */
     private const WIN_TYPE_COMPLEXITY = [
@@ -24,7 +26,16 @@ final class TasksController
         'big' => ['medium', 'high'],
     ];
 
-    /** GET /api/tasks?status=backlog|in_progress|done */
+    /**
+     * GET /api/tasks?status=backlog|in_progress|done[&limit=25&before=<id>]
+     *
+     * Opt-in keyset pagination (#100): with no `limit`, returns the full list
+     * (unchanged legacy behaviour — InProgressProvider and any future caller keep
+     * working). With `limit`, appends rows older than the `before` id cursor
+     * (`id DESC`, monotonic == created_at order) and returns `nextCursor`; the
+     * first page (no `before`) also returns per-status `counts` — one GROUP BY
+     * that restores the tab counts server-side filtering would otherwise break.
+     */
     public function index(Request $req, array $params): void
     {
         $conditions = ['user_id = ?'];
@@ -40,11 +51,70 @@ final class TasksController
             $args[] = $status;
         }
 
+        $paginated = $req->query('limit') !== null;
+        if (!$paginated) {
+            $stmt = Db::pdo()->prepare(
+                'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions) . ' ORDER BY id DESC',
+            );
+            $stmt->execute($args);
+            Response::json(['tasks' => array_map([self::class, 'mapTask'], $stmt->fetchAll())]);
+            return;
+        }
+
+        $limit = self::positiveInt($req->query('limit'));
+        if ($limit === null || $limit > self::MAX_PAGE_SIZE) {
+            Response::error('Invalid limit', 400);
+            return;
+        }
+
+        $before = $req->query('before');
+        $firstPage = $before === null;
+        if (!$firstPage) {
+            $cursor = self::positiveInt($before);
+            if ($cursor === null) {
+                Response::error('Invalid cursor', 400);
+                return;
+            }
+            $conditions[] = 'id < ?';
+            $args[] = $cursor;
+        }
+
+        // Fetch one extra row to detect whether a further page exists.
         $stmt = Db::pdo()->prepare(
-            'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions) . ' ORDER BY created_at DESC',
+            'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions)
+            . ' ORDER BY id DESC LIMIT ' . ($limit + 1),
         );
         $stmt->execute($args);
-        Response::json(['tasks' => array_map([self::class, 'mapTask'], $stmt->fetchAll())]);
+        $rows = $stmt->fetchAll();
+
+        $nextCursor = null;
+        if (count($rows) > $limit) {
+            $rows = array_slice($rows, 0, $limit);
+            $nextCursor = (int) $rows[count($rows) - 1]['id'];
+        }
+
+        $payload = [
+            'tasks' => array_map([self::class, 'mapTask'], $rows),
+            'nextCursor' => $nextCursor,
+        ];
+        if ($firstPage) {
+            $payload['counts'] = self::statusCounts(Db::pdo(), $req->userId);
+        }
+        Response::json($payload);
+    }
+
+    /** Per-status task counts for the dashboard tab bar (#100), plus `all`. */
+    private static function statusCounts(PDO $pdo, int $userId): array
+    {
+        $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? GROUP BY status');
+        $stmt->execute([$userId]);
+        $counts = ['all' => 0, 'backlog' => 0, 'in_progress' => 0, 'done' => 0];
+        foreach ($stmt->fetchAll() as $row) {
+            $n = (int) $row['c'];
+            $counts[$row['status']] = $n;
+            $counts['all'] += $n;
+        }
+        return $counts;
     }
 
     /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42 */

@@ -139,23 +139,40 @@ to the old Node API.
   `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
   disabled (dev default, fails closed if only the secret is set). Client pages:
   `/verify`, `/forgot-password`, `/reset`.
-- **Task CRUD (#27, #184)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
+- **Task CRUD (#27, #184, #100)**: user-scoped `GET/POST/PATCH/DELETE /api/tasks` + `GET /api/tasks/next`.
   Tasks have an optional plain-text **`description`** (#184, `varchar(1000)` NULL, empty→NULL,
   line breaks kept via `whitespace-pre-wrap`): a textarea in the shared `TaskForm`, shown on the
   TaskPresented **and InProgress** cards, and an **expandable chevron row** on the dashboard table (chevron only when a
   description exists — a sibling button beside the click-to-edit title, expanding a colSpan `<tr>`).
+  **Pagination (#100):** `GET /api/tasks` takes **opt-in** `limit` + `before` (keyset cursor on
+  `id DESC`) — **absent `limit` = the legacy unbounded list**, so `fetchTasks()` / InProgressProvider
+  are untouched; with `limit` it returns `{ tasks, nextCursor, counts? }` where `counts` (a per-status
+  `GROUP BY`) rides **only the first page**. Bad `limit`/`before` → 400. Cross-user access is **404,
+  not 403** (non-enumerating; locked by #129's test). Index `(user_id, status)` (migration 006) covers
+  the keyset query (InnoDB appends the PK → no filesort).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,
   In-progress `/play/progress/:id`, Completion, Empty state. A mid-flight task is
   surfaced by a Resume banner on Choice **plus** the header timer chip.
-- **Dashboard (#36, #178)**: `/dashboard` — table + inline edit, full edit page
-  `/tasks/:id/edit` (shared `TaskForm`), status filter tabs, sortable columns,
-  per-row icon actions (Start/Resume=Play, Edit=Pencil, Delete=Trash; Save=Check
-  / Cancel=X while editing — all `aria-label`led), undo-toast delete. **The
-  `backlog` status DISPLAYS as "To do"** (filter tab, status badge, edit select) —
-  presentation-only; the enum value stays `backlog`, so never string-match the
-  label. Rows are a fixed `h-14` so inline-edit doesn't change row height.
+- **Dashboard (#36, #178, #218, #100)**: `/dashboard` — table + inline edit,
+  status filter tabs, sortable columns, per-row icon actions (Start/Resume=Play,
+  Edit=Pencil, Delete=Trash; Save=Check / Cancel=X while editing — all
+  `aria-label`led), undo-toast delete. **The `backlog` status DISPLAYS as "To do"**
+  (filter tab, status badge, edit select) — presentation-only; the enum value stays
+  `backlog`, so never string-match the label. Rows are a fixed `h-14` so inline-edit
+  doesn't change row height. **Edit (#218):** the Pencil opens a **desktop modal
+  over the list** (`EditTaskModal` on the `Modal` primitive, reusing `TaskForm`);
+  the full page `/tasks/:id/edit` still backs deep links / refresh / **mobile** —
+  the trigger is CSS-responsive (`<button>` opens the modal at `sm+`, `<a>` routes
+  to the page below `sm`; only one is in the a11y tree per breakpoint). Mobile modal
+  deferred pending #98. **Pagination (#100):** the list loads **25 at a time**
+  (`fetchTasksPage`, keyset "Load more"); **filtering is server-side** (a tab switch
+  is a fresh first-page query), the **tab counts + header total come from the server
+  `counts`** (not the loaded rows), and inline-edit/delete/undo mutate the loaded set
+  + adjust the cached counts client-side (a status change off the active filter drops
+  the row). Column sort applies over the **loaded** rows (default order == server
+  order, so exact until a non-default sort on a partially-loaded list).
 - **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
 - **Settings (#187, #200)**: `/settings` (gear nav) — account management. `AccountController`:
   `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
@@ -365,7 +382,12 @@ Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
   Route changes move focus to `#main-content` via `RouteFocus` in `AppLayout` (which
   also hosts the skip link); an in-place screen (e.g. `Completion`) focuses its own
   heading. Segmented pill pickers use the `radiogroup` pattern (roving tabindex + arrow
-  keys + `aria-checked`); icon/text-only controls get `aria-label`s. **No native
+  keys + `aria-checked`); icon/text-only controls get `aria-label`s. **Dialogs go
+  through the shared `Modal` primitive (`components/Modal.tsx`, #218)** — `role="dialog"`
+  + `aria-modal` + `aria-labelledby`, a focus trap (Tab/Shift+Tab cycle), initial focus
+  into the panel, Escape + backdrop-click to close, body-scroll lock, and return-focus
+  to the opener. Reach for it for any modal rather than re-rolling the a11y wiring (the
+  EditTaskModal is its first adopter). **No native
   `title=` tooltips** (removed sitewide in #181 — they render an ugly OS box for mouse
   users and duplicate the `aria-label`); label with `aria-label` only. Any CSS motion
   accent (e.g. the timer chip's `animate-pulse-dot`, the Completion confetti) must be
@@ -383,6 +405,21 @@ Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
   (`error`/`warn`/`info`, #122) — one structured JSON line to `error_log` with
   request context; don't add ad-hoc `error_log('[addiapp-…] …')` strings. (The
   dev `ConsoleTransport` email dump is not error logging and stays raw.)
+- **Backend tests (#124, #128, #129)**: **PHPUnit** at the repo root
+  (`composer.json`/`phpunit.xml`/`tests/`, `Tests\` PSR-4, `vendor/` git-ignored +
+  never rsynced — upholds no-runtime-deps). Two suites: **`tests/Unit`** (pure —
+  points math, Selection, Passwords, Turnstile, Log) and **`tests/Db`** (extends
+  `DbTestCase`: each test runs in a transaction rolled back in tearDown, so rows
+  never leak). **DB tests need a throwaway `addiapp_test` schema** via `DATABASE_URL`
+  — they **skip cleanly when it's unset** (never touch dev/prod). Set it up once:
+  create the DB + grant to the `addiapp` user, `DATABASE_URL=mysql://addiapp:addiapp@127.0.0.1:3306/addiapp_test php api/migrate.php`,
+  then run `DATABASE_URL=… ./vendor/bin/phpunit`. Request-level integration tests
+  build a `Request` (with a `sid` cookie) and dispatch through a `Router` wired with
+  the routes, reading `http_response_code()` under output buffering (see
+  `tests/Db/TaskAccessTest.php`). **CI (`ci.yml`) runs the backend suite as a gate on
+  PRs into `main` only** (against MariaDB 10.11) — NOT on develop pushes (small issue
+  PRs shouldn't wait; the develop→main promotion PR is the real gate). Coverage tiers
+  are deliberately bounded: no exhaustive endpoint/UI-snapshot layer (Tier 4, not done).
 - Secrets: production `api/config.php` (PHP array, outside the web root, `600`,
   git-ignored). Never a committed/web-served `.env`.
 - Security headers (#107): set at the **origin, in-repo** (not Cloudflare) on both

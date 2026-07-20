@@ -70,11 +70,42 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
   return task
 }
 
-/** List the user's tasks (issue #36 dashboard). Optionally filter by status. */
+/** List the user's tasks (issue #36 dashboard). Optionally filter by status.
+ * Unbounded — used where the full set is wanted (e.g. InProgressProvider). The
+ * dashboard uses the paginated `fetchTasksPage` instead (#100). */
 export async function fetchTasks(status?: TaskStatus): Promise<Task[]> {
   const qs = status ? `?status=${status}` : ''
   const { tasks } = await requestJson<{ tasks: Task[] }>(`/tasks${qs}`)
   return tasks
+}
+
+/** Per-status task counts for the dashboard tab bar (#100), returned on page 1. */
+export type TaskCounts = { all: number; backlog: number; in_progress: number; done: number }
+
+/** One page of the dashboard task list (#100). `counts` is present only on the
+ * first page (no `before`). `nextCursor` is the id to pass as `before` for the
+ * next page, or null when the list is exhausted. */
+export type TaskPage = {
+  tasks: Task[]
+  nextCursor: number | null
+  counts?: TaskCounts
+}
+
+/**
+ * Fetch one keyset page of the dashboard task list (#100). `status` filters
+ * server-side (required for correct paging); `before` is the id cursor from the
+ * previous page's `nextCursor` (omit for the first page).
+ */
+export async function fetchTasksPage(opts: {
+  status?: TaskStatus
+  limit: number
+  before?: number | null
+}): Promise<TaskPage> {
+  const params = new URLSearchParams()
+  if (opts.status) params.set('status', opts.status)
+  params.set('limit', String(opts.limit))
+  if (opts.before != null) params.set('before', String(opts.before))
+  return requestJson<TaskPage>(`/tasks?${params.toString()}`)
 }
 
 /** Patch a task's editable fields and/or status (issue #36 → #27 PATCH). */

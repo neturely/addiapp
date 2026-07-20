@@ -14,14 +14,16 @@ import {
 } from 'lucide-react'
 import {
   deleteTask,
-  fetchTasks,
+  fetchTasksPage,
   startTask,
   updateTask,
   type Task,
   type TaskComplexity,
+  type TaskCounts,
   type TaskStatus,
 } from '@/lib/tasks'
 import { PointsCard } from '@/components/PointsCard'
+import { EditTaskModal } from '@/components/EditTaskModal'
 
 type Filter = 'all' | TaskStatus
 
@@ -73,6 +75,7 @@ function compareBy(a: Task, b: Task, key: SortKey): number {
 const MAX_TITLE = 255
 const MAX_MINUTES = 100_000
 const UNDO_MS = 5000
+const PAGE_SIZE = 25 // dashboard keyset page size (#100)
 
 const byIdDesc = (a: Task, b: Task) => b.id - a.id
 
@@ -98,13 +101,26 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  // Latest filter for the deferred delete/undo paths (#100): those fire from a
+  // timer or after a tab switch, so they must read the CURRENT filter, not the one
+  // captured when the timer was armed.
+  const filterRef = useRef<Filter>(filter)
+  filterRef.current = filter
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
     key: 'created',
     dir: 'desc',
   })
   const [pointsRefresh, setPointsRefresh] = useState(0)
 
+  // Keyset pagination state (#100): `tasks` holds the loaded rows for the current
+  // filter (server-side), `counts` the per-status totals for the tab bar, and
+  // `nextCursor` the id to page from (null = fully loaded).
+  const [counts, setCounts] = useState<TaskCounts | null>(null)
+  const [nextCursor, setNextCursor] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+
   const [expandedId, setExpandedId] = useState<number | null>(null) // description row (#184)
+  const [editModalTask, setEditModalTask] = useState<Task | null>(null) // desktop edit modal (#218)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValues, setEditValues] = useState<EditValues | null>(null)
   const [rowError, setRowError] = useState<string | null>(null)
@@ -113,16 +129,63 @@ export function Dashboard() {
   const [pendingTask, setPendingTask] = useState<Task | null>(null)
   const pendingRef = useRef<{ task: Task; timer: number } | null>(null)
 
+  // Load (or reload) the first page whenever the filter changes (#100). Server-side
+  // filtering means a tab switch is a fresh first-page query — its own cursor +
+  // counts. The `cancelled` guard drops a stale response if the user switches tabs
+  // again before the request lands.
   useEffect(() => {
     let cancelled = false
-    fetchTasks()
-      .then((rows) => !cancelled && setTasks([...rows].sort(byIdDesc)))
+    setLoading(true)
+    setError(null)
+    fetchTasksPage({ status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE })
+      .then((page) => {
+        if (cancelled) return
+        setTasks(page.tasks) // already id DESC from the server
+        setNextCursor(page.nextCursor)
+        if (page.counts) setCounts(page.counts)
+      })
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load tasks'))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [filter])
+
+  async function loadMore() {
+    if (nextCursor == null || loadingMore) return
+    setLoadingMore(true)
+    setError(null)
+    try {
+      const page = await fetchTasksPage({
+        status: filter === 'all' ? undefined : filter,
+        limit: PAGE_SIZE,
+        before: nextCursor,
+      })
+      setTasks((prev) => [...prev, ...page.tasks])
+      setNextCursor(page.nextCursor)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load more tasks')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  // Keep the cached tab counts (#100) in sync with client-side mutations so they
+  // don't drift until the next tab switch.
+  function adjustCounts(status: TaskStatus, delta: number) {
+    setCounts((c) => (c ? { ...c, all: c.all + delta, [status]: c[status] + delta } : c))
+  }
+
+  // Re-insert an undone / restore-on-failure row ONLY if it belongs in the current
+  // filter view (#100). `tasks` is server-filtered per tab, so appending a row
+  // whose status doesn't match the active tab would mix statuses in. Counts are
+  // restored separately (they're global); a later switch to a matching tab
+  // re-fetches the row from the server.
+  function restoreRow(task: Task) {
+    if (filterRef.current === 'all' || task.status === filterRef.current) {
+      setTasks((prev) => [...prev, task].sort(byIdDesc))
+    }
+  }
 
   // Commit any deferred delete to the server; restore the row if it fails.
   function commitPending() {
@@ -132,7 +195,8 @@ export function Dashboard() {
     pendingRef.current = null
     setPendingTask(null)
     deleteTask(p.task.id).catch(() => {
-      setTasks((prev) => [...prev, p.task].sort(byIdDesc))
+      restoreRow(p.task)
+      adjustCounts(p.task.status, 1) // undo the optimistic decrement
       setError('Could not delete that task — it has been restored.')
     })
   }
@@ -171,6 +235,7 @@ export function Dashboard() {
   function onDelete(task: Task) {
     commitPending() // flush any earlier pending delete first
     setTasks((prev) => prev.filter((t) => t.id !== task.id))
+    adjustCounts(task.status, -1) // optimistic; restored on undo or commit failure
     if (editingId === task.id) setEditingId(null)
     const timer = window.setTimeout(commitPending, UNDO_MS)
     pendingRef.current = { task, timer }
@@ -183,7 +248,8 @@ export function Dashboard() {
     clearTimeout(p.timer)
     pendingRef.current = null
     setPendingTask(null)
-    setTasks((prev) => [...prev, p.task].sort(byIdDesc))
+    restoreRow(p.task)
+    adjustCounts(p.task.status, 1)
   }
 
   function startEdit(task: Task) {
@@ -226,7 +292,18 @@ export function Dashboard() {
     setRowError(null)
     try {
       const updated = await updateTask(task.id, patch)
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)).sort(byIdDesc))
+      if (patch.status) {
+        // Status changed: keep the cached tab counts in sync, and drop the row
+        // from the current view if it no longer matches the active filter (#100 —
+        // replicates what client-side re-filtering used to do for free).
+        adjustCounts(task.status, -1)
+        adjustCounts(updated.status, 1)
+      }
+      if (filter !== 'all' && updated.status !== filter) {
+        setTasks((prev) => prev.filter((t) => t.id !== task.id))
+      } else {
+        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)).sort(byIdDesc))
+      }
       setEditingId(null)
       // A status change may have awarded points — refresh the summary card.
       if (patch.status) setPointsRefresh((n) => n + 1)
@@ -246,8 +323,11 @@ export function Dashboard() {
     }
   }
 
-  const filtered = filter === 'all' ? tasks : tasks.filter((t) => t.status === filter)
-  const visible = [...filtered].sort((a, b) => {
+  // `tasks` is already the server-filtered set for the active tab (#100). Sorting
+  // is client-side over the LOADED rows; the default `created`/id-desc matches the
+  // server order, so it's exact until a non-default sort is applied to a list with
+  // more pages still to load (acceptable — "Load more" makes the partial set clear).
+  const visible = [...tasks].sort((a, b) => {
     const c = compareBy(a, b, sort.key)
     return sort.dir === 'asc' ? c : -c
   })
@@ -304,9 +384,10 @@ export function Dashboard() {
     <main className="mx-auto min-h-screen w-full max-w-4xl p-4 sm:p-8">
       <header className="mb-6 flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        {/* Total across every status (#174) — distinct from the banner's "Tasks today". */}
+        {/* Total across every status (#174) — from the server counts (#100), not the
+            loaded page, so it stays accurate when the list is paginated. */}
         <span className="text-2xl font-bold text-muted">
-          {tasks.length} total {tasks.length === 1 ? 'thing' : 'things'} to do
+          {counts?.all ?? tasks.length} total {(counts?.all ?? tasks.length) === 1 ? 'thing' : 'things'} to do
         </span>
       </header>
 
@@ -315,8 +396,7 @@ export function Dashboard() {
       <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => {
           const active = filter === f.key
-          const count =
-            f.key === 'all' ? tasks.length : tasks.filter((t) => t.status === f.key).length
+          const count = counts ? counts[f.key] : null // server counts (#100)
           return (
             <button
               key={f.key}
@@ -327,7 +407,10 @@ export function Dashboard() {
                   : 'bg-surface text-muted hover:bg-primary-tint'
               }`}
             >
-              {f.label} <span className={active ? 'text-on-primary' : 'text-muted'}>{count}</span>
+              {f.label}
+              {count !== null && (
+                <span className={active ? ' text-on-primary' : ' text-muted'}> {count}</span>
+              )}
             </button>
           )
         })}
@@ -346,7 +429,7 @@ export function Dashboard() {
       ) : visible.length === 0 ? (
         <div className="rounded-2xl bg-surface p-10 text-center">
           <p className="text-muted">
-            {tasks.length === 0
+            {(counts?.all ?? 0) === 0
               ? 'No tasks yet.'
               : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
           </p>
@@ -569,10 +652,23 @@ export function Dashboard() {
                               />
                             </Link>
                           )}
+                          {/* Edit (#218): desktop opens a modal over the list (kept
+                              in context); mobile (< sm) keeps the full-page route,
+                              which also still backs deep links + refresh everywhere.
+                              Only one is in the a11y tree per breakpoint (the other
+                              is display:none). */}
+                          <button
+                            type="button"
+                            onClick={() => setEditModalTask(task)}
+                            aria-label={`Edit details for ${task.title}`}
+                            className="hidden cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800 sm:inline-flex"
+                          >
+                            <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
+                          </button>
                           <Link
                             to={`/tasks/${task.id}/edit`}
                             aria-label={`Edit details for ${task.title}`}
-                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+                            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800 sm:hidden"
                           >
                             <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
                           </Link>
@@ -604,6 +700,20 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* Keyset "Load more" (#100) — only Done/All ever grow past one page. */}
+      {!loading && nextCursor != null && (
+        <div className="mt-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => void loadMore()}
+            disabled={loadingMore}
+            className="cursor-pointer rounded-lg bg-surface px-5 py-2 text-sm font-semibold text-primary-ink transition hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </button>
+        </div>
+      )}
+
       {pendingTask && (
         <div
           role="status"
@@ -628,6 +738,17 @@ export function Dashboard() {
             Undo
           </button>
         </div>
+      )}
+
+      {editModalTask && (
+        <EditTaskModal
+          task={editModalTask}
+          onClose={() => setEditModalTask(null)}
+          onSaved={(updated) => {
+            setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)).sort(byIdDesc))
+            setEditModalTask(null)
+          }}
+        />
       )}
     </main>
   )
