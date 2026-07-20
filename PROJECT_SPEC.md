@@ -1,8 +1,8 @@
 # AddiApp — Rebuild Project Spec
 
 Living document. Updated as decisions are made. Last updated: 2026-07-20
-(mascot v3 star-character, PlayCard Phase 2, and FormCard now BUILT + on develop for
-the 1.7.0 release; supersedes the 2026-07-19 "filed, not built" sync).
+(1.8.0 batch on develop: dashboard keyset pagination + the EditTask desktop modal,
+plus Tier-2/3 backend tests; 1.7.0 shipped mascot v3 / PlayCard Phase 2 / FormCard).
 Note: **CLAUDE.md is the more frequently-synced authoritative reference** — where the
 two disagree, prefer CLAUDE.md and the code on `develop`.
 
@@ -179,14 +179,18 @@ everything at once (not one-at-a-time like Play mode).
 
 **Task list / management (#36, `/dashboard`)**:
 - A dense **table** with **status filter tabs** (All / Backlog / In progress /
-  Done, with counts).
+  Done, with counts). **Paginated (#100):** loaded **25 rows at a time** with a
+  keyset "Load more"; filtering is **server-side** (a tab switch is a fresh
+  first-page query) and the tab counts + header total come from the server, so they
+  stay accurate on a partially-loaded list. Only Done/All ever grow past one page.
 - **Inline edit** of the four column fields (title, complexity, estimated
   minutes, status) — click a row to edit in place; only changed fields are
   PATCHed (an unchanged status doesn't re-trigger transition side effects).
-- A per-row **Edit** action opens a **full edit page** (`/tasks/:id/edit`) — the
-  structural home for fields beyond the table's columns (categories, tags, due
-  dates, priorities) as those land. Today its field set matches the inline set. A
-  shared `TaskForm` component backs both the Add form (#35) and this Edit page.
+- A per-row **Edit** action opens the shared `TaskForm` — as a **desktop modal
+  over the list** (#218; `Modal` primitive, list stays in context) or, on mobile /
+  direct load / refresh, the **full page** `/tasks/:id/edit` (still the structural
+  home for fields beyond the columns as those land). Same `TaskForm` backs the Add
+  form (#35), the Edit page, and the modal.
 - Per-row actions: **Start** (backlog → in-progress screen; the manual selection
   entry), **Resume** (in-progress → #33), **Edit**, **Delete**.
 - **Delete uses an undo toast**, not a confirm dialog: the row disappears
