@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/toast/useToast'
+import { FormCard } from '@/components/FormCard'
 import { changePassword, requestEmailChange, updateAccount } from '@/lib/account'
 
 /**
@@ -86,8 +87,7 @@ export function Settings() {
     <main className="mx-auto min-h-screen w-full max-w-2xl p-4 sm:p-8">
       <h1 className="mb-6 text-2xl font-bold text-gray-800">Settings</h1>
 
-      <section className="mb-6 rounded-2xl bg-surface p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-800">Profile</h2>
+      <FormCard title="Profile" className="mb-6">
         <form onSubmit={saveProfile} className="space-y-4">
           <div>
             <label htmlFor="displayName" className="mb-1 block text-sm font-medium text-gray-600">
@@ -115,10 +115,9 @@ export function Settings() {
             {savingProfile ? 'Saving…' : 'Save profile'}
           </button>
         </form>
-      </section>
+      </FormCard>
 
-      <section className="mb-6 rounded-2xl bg-surface p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-800">Email</h2>
+      <FormCard title="Email" className="mb-6">
         <form onSubmit={saveEmail} className="space-y-4">
           <div>
             <label htmlFor="currentEmail" className="mb-1 block text-sm font-medium text-gray-600">
@@ -164,10 +163,9 @@ export function Settings() {
             {savingEmail ? 'Sending…' : 'Send confirmation'}
           </button>
         </form>
-      </section>
+      </FormCard>
 
-      <section className="rounded-2xl bg-surface p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-800">Password</h2>
+      <FormCard title="Password">
         <form onSubmit={savePassword} className="space-y-4">
           <div>
             <label htmlFor="currentPassword" className="mb-1 block text-sm font-medium text-gray-600">
@@ -207,7 +205,7 @@ export function Settings() {
             {savingPw ? 'Saving…' : 'Change password'}
           </button>
         </form>
-      </section>
+      </FormCard>
     </main>
   )
 }
