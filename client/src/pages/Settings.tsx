@@ -139,6 +139,7 @@ export function Settings() {
               id="newEmail"
               type="email"
               autoComplete="email"
+              required
               value={newEmail}
               placeholder="you@example.com"
               onChange={(e) => setNewEmail(e.target.value)}
@@ -159,7 +160,11 @@ export function Settings() {
               {emailSent}
             </p>
           )}
-          <button type="submit" disabled={savingEmail} className={cta}>
+          <button
+            type="submit"
+            disabled={savingEmail || newEmail.trim() === ''}
+            className={cta}
+          >
             {savingEmail ? 'Sending…' : 'Send confirmation'}
           </button>
         </form>

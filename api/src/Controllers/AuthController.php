@@ -259,7 +259,7 @@ final class AuthController
     }
 
     /**
-     * POST /auth/confirm-email-change — token-based (unauthenticated): confirms a
+     * POST /api/auth/confirm-email-change — token-based (unauthenticated): confirms a
      * pending email change (#200), swapping `pending_email` into `email`. The login
      * identifier changes, so all the user's sessions are revoked — they re-sign-in
      * with the new address.

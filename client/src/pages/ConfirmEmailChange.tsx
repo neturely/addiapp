@@ -48,9 +48,13 @@ export function ConfirmEmailChange() {
             <h1 className="mb-2 text-xl font-bold">Email updated</h1>
             <p className="text-sm text-muted">{message}</p>
             <p className="mt-4 text-sm">
-              <Link to="/login" className="text-primary-ink underline">
+              {/* Hard navigation (real <a>, not <Link>): the server revoked every
+                  session on confirm, but this SPA still holds a cached `user` in
+                  memory. A full reload clears it so we don't land in a "ghost
+                  logged-in" state before the next 401. */}
+              <a href="/login" className="text-primary-ink underline">
                 Sign in
-              </Link>{' '}
+              </a>{' '}
               with your new address.
             </p>
           </>
