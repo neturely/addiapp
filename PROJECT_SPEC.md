@@ -1,7 +1,8 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-07-19
-(mascot v3 star-character rebuild + PlayCard placement + a currency sync; see §11).
+Living document. Updated as decisions are made. Last updated: 2026-07-20
+(mascot v3 star-character, PlayCard Phase 2, and FormCard now BUILT + on develop for
+the 1.7.0 release; supersedes the 2026-07-19 "filed, not built" sync).
 Note: **CLAUDE.md is the more frequently-synced authoritative reference** — where the
 two disagree, prefer CLAUDE.md and the code on `develop`.
 
@@ -76,14 +77,14 @@ Everything in §2 is resolved. Remaining open items are product/scope (§10).
   cluttered chrome.
 - **Structure idea from Trello**: liked conceptually, but not literally
   adopted (see §5 — home flow is single-task-at-a-time, not a board).
-- **Mascot**: an **expression-driven SVG icon is built and live** — v2 penguin-ish
-  icon (#96); one `Mascot` component with a `neutral | celebrating | idle`
-  `expression` prop, single flat body colour, `--color-mascot-*` tokens. A **v3
-  "star character" full rebuild is DECIDED + FILED (#210, not yet built)** that
-  **supersedes the v2 penguin**: round golden face + posable chunky star-point limbs,
-  big cartoony eyes, blush cheeks (new `--color-mascot-blush`), look-down idle, crown
-  cowlick, and a `halo` prop — placed **half-out over the PlayCard top edge** (#211).
-  Still SVG icon art, not final illustrated art. Full spec: CLAUDE.md + #210's body.
+- **Mascot**: an **expression-driven SVG icon is built and live** — the **v3 "star
+  character" (#210)**, which **superseded the v2 penguin (#96)**: one `Mascot`
+  component with a `neutral | celebrating | idle` `expression` prop, a round golden
+  face + posable chunky star-point limbs, big cartoony eyes, blush cheeks
+  (`--color-mascot-blush`), look-down idle, crown cowlick, single flat body colour,
+  `--color-mascot-*` tokens. An opt-in **`halo`** prop places it **half-out over the
+  PlayCard top edge** (#211). Still SVG icon art, not final illustrated art. Full
+  spec: CLAUDE.md + #210's body.
 - **Color palette**: the placeholder warm coral (`#D85A30`) is **fully retired**. Live
   palette is **vivid v3** (#143) — three token roles per hue (vivid fill / ink-on-light /
   dark-on-fill) + tints; primary `#FB5231`, success `#1F9E3E`, accent `#1CB0F6`, warning
@@ -133,16 +134,19 @@ four-screen flow.
 ### Shared PlayCard skeleton (#204 epic)
 
 The four single-message Play screens (TaskPresented, InProgress, Completion, EmptyState)
-are being unified onto **one shared `PlayCard`** — a centred flat card with a fixed slot
-order (`eyebrow → mascot → title → body? → hero? → context? → primary → secondary? →
-footer?`). **Phase 1 (#208, DONE)** built it + migrated Completion + EmptyState. **Phase 2
-(#211, FILED not built, `blocked_by #210`)** migrates TaskPresented + InProgress and adopts
-the **half-out mascot** placement (mascot straddles the card's top edge with a thin halo +
-a light mascot-only shadow; cards stay flat) — **revising** the epic's original "mascot
-inside" plan. Settled slot semantics (#204): `title` = task name always; `eyebrow` =
+are unified onto **one shared `PlayCard`** — a centred flat card with a fixed slot order
+(`eyebrow → title → body? → hero? → context? → primary → secondary? → footer?`). **Phase 1
+(#208, DONE)** built it + migrated Completion + EmptyState. **Phase 2 (#211, DONE)** migrated
+TaskPresented + InProgress (bespoke card markup removed) and adopted the **half-out mascot**
+placement across all four (mascot straddles the card's top edge with a thin theme-aware halo
++ a light mascot-only shadow; cards stay flat) — **revising** the epic's original "mascot
+inside" plan. **The #204 epic is closed.** Settled slot semantics (#204): `eyebrow` =
 celebratory/status framing; `secondary` shape-flexible (link row OR button pair);
-TaskPresented's effort badge stays a colored badge. The **Choice** screen is deliberately
-NOT on PlayCard (its two-option layout is structurally different).
+TaskPresented's effort badge stays a colored badge (one deferred cleanup: Completion's
+`title`/`eyebrow` re-slot to task-name-as-title was not applied in #211's placement-only
+scope). Forms use the sibling **`FormCard`** (#206 — same surface system, no mascot; AddTask
+/ EditTask / Settings). The **Choice** screen is deliberately NOT on PlayCard (its two-option
+layout is structurally different).
 
 ### Task-selection algorithm (resolved — was §10's oldest open item)
 
@@ -280,9 +284,9 @@ actually built and merged to `develop`.
 - Multi-user competitive features: leaderboards, scoreboard
 - Projects (grouping tasks), Teams, task sharing for bonus points
 - Per-user task-selection preference + settings page (interface is ready)
-- Real (illustrated) mascot art — an expression-driven SVG **icon** shipped (#96, v2)
-  and a v3 "star character" icon rebuild is filed (#210); fully **illustrated** art
-  remains the deferred pass
+- Real (illustrated) mascot art — the expression-driven SVG **icon** shipped and
+  advanced through the v3 "star character" rebuild (#210, live; superseded the v2
+  #96 icon); fully **illustrated** art remains the deferred pass
 - Anything else from `OLD_SPEC.md` not listed above (categories, tags, due
   dates, recurring tasks, attachments, notifications, dark mode, search,
   filtering, drag & drop, PWA/offline, audit history, AI-assisted management)
@@ -323,8 +327,8 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
 - [ ] **Privacy policy / Terms of Service** pages (needed before public launch).
 - [ ] Final color palette / brand direction — **vivid v3 is live (#143)** and current;
   only a "final/locked brand" sign-off remains (placeholder coral `#D85A30` retired).
-- [ ] Real mascot art — **v2 icon live (#96); v3 "star character" rebuild DECIDED +
-  FILED (#210, placement #211) but not built.** Still SVG icon art (advanced, not closed).
+- [ ] Real mascot art — **v3 "star character" is now LIVE (#210, superseded the v2 icon
+  #96); half-out PlayCard placement shipped (#211).** Still SVG icon art (advanced, not closed).
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes card drop-shadows +
   button polish (would revise the flat "no shadows/borders" rule); triage / not adopted.
   (Resolved & removed: the "Home secondary-link set" question — Home was retired, #191.)
@@ -351,12 +355,14 @@ production email (**#65, live**).
   tokens + Header/Footer/AppLayout shell, all screens restyled flat, borders/shadows/
   gradients stripped); **vivid palette v3** (#143, coral `#D85A30` retired); **Settings**
   (#187 account + #200 email-change-re-verification); **task descriptions** (#184);
-  **effort radiogroup** (#197); **shared PlayCard epic** (#204/#208, Phase 1 done); **header
-  timer chip + InProgressProvider** (#135); **A11Y cluster** (#126); the **resilience**
-  (#101/#110/#112), **security** (#79 Turnstile + #107 headers + #118/#120) and
-  **ops-hardening** (#103/#105/#109/#122) batches — all shipped across releases v1.2.0–v1.6.0;
-  in-repo **puppeteer e2e a11y harness** (#170). **Headline of this pass:** the **mascot v3
-  "star character" rebuild** (#210 — supersedes the #96 penguin; adds `--color-mascot-blush`
-  + a `halo` prop; look-down idle) with its **half-out PlayCard placement** (#211), plus the
-  **#213 "spit & polish"** proposal to revisit the flat "no shadows" rule — all **FILED, not
-  yet built** (build order #210→#211, #213 whenever). CLAUDE.md holds the authoritative detail.
+  **effort radiogroup** (#197); **shared PlayCard epic** (#204/#208/#211 — Phase 1 + Phase 2
+  done, epic closed); **shared FormCard** (#206); **header timer chip + InProgressProvider**
+  (#135); **A11Y cluster** (#126); the **resilience** (#101/#110/#112), **security** (#79
+  Turnstile + #107 headers + #118/#120) and **ops-hardening** (#103/#105/#109/#122) batches —
+  all shipped across releases v1.2.0–v1.6.0; in-repo **puppeteer e2e a11y harness** (#170).
+  **Headline of the 1.7.0 pass:** the **mascot v3 "star character" rebuild** (#210 — superseded
+  the #96 penguin; adds `--color-mascot-blush` + a `halo` prop; look-down idle) with its
+  **half-out PlayCard placement** (#211, all four adopters) and the shared **FormCard** (#206) —
+  all **now BUILT + live on develop**. Still open/filed: **#213 "spit & polish"** (revisit the
+  flat "no shadows" rule) and the **EditTask desktop modal** (#218, split from #206). CLAUDE.md
+  holds the authoritative detail.
