@@ -150,6 +150,25 @@ to the old Node API.
   `GROUP BY`) rides **only the first page**. Bad `limit`/`before` → 400. Cross-user access is **404,
   not 403** (non-enumerating; locked by #129's test). Index `(user_id, status)` (migration 006) covers
   the keyset query (InnoDB appends the PK → no filesort).
+- **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
+  (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
+  `status enum('active','archived')`, archive = the terminal "completed" state — no
+  archived-browsing view in v1) + a nullable **`tasks.project_id`** FK (migrations 008/009,
+  `ON DELETE SET NULL` → deleting a project unassigns its tasks) + a `(user_id, project_id)`
+  index (010). `GET /api/projects` lists **active** projects with **remaining + total** task
+  counts (one grouped `LEFT JOIN`; "X of Y remaining", remaining = `status <> 'done'`);
+  `POST` creates, `PATCH` edits name/description and/or status (Archive). User-scoped +
+  **404-not-403** (non-enumerating, #129). `POST /api/tasks` gained an optional **`projectId`**
+  (must be an **active** project the caller owns, else 400); `projectId` is on `mapTask`.
+  Client: `lib/projects.ts`; the **Dashboard has a top-level `Tasks | Projects` toggle**
+  (`?view=projects`, linkable) — Projects is a **self-contained `ProjectsView`** grid (cards
+  with the count, a kebab Edit/Archive **disclosure** — NOT a `role=menu` widget — and Add
+  task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
+  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
+  `?project=ID`, resolves it against active projects, shows a read-only "Adding to <project>"
+  line, and passes `projectId` to `createTask`. **Still pending in the epic:** #236 B (Unassigned
+  tab + assign flow — the "Assign task" card action links `?view=tasks&assign=ID` for B to
+  consume), #238 C (Play "Focus on projects"), #240 D (project-completion points).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,
