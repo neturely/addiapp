@@ -184,14 +184,23 @@ export async function getTask(id: number): Promise<Task> {
   return task
 }
 
+/** Project-completion bonus returned when a task-complete finishes its project (#240). */
+export type ProjectCompletion = { projectId: number; name: string; bonus: number }
+
 /**
  * Complete a task → done. Awards points on the first completion (issue #28), so
  * `pointsAwarded` is present the first time and omitted if it was already done.
+ * `projectCompleted` (#240) is present only when this completion finished the
+ * task's project (all its tasks done) — the once-ever project bonus.
  */
 export async function completeTask(
   id: number,
-): Promise<{ task: Task; pointsAwarded?: AwardResult }> {
-  return requestJson<{ task: Task; pointsAwarded?: AwardResult }>(`/tasks/${id}`, {
+): Promise<{ task: Task; pointsAwarded?: AwardResult; projectCompleted?: ProjectCompletion }> {
+  return requestJson<{
+    task: Task
+    pointsAwarded?: AwardResult
+    projectCompleted?: ProjectCompletion
+  }>(`/tasks/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),
   })
