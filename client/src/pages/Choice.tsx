@@ -135,8 +135,11 @@ export function Choice() {
           onClick={goProjects}
           className="flex cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-accent-tint sm:p-5"
         >
+          {/* Dark on-fill icon: --color-accent is NOT tuned for white (unlike the
+              success/primary badges) — white on accent fails contrast, so use
+              text-on-accent per the palette rule. */}
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent">
-            <Layers className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden />
+            <Layers className="h-6 w-6 text-on-accent" strokeWidth={2.5} aria-hidden />
           </span>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
