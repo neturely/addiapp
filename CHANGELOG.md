@@ -8,11 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [1.9.0] - 2026-07-21
-### Changed
-- Projects D — project-completion bonus + how projects affect points ([#240](https://github.com/neturely/addiapp/issues/240))
-- Projects C — Play-mode "Focus on projects" (Choice third option + auto-selection) ([#238](https://github.com/neturely/addiapp/issues/238))
-- Projects B — Dashboard "Unassigned" tab + assign-to-project flow ([#236](https://github.com/neturely/addiapp/issues/236))
-- Projects A — schema, CRUD API, and the Dashboard Projects view ([#234](https://github.com/neturely/addiapp/issues/234))
+### Added
+- Projects — group tasks into projects, managed from a new Projects view on the Dashboard (create, edit, archive, and per-project progress) ([#234](https://github.com/neturely/addiapp/issues/234))
+- Assign tasks to projects — a Dashboard "Unassigned" tab and one-click assignment from a project ([#236](https://github.com/neturely/addiapp/issues/236))
+- Play mode "Focus on projects" — auto-picks a task from the project closest to done ([#238](https://github.com/neturely/addiapp/issues/238))
+- Project-completion bonus — finishing every task in a project earns bonus points ([#240](https://github.com/neturely/addiapp/issues/240))
 
 ## [1.8.0] - 2026-07-20
 ### Changed
