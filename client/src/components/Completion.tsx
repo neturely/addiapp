@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
 import { PlayCard } from './PlayCard'
 import { fetchUserStats } from '@/lib/points'
-import type { WinSize } from '@/lib/tasks'
+import type { PlayMode, WinSize } from '@/lib/tasks'
 
 /**
  * Confetti-dot accents (#94 B1), repositioned to the card's corners (#181) rather
@@ -31,6 +31,8 @@ type CompletionProps = {
   /** Filters from the just-completed task's selection, reused by "Keep going". */
   size?: WinSize
   minutes?: number
+  /** "Focus on projects" mode (#238) — carried so "Keep going" stays in projects mode. */
+  mode?: PlayMode
 }
 
 /**
@@ -44,9 +46,17 @@ type CompletionProps = {
  * NOTE (#181): this white-card treatment is a good candidate to become the shared
  * celebratory/confirmation pattern (the empty state, #183, is the next adopter).
  */
-export function Completion({ title, totalPoints, multiplier, size, minutes }: CompletionProps) {
+export function Completion({
+  title,
+  totalPoints,
+  multiplier,
+  size,
+  minutes,
+  mode,
+}: CompletionProps) {
   const params = new URLSearchParams()
-  if (size) params.set('size', size)
+  if (mode) params.set('mode', mode)
+  else if (size) params.set('size', size)
   if (minutes != null) params.set('minutes', String(minutes))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
 
@@ -77,7 +87,8 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
 
   const contextParts: string[] = []
   if (streak != null && streak > 0) contextParts.push(`🔥 Day ${streak} streak`)
-  if (multiplier != null && multiplier > 1) contextParts.push(`×${+multiplier.toFixed(2)} daily bonus`)
+  if (multiplier != null && multiplier > 1)
+    contextParts.push(`×${+multiplier.toFixed(2)} daily bonus`)
 
   const confetti = CONFETTI.map((c, i) => (
     <span

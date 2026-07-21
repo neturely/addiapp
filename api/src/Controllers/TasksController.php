@@ -8,6 +8,7 @@ use App\Db;
 use App\Http\Request;
 use App\Http\Response;
 use App\Points\Award;
+use App\Points\PointsConfig;
 use App\Support\Timestamps;
 use App\Tasks\Selection;
 use PDO;
@@ -133,11 +134,11 @@ final class TasksController
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42 */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects */
     public function next(Request $req, array $params): void
     {
-        $size = $req->query('size');
-        if ($size !== null && !isset(self::WIN_TYPE_COMPLEXITY[$size])) {
+        $mode = $req->query('mode');
+        if ($mode !== null && $mode !== 'projects') {
             Response::error('Invalid filters', 400);
             return;
         }
@@ -148,6 +149,19 @@ final class TasksController
         }
         $exclude = self::positiveInt($req->query('exclude'));
         if ($req->query('exclude') !== null && $exclude === null) {
+            Response::error('Invalid filters', 400);
+            return;
+        }
+
+        // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
+        // the active project closest to done, respecting the time filter.
+        if ($mode === 'projects') {
+            $this->nextInProjects($req, $minutes, $exclude);
+            return;
+        }
+
+        $size = $req->query('size');
+        if ($size !== null && !isset(self::WIN_TYPE_COMPLEXITY[$size])) {
             Response::error('Invalid filters', 400);
             return;
         }
@@ -172,6 +186,38 @@ final class TasksController
         $stmt->execute($args);
         $candidates = array_map([self::class, 'mapTask'], $stmt->fetchAll());
         Response::json(['task' => Selection::pick($candidates)]);
+    }
+
+    /**
+     * "Focus on projects" pick (#238): backlog tasks in an ACTIVE project the user
+     * owns (join enforces both), optionally time-filtered, joined with the project's
+     * created_at for the tie-break. The least-effort-project / oldest-task logic
+     * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
+     * shape as the default mode, so TaskPresented → InProgress is unchanged.
+     */
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude): void
+    {
+        $conditions = ['t.user_id = ?', "t.status = 'backlog'"];
+        $args = [$req->userId];
+        if ($minutes !== null) {
+            $conditions[] = 't.estimated_minutes <= ?';
+            $args[] = $minutes;
+        }
+        if ($exclude !== null) {
+            $conditions[] = 't.id <> ?';
+            $args[] = $exclude;
+        }
+
+        $stmt = Db::pdo()->prepare(
+            'SELECT t.*, p.created_at AS project_created_at
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id AND p.user_id = t.user_id AND p.status = \'active\'
+             WHERE ' . implode(' AND ', $conditions),
+        );
+        $stmt->execute($args);
+
+        $chosen = Selection::focusProject($stmt->fetchAll(), PointsConfig::BASE_POINTS);
+        Response::json(['task' => $chosen !== null ? self::mapTask($chosen) : null]);
     }
 
     /** POST /api/tasks */

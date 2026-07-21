@@ -120,6 +120,11 @@ controller.
 - Default: **`weightedByAge`** — weighted random favouring older tasks
   (rank-based weights; oldest most likely, still random). Alternates
   `oldestFirst` / `uniformRandom` ship too.
+- **"Focus on projects" mode (#238):** `GET /api/tasks/next?mode=projects` ignores
+  win-type and calls **`Selection::focusProject`** — deterministic: group active-project
+  backlog candidates (time-filter-respecting), pick the project with the **least remaining
+  effort** (Σ `PointsConfig::BASE_POINTS`, closest to done), tie-break **oldest project**
+  (`created_at`, then id), then the **oldest task** within it. Same `{ task }` shape.
 - A future **per-user selection preference** is designed for (swap
   `Selection::strategies()[$name]`) but **not built** — no settings page yet.
 
@@ -178,7 +183,13 @@ to the old Node API.
   counts adjusted, restore on failure). New **`belongsToFilter()`** helper makes `restoreRow` +
   inline-edit drop **project-aware** (the unassigned axis is project-based, not status). `TaskCounts.unassigned`
   + `fetchTasksPage({unassigned})` + `assignTaskToProject(id, projectId|null)` in `lib/tasks`.
-  **Still pending in the epic:** #238 C (Play "Focus on projects"), #240 D (project-completion points).
+  **C (#238) — Play "Focus on projects":** the Choice screen (`/play`) gained a **third full-width
+  option** ("Focus on projects", accent/Layers, "Auto-picked" chip; the two win-type options were
+  renamed "Get small tasks done" / "Take on bigger issues") that navigates to `/play/task?mode=projects`
+  (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
+  → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
+  `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
+  **Still pending in the epic:** #240 D (project-completion points).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,
