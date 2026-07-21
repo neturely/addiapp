@@ -179,9 +179,24 @@ final class TasksController
             }
         }
 
+        // Optional project (#234): a task may be created directly into an active
+        // project the caller owns; anything else (bad shape, foreign/archived id) → 400.
+        $projectId = null;
+        if (array_key_exists('projectId', $req->body)) {
+            $projectId = self::positiveIntValue($req->input('projectId'));
+            if ($req->input('projectId') !== null && $projectId === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+
         $pdo = Db::pdo();
-        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes) VALUES (?, ?, ?, ?, ?)')
-            ->execute([$req->userId, $title, $description, $complexity, $minutes]);
+        if ($projectId !== null && !self::isActiveOwnedProject($pdo, $projectId, (int) $req->userId)) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id) VALUES (?, ?, ?, ?, ?, ?)')
+            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId]);
 
         $created = self::findOwned($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
         if ($created === null) {
@@ -368,6 +383,7 @@ final class TasksController
             'complexity' => $r['complexity'],
             'estimatedMinutes' => (int) $r['estimated_minutes'],
             'status' => $r['status'],
+            'projectId' => $r['project_id'] !== null ? (int) $r['project_id'] : null,
             'startedAt' => Timestamps::iso($r['started_at']),
             'completedAt' => Timestamps::iso($r['completed_at']),
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
@@ -388,6 +404,20 @@ final class TasksController
         }
         $n = (int) $raw;
         return $n > 0 ? $n : null;
+    }
+
+    /** A positive int from a typed JSON body value (projectId); null otherwise. */
+    private static function positiveIntValue(mixed $v): ?int
+    {
+        return is_int($v) && $v > 0 ? $v : null;
+    }
+
+    /** True if $id is an active project owned by $userId (for task assignment). */
+    private static function isActiveOwnedProject(PDO $pdo, int $id, int $userId): bool
+    {
+        $stmt = $pdo->prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ? AND status = 'active' LIMIT 1");
+        $stmt->execute([$id, $userId]);
+        return $stmt->fetch() !== false;
     }
 
     private static function title(mixed $v): ?string
