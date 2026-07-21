@@ -11,6 +11,8 @@ export type Task = {
   complexity: TaskComplexity
   estimatedMinutes: number
   status: TaskStatus
+  /** Owning project id (#234); null when unassigned. */
+  projectId?: number | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
 }
@@ -41,6 +43,8 @@ export type NewTaskInput = {
   description?: string | null
   complexity: TaskComplexity
   estimatedMinutes: number
+  /** Optional project to create the task into (#234); must be an active owned project. */
+  projectId?: number
 }
 
 export type NextTaskFilters = {
