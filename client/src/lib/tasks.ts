@@ -47,12 +47,17 @@ export type NewTaskInput = {
   projectId?: number
 }
 
+/** Play-mode pick strategy. Default (win-type) unless `projects` (#238). */
+export type PlayMode = 'projects'
+
 export type NextTaskFilters = {
   size?: WinSize
   /** Time available, in minutes. Omitted means "any". */
   minutes?: number
   /** Task id to skip — used by the "give me something else" re-roll. */
   exclude?: number
+  /** "Focus on projects" mode (#238): win-type ignored; pick from active projects. */
+  mode?: PlayMode
 }
 
 /**
@@ -155,7 +160,8 @@ export async function assignTaskToProject(id: number, projectId: number | null):
 /** Play-mode selection (issue #31). Returns one matching backlog task, or null. */
 export async function fetchNextTask(filters: NextTaskFilters): Promise<Task | null> {
   const params = new URLSearchParams()
-  if (filters.size) params.set('size', filters.size)
+  if (filters.mode) params.set('mode', filters.mode)
+  else if (filters.size) params.set('size', filters.size) // win-type is ignored in projects mode
   if (filters.minutes != null) params.set('minutes', String(filters.minutes))
   if (filters.exclude != null) params.set('exclude', String(filters.exclude))
   const qs = params.toString()

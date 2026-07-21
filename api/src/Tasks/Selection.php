@@ -73,6 +73,58 @@ final class Selection
         return $candidates[$index];
     }
 
+    /**
+     * "Focus on projects" mode (#238): given backlog candidate rows that each
+     * carry `project_id`, `project_created_at`, `complexity`, `created_at`, `id`,
+     * pick the OLDEST task of the active project CLOSEST to done. "Closest to done"
+     * = least remaining effort = smallest Σ base points over the candidate set;
+     * ties break to the oldest project (`project_created_at` ASC, then project id),
+     * then the oldest task within it. Deterministic (no rng) — unit-testable with
+     * plain arrays. Returns the chosen raw row, or null when there are no candidates.
+     *
+     * @param array<int,array<string,mixed>> $rows
+     * @param array<string,int> $basePoints complexity → base points
+     */
+    public static function focusProject(array $rows, array $basePoints): ?array
+    {
+        if (count($rows) === 0) {
+            return null;
+        }
+
+        // Group by project, accumulating remaining effort + the project's identity.
+        $groups = [];
+        foreach ($rows as $r) {
+            $pid = (int) $r['project_id'];
+            if (!isset($groups[$pid])) {
+                $groups[$pid] = [
+                    'effort' => 0,
+                    'created' => strtotime((string) $r['project_created_at']),
+                    'pid' => $pid,
+                    'rows' => [],
+                ];
+            }
+            $groups[$pid]['effort'] += $basePoints[$r['complexity']] ?? 0;
+            $groups[$pid]['rows'][] = $r;
+        }
+
+        // Least remaining effort → oldest project → lowest project id.
+        usort(
+            $groups,
+            static fn (array $a, array $b): int => ($a['effort'] <=> $b['effort'])
+                ?: ($a['created'] <=> $b['created'])
+                ?: ($a['pid'] <=> $b['pid']),
+        );
+        $chosen = $groups[0]['rows'];
+
+        // Oldest task within the chosen project (created_at ASC, then id).
+        usort($chosen, static function (array $a, array $b): int {
+            $at = strtotime((string) $a['created_at']);
+            $bt = strtotime((string) $b['created_at']);
+            return $at !== $bt ? $at <=> $bt : ((int) $a['id']) <=> ((int) $b['id']);
+        });
+        return $chosen[0];
+    }
+
     /** @return array<string,callable> name → strategy */
     public static function strategies(): array
     {

@@ -39,7 +39,8 @@ function parseSize(raw: string | null): WinSize | undefined {
  */
 export function TaskPresented() {
   const [params] = useSearchParams()
-  const size = parseSize(params.get('size'))
+  const mode = params.get('mode') === 'projects' ? 'projects' : undefined // #238
+  const size = mode ? undefined : parseSize(params.get('size')) // win-type ignored in projects mode
   const minutes = parseMinutes(params.get('minutes'))
 
   const [task, setTask] = useState<Task | null>()
@@ -54,7 +55,7 @@ export function TaskPresented() {
       setLoading(true)
       setError(null)
       try {
-        const next = await fetchNextTask({ size, minutes, exclude })
+        const next = await fetchNextTask({ size, minutes, exclude, mode })
         setTask(next)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load a task')
@@ -62,7 +63,7 @@ export function TaskPresented() {
         setLoading(false)
       }
     },
-    [size, minutes],
+    [size, minutes, mode],
   )
 
   // Initial load: the task and the points context (base points + live multiplier).
@@ -83,7 +84,8 @@ export function TaskPresented() {
       // server's startedAt that this PATCH just set. Carry the win/time filters so
       // the #34 "Keep going" action can reuse them for the next task.
       const progressParams = new URLSearchParams()
-      if (size) progressParams.set('size', size)
+      if (mode) progressParams.set('mode', mode)
+      else if (size) progressParams.set('size', size)
       if (minutes != null) progressParams.set('minutes', String(minutes))
       const qs = progressParams.toString()
       navigate(`/play/progress/${updated.id}${qs ? `?${qs}` : ''}`)
@@ -102,7 +104,7 @@ export function TaskPresented() {
   }
 
   if (!task) {
-    return <EmptyState filtered={Boolean(size || minutes)} />
+    return <EmptyState filtered={Boolean(size || minutes || mode)} />
   }
 
   const tag = COMPLEXITY_TAG[task.complexity]

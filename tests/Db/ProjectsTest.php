@@ -28,6 +28,7 @@ final class ProjectsTest extends DbTestCase
         $router->post('/api/projects', [$projects, 'create'], true);
         $router->patch('/api/projects/{id}', [$projects, 'update'], true);
         $router->get('/api/tasks', [$tasks, 'index'], true);
+        $router->get('/api/tasks/next', [$tasks, 'next'], true);
         $router->post('/api/tasks', [$tasks, 'create'], true);
         $router->patch('/api/tasks/{id}', [$tasks, 'update'], true);
         return $router;
@@ -248,6 +249,50 @@ final class ProjectsTest extends DbTestCase
 
         [$status] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['projectId' => $projectId]);
         self::assertSame(400, $status);
+    }
+
+    // --- #238 (C): Focus-on-projects endpoint (mode=projects) ---
+
+    public function testFocusOnProjectsPicksLeastEffortProjectsOldestTask(): void
+    {
+        $userId = $this->makeUser('focus-least@test.local');
+        $sid = Sessions::create($userId);
+        // Project A: one high task (effort 10). Project B (created later): two low
+        // tasks (effort 4 — closest to done); its oldest task is the first created.
+        [, $a] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'A']);
+        $pa = (int) $a['project']['id'];
+        [, $b] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'B']);
+        $pb = (int) $b['project']['id'];
+
+        $this->assignTask($this->makeTask($userId, 'high', 30), $pa);
+        $bOldest = $this->makeTask($userId, 'low', 10);
+        $this->assignTask($bOldest, $pb);
+        $this->assignTask($this->makeTask($userId, 'low', 10), $pb);
+
+        [$status, $res] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['mode' => 'projects']);
+        self::assertSame(200, $status);
+        self::assertNotNull($res['task']);
+        self::assertSame($pb, $res['task']['projectId']);
+        self::assertSame($bOldest, $res['task']['id']);
+    }
+
+    public function testFocusOnProjectsRespectsTimeFilterAndArchived(): void
+    {
+        $userId = $this->makeUser('focus-filter@test.local');
+        $sid = Sessions::create($userId);
+        [, $p] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'P']);
+        $pid = (int) $p['project']['id'];
+        // Only task is 60 min; a 15-min filter excludes it → no candidate → null.
+        $this->assignTask($this->makeTask($userId, 'low', 60), $pid);
+
+        [, $res] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['mode' => 'projects', 'minutes' => '15']);
+        self::assertNull($res['task']);
+
+        // Unassigned + archived-project tasks are never candidates.
+        $this->makeTask($userId, 'low', 5); // unassigned
+        $this->dispatch('PATCH', "/api/projects/{$pid}", $sid, ['status' => 'archived']);
+        [, $res2] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['mode' => 'projects']);
+        self::assertNull($res2['task']);
     }
 
     private function assignTask(int $taskId, int $projectId): void

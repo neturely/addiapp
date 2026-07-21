@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mountain, Play, Zap } from 'lucide-react'
+import { Layers, Mountain, Play, Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
 import type { WinSize } from '@/lib/tasks'
@@ -45,6 +45,14 @@ export function Choice() {
     navigate(`/play/task?${params.toString()}`)
   }
 
+  // "Focus on projects" (#238): a mode, not a size — win-type is ignored, the
+  // server auto-picks the project closest to done. Only the time filter carries.
+  function goProjects() {
+    const params = new URLSearchParams({ mode: 'projects' })
+    if (minutes != null) params.set('minutes', String(minutes))
+    navigate(`/play/task?${params.toString()}`)
+  }
+
   // Roving-tabindex radiogroup for the time presets (A11Y-5, #126): only the
   // checked pill is tabbable; arrow keys move the selection AND focus together,
   // matching the WAI-ARIA radio pattern.
@@ -83,37 +91,61 @@ export function Choice() {
           mascot. Each card is a compact horizontal row on mobile (badge left,
           text right) and a centred column on sm+ (#183). Colour lives on the icon
           badge; cards stay white/equal-weight; mascot keeps its real colour. */}
-      <div className="flex w-full max-w-2xl flex-col items-stretch justify-center gap-3 sm:flex-row sm:gap-5">
+      <div className="flex w-full max-w-2xl flex-col gap-3">
+        {/* Two win-type paths flank the mascot on sm+; below sm they stack. */}
+        <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:gap-5">
+          <button
+            type="button"
+            onClick={() => go('small')}
+            className="order-2 flex flex-1 cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-success-tint sm:order-1 sm:flex-col sm:justify-center sm:gap-2 sm:p-5 sm:text-center"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-success">
+              <Zap className="h-6 w-6 text-white" fill="currentColor" strokeWidth={0} aria-hidden />
+            </span>
+            <div>
+              <div className="text-lg font-bold text-success-ink">Get small tasks done</div>
+              <div className="text-sm text-muted">A quick, low-effort win</div>
+            </div>
+          </button>
+
+          <Mascot
+            expression="neutral"
+            className="order-1 h-20 w-20 shrink-0 self-center sm:order-2 sm:h-24 sm:w-24"
+          />
+
+          <button
+            type="button"
+            onClick={() => go('big')}
+            className="order-3 flex flex-1 cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-primary-tint sm:order-3 sm:flex-col sm:justify-center sm:gap-2 sm:p-5 sm:text-center"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary">
+              <Mountain className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden />
+            </span>
+            <div>
+              <div className="text-lg font-bold text-primary-ink">Take on bigger issues</div>
+              <div className="text-sm text-muted">Real progress worth more points</div>
+            </div>
+          </button>
+        </div>
+
+        {/* Third path (#238): a MODE, not a size — full-width, auto-picked, no
+            project picker. Win-type doesn't apply; only the time filter carries. */}
         <button
           type="button"
-          onClick={() => go('small')}
-          className="order-2 flex flex-1 cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-success-tint sm:order-1 sm:flex-col sm:justify-center sm:gap-2 sm:p-5 sm:text-center"
+          onClick={goProjects}
+          className="flex cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-accent-tint sm:p-5"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-success">
-            <Zap className="h-6 w-6 text-white" fill="currentColor" strokeWidth={0} aria-hidden />
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent">
+            <Layers className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden />
           </span>
-          <div>
-            <div className="text-lg font-bold text-success-ink">Something small</div>
-            <div className="text-sm text-muted">A quick, low-effort win</div>
-          </div>
-        </button>
-
-        <Mascot
-          expression="neutral"
-          className="order-1 h-20 w-20 shrink-0 self-center sm:order-2 sm:h-24 sm:w-24"
-        />
-
-        <button
-          type="button"
-          onClick={() => go('big')}
-          className="order-3 flex flex-1 cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-primary-tint sm:order-3 sm:flex-col sm:justify-center sm:gap-2 sm:p-5 sm:text-center"
-        >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary">
-            <Mountain className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-          <div>
-            <div className="text-lg font-bold text-primary-ink">Something big</div>
-            <div className="text-sm text-muted">Real progress worth more points</div>
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-lg font-bold text-accent-ink">Focus on projects</span>
+              <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-semibold text-accent-ink ring-1 ring-inset ring-accent/40">
+                Auto-picked
+              </span>
+            </div>
+            <div className="text-sm text-muted">We’ll pick the project closest to done</div>
           </div>
         </button>
       </div>
@@ -142,7 +174,9 @@ export function Choice() {
                 onClick={() => setMinutes(opt.minutes)}
                 onKeyDown={(e) => onPillKeyDown(e, i)}
                 className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                  active ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
+                  active
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface text-muted hover:bg-primary-tint'
                 }`}
               >
                 {opt.label}
