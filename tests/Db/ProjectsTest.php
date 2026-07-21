@@ -9,6 +9,8 @@ use App\Controllers\ProjectsController;
 use App\Controllers\TasksController;
 use App\Http\Request;
 use App\Http\Router;
+use App\Points\Award;
+use App\Points\PointsConfig;
 
 /**
  * Request-level integration tests for Projects (#234): CRUD is user-scoped and
@@ -293,6 +295,72 @@ final class ProjectsTest extends DbTestCase
         $this->dispatch('PATCH', "/api/projects/{$pid}", $sid, ['status' => 'archived']);
         [, $res2] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['mode' => 'projects']);
         self::assertNull($res2['task']);
+    }
+
+    // --- #240 (D): project-completion bonus ---
+
+    public function testProjectBonusAwardedOnceWhenLastTaskDone(): void
+    {
+        $userId = $this->makeUser('proj-bonus@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Finish me']);
+        $projectId = (int) $body['project']['id'];
+
+        // 3 high tasks: Σ base = 30 → bonus = round(30 × 0.5) = 15 (> MIN, < MAX).
+        $ids = [];
+        for ($i = 0; $i < 3; $i++) {
+            $t = $this->makeTask($userId, 'high', 30);
+            $this->assignTask($t, $projectId);
+            $ids[] = $t;
+        }
+
+        // Completing the first two does NOT complete the project.
+        [, $r1] = $this->dispatch('PATCH', "/api/tasks/{$ids[0]}", $sid, ['status' => 'done']);
+        self::assertArrayNotHasKey('projectCompleted', $r1);
+        [, $r2] = $this->dispatch('PATCH', "/api/tasks/{$ids[1]}", $sid, ['status' => 'done']);
+        self::assertArrayNotHasKey('projectCompleted', $r2);
+
+        // The last one does — with the size-scaled bonus.
+        [, $r3] = $this->dispatch('PATCH', "/api/tasks/{$ids[2]}", $sid, ['status' => 'done']);
+        self::assertArrayHasKey('projectCompleted', $r3);
+        self::assertSame($projectId, $r3['projectCompleted']['projectId']);
+        self::assertSame('Finish me', $r3['projectCompleted']['name']);
+        self::assertSame(15, $r3['projectCompleted']['bonus']);
+
+        // Idempotent: a second award attempt returns null (once ever).
+        self::assertNull(Award::awardProjectCompletion($projectId, $userId));
+        // And the bonus is a real points_log row (feeds lifetime total / Stats).
+        $log = $this->pdo->prepare('SELECT total_points FROM points_log WHERE project_id = ? AND task_id IS NULL');
+        $log->execute([$projectId]);
+        self::assertSame(15, (int) $log->fetchColumn());
+    }
+
+    public function testBonusFloorsAtMinForTinyProject(): void
+    {
+        $userId = $this->makeUser('proj-bonus-floor@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Tiny']);
+        $projectId = (int) $body['project']['id'];
+        $t = $this->makeTask($userId, 'low', 5); // Σ base = 2 → 1 → floored to MIN.
+        $this->assignTask($t, $projectId);
+
+        [, $r] = $this->dispatch('PATCH', "/api/tasks/{$t}", $sid, ['status' => 'done']);
+        self::assertSame(PointsConfig::PROJECT_BONUS_MIN, $r['projectCompleted']['bonus']);
+    }
+
+    public function testNoBonusForEmptyOrIncompleteProject(): void
+    {
+        $userId = $this->makeUser('proj-bonus-none@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Not done']);
+        $projectId = (int) $body['project']['id'];
+
+        // Empty project → no bonus.
+        self::assertNull(Award::awardProjectCompletion($projectId, $userId));
+
+        // One undone task → still no bonus.
+        $this->assignTask($this->makeTask($userId, 'low', 5), $projectId);
+        self::assertNull(Award::awardProjectCompletion($projectId, $userId));
     }
 
     private function assignTask(int $taskId, int $projectId): void

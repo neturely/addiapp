@@ -417,6 +417,7 @@ final class TasksController
         }
 
         $pointsAwarded = null;
+        $projectCompleted = null;
         if ($completing) {
             $pointsAwarded = Award::awardTaskCompletion(
                 (int) $updated['id'],
@@ -425,11 +426,22 @@ final class TasksController
                 (int) $updated['estimated_minutes'],
                 $updated['actual_minutes'] !== null ? (int) $updated['actual_minutes'] : null,
             );
+            // Completing this task may have finished its project (#240) — the award
+            // self-guards (fires only when the project is now fully done, once ever).
+            if ($updated['project_id'] !== null) {
+                $projectCompleted = Award::awardProjectCompletion(
+                    (int) $updated['project_id'],
+                    (int) $updated['user_id'],
+                );
+            }
         }
 
         $body = ['task' => self::mapTask($updated)];
         if ($pointsAwarded !== null) {
             $body['pointsAwarded'] = $pointsAwarded;
+        }
+        if ($projectCompleted !== null) {
+            $body['projectCompleted'] = $projectCompleted;
         }
         Response::json($body);
     }

@@ -4,7 +4,14 @@ import { Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { PlayCard } from '@/components/PlayCard'
 import { Completion } from '@/components/Completion'
-import { completeTask, getTask, parseMinutes, type AwardResult, type Task } from '@/lib/tasks'
+import {
+  completeTask,
+  getTask,
+  parseMinutes,
+  type AwardResult,
+  type ProjectCompletion,
+  type Task,
+} from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 import { formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
@@ -55,6 +62,7 @@ export function InProgress() {
   const [error, setError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
+  const [projectDone, setProjectDone] = useState<ProjectCompletion | null>(null) // #240
   const [done, setDone] = useState(false)
   const [workingLabel] = useState(
     () => WORKING_LABELS[Math.floor(Math.random() * WORKING_LABELS.length)],
@@ -111,8 +119,9 @@ export function InProgress() {
     setCompleting(true)
     setError(null)
     try {
-      const { pointsAwarded } = await completeTask(task.id)
+      const { pointsAwarded, projectCompleted } = await completeTask(task.id)
       setAwarded(pointsAwarded ?? null)
+      setProjectDone(projectCompleted ?? null)
       setDone(true)
       // Completion renders in place (no route change), so refresh the header
       // chip imperatively — otherwise it would linger on the finished task (#135).
@@ -154,6 +163,7 @@ export function InProgress() {
         size={size}
         minutes={minutes}
         mode={mode}
+        projectBonus={projectDone}
       />
     )
   }

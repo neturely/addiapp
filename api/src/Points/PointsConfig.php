@@ -24,6 +24,17 @@ final class PointsConfig
     public const DAILY_MULTIPLIER_GROWTH = 0.15;
     public const DAILY_MULTIPLIER_CAP = 2.0;
 
+    /**
+     * Project-completion bonus (#240): awarded ONCE when every task of a project
+     * (≥1 task) is done. Size-scaled so a bigger project pays more, floored so any
+     * completion feels rewarding, and capped so a huge project can't run away.
+     * bonus = clamp(round(Σ base points × RATIO), MIN, MAX). All three are here
+     * because this file is the single source for gamification numbers — tune freely.
+     */
+    public const PROJECT_BONUS_RATIO = 0.5;
+    public const PROJECT_BONUS_MIN = 10;
+    public const PROJECT_BONUS_MAX = 100;
+
     public static function timezone(): string
     {
         return (string) Config::get('appTimezone');

@@ -108,6 +108,18 @@ orchestration (`Points/Award.php`). See PROJECT_SPEC §7 for the full formulas.
   `UNIQUE(task_id)` on `points_log` plus a duplicate-key catch, so even a
   concurrent double-complete awards once (#74).
 - Points are shown up front (approximate base, before commitment) — decided.
+- **Project-completion bonus (#240):** awarded **once ever per project** when an
+  active project (≥1 task) has **every task done** — fired from the task-complete
+  path (`Award::awardProjectCompletion`), self-guarding so it only pays when the
+  project is now fully done. Formula (in `PointsConfig`, tunable): `bonus =
+  clamp(round(Σ base points × PROJECT_BONUS_RATIO 0.5), PROJECT_BONUS_MIN 10,
+  PROJECT_BONUS_MAX 100)` — size-scaled, floored so any completion rewards, capped.
+  Idempotent via **`UNIQUE(project_id)` on `points_log`** (migrations 011–013 add a
+  nullable `project_id` + FK + unique index; a bonus row has `task_id` NULL) +
+  dup-key catch, mirroring #74. Rides in `points_log` so lifetime total / Stats
+  include it; `PATCH /api/tasks` returns `projectCompleted` on the completing call,
+  surfaced as an accent bonus panel on the Play **Completion** screen. **NO other
+  project→points effect** (multiplier/speed unchanged) — deliberate for v1.
 
 ## Task-selection algorithm (Play mode, #31)
 
@@ -189,7 +201,8 @@ to the old Node API.
   (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
   → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
-  **Still pending in the epic:** #240 D (project-completion points).
+  **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
+  project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,

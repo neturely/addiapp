@@ -101,6 +101,82 @@ final class Award
         ];
     }
 
+    /**
+     * Award the project-completion bonus (#240) when an ACTIVE project the user
+     * owns has ≥1 task and every task is done. Idempotent — awarded exactly once
+     * ever per project (UNIQUE(project_id) on points_log is the gate, mirroring the
+     * per-task #74 invariant). Base points come from PointsConfig (never hardcoded).
+     * Returns the bonus + project name, or null (not complete / empty / already
+     * awarded / not an active owned project).
+     *
+     * @return array{projectId:int,name:string,bonus:int}|null
+     */
+    public static function awardProjectCompletion(int $projectId, int $userId): ?array
+    {
+        $pdo = Db::pdo();
+
+        // Active + owned, else it can't complete.
+        $p = $pdo->prepare("SELECT name FROM projects WHERE id = ? AND user_id = ? AND status = 'active' LIMIT 1");
+        $p->execute([$projectId, $userId]);
+        $name = $p->fetchColumn();
+        if ($name === false) {
+            return null;
+        }
+
+        // Cheap pre-check (the UNIQUE index is the real guard against the race).
+        $pre = $pdo->prepare('SELECT id FROM points_log WHERE project_id = ? LIMIT 1');
+        $pre->execute([$projectId]);
+        if ($pre->fetch() !== false) {
+            return null; // already awarded
+        }
+
+        // Task tallies + remaining-effort basis, grouped so base points stay in
+        // PointsConfig (not baked into SQL).
+        $g = $pdo->prepare(
+            "SELECT complexity, COUNT(*) AS c, SUM(status = 'done') AS done_c
+             FROM tasks WHERE project_id = ? AND user_id = ? GROUP BY complexity",
+        );
+        $g->execute([$projectId, $userId]);
+        $total = 0;
+        $done = 0;
+        $sumBase = 0;
+        foreach ($g->fetchAll() as $row) {
+            $c = (int) $row['c'];
+            $total += $c;
+            $done += (int) $row['done_c'];
+            $sumBase += ($c * (PointsConfig::BASE_POINTS[$row['complexity']] ?? 0));
+        }
+        if ($total === 0 || $done < $total) {
+            return null; // empty, or not yet complete
+        }
+
+        $bonus = (int) round($sumBase * PointsConfig::PROJECT_BONUS_RATIO);
+        $bonus = max(PointsConfig::PROJECT_BONUS_MIN, min(PointsConfig::PROJECT_BONUS_MAX, $bonus));
+
+        // Award-once: UNIQUE(project_id) makes this the single winner under a race.
+        try {
+            $pdo->prepare(
+                'INSERT INTO points_log (user_id, task_id, project_id, base_points, speed_bonus, multiplier, total_points)
+                 VALUES (?, NULL, ?, ?, 0, \'1.00\', ?)',
+            )->execute([$userId, $projectId, $bonus, $bonus]);
+        } catch (PDOException $e) {
+            if ($e->getCode() === '23000') {
+                return null; // lost the race — already awarded
+            }
+            throw $e;
+        }
+
+        // Reflect the bonus in today's points (not a task, so tasks_completed and the
+        // multiplier are untouched). The triggering task's award already created the row.
+        $pdo->prepare(
+            "INSERT INTO daily_stats (user_id, stat_date, tasks_completed, points_earned, multiplier)
+             VALUES (?, ?, 0, ?, '1.00')
+             ON DUPLICATE KEY UPDATE points_earned = points_earned + ?",
+        )->execute([$userId, self::todayInTz(), $bonus, $bonus]);
+
+        return ['projectId' => $projectId, 'name' => (string) $name, 'bonus' => $bonus];
+    }
+
     /** Lean summary for the dashboard card / GET /api/points. */
     public static function getPointsStats(int $userId): array
     {
