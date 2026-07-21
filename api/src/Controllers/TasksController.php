@@ -51,6 +51,13 @@ final class TasksController
             $args[] = $status;
         }
 
+        // Unassigned filter (#236): tasks with no project, across all statuses (a
+        // different axis than the status tabs). Covered by the (user_id, project_id)
+        // index from #234's migration 010.
+        if ($req->query('unassigned') === '1') {
+            $conditions[] = 'project_id IS NULL';
+        }
+
         $paginated = $req->query('limit') !== null;
         if (!$paginated) {
             $stmt = Db::pdo()->prepare(
@@ -103,7 +110,11 @@ final class TasksController
         Response::json($payload);
     }
 
-    /** Per-status task counts for the dashboard tab bar (#100), plus `all`. */
+    /**
+     * Per-status task counts for the dashboard tab bar (#100), plus `all` and
+     * `unassigned` (#236 — `project_id IS NULL`, its own axis so it's a separate
+     * count, not part of the status GROUP BY).
+     */
     private static function statusCounts(PDO $pdo, int $userId): array
     {
         $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? GROUP BY status');
@@ -114,6 +125,11 @@ final class TasksController
             $counts[$row['status']] = $n;
             $counts['all'] += $n;
         }
+
+        $u = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL');
+        $u->execute([$userId]);
+        $counts['unassigned'] = (int) $u->fetchColumn();
+
         return $counts;
     }
 
@@ -271,6 +287,25 @@ final class TasksController
             $args[] = $description;
         }
 
+        // Assign / unassign a project (#236): projectId=null unassigns; a positive
+        // int assigns (validated active + owned below, once $pdo is in hand). $assign
+        // stays `false` when the key is absent (distinct from a null "unassign").
+        $assign = false;
+        if (array_key_exists('projectId', $req->body)) {
+            $raw = $req->input('projectId');
+            if ($raw === null) {
+                $assign = null;
+            } else {
+                $assign = self::positiveIntValue($raw);
+                if ($assign === null) {
+                    Response::error('Invalid input', 400);
+                    return;
+                }
+            }
+            $sets[] = 'project_id = ?';
+            $args[] = $assign;
+        }
+
         $newStatus = null;
         if (array_key_exists('status', $req->body)) {
             $newStatus = self::enum($req->input('status'), self::STATUS);
@@ -289,6 +324,13 @@ final class TasksController
         $existing = self::findOwned($pdo, $id, (int) $req->userId);
         if ($existing === null) {
             Response::error('Task not found', 404);
+            return;
+        }
+
+        // A non-null project assignment must reference an active project the caller
+        // owns (a foreign/archived id → 400, not a silent write).
+        if (is_int($assign) && !self::isActiveOwnedProject($pdo, $assign, (int) $req->userId)) {
+            Response::error('Invalid input', 400);
             return;
         }
 

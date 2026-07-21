@@ -27,7 +27,9 @@ final class ProjectsTest extends DbTestCase
         $router->get('/api/projects', [$projects, 'index'], true);
         $router->post('/api/projects', [$projects, 'create'], true);
         $router->patch('/api/projects/{id}', [$projects, 'update'], true);
+        $router->get('/api/tasks', [$tasks, 'index'], true);
         $router->post('/api/tasks', [$tasks, 'create'], true);
+        $router->patch('/api/tasks/{id}', [$tasks, 'update'], true);
         return $router;
     }
 
@@ -35,11 +37,12 @@ final class ProjectsTest extends DbTestCase
      * Dispatch a request and return [status, decodedJsonBody].
      *
      * @param array<string,mixed> $body
+     * @param array<string,string> $query
      * @return array{0:int,1:array<string,mixed>}
      */
-    private function dispatch(string $method, string $path, string $sid, array $body = []): array
+    private function dispatch(string $method, string $path, string $sid, array $body = [], array $query = []): array
     {
-        $req = new Request($method, $path, [], $body, ['sid' => $sid]);
+        $req = new Request($method, $path, $query, $body, ['sid' => $sid]);
         http_response_code(200);
         ob_start();
         try {
@@ -165,6 +168,85 @@ final class ProjectsTest extends DbTestCase
             'estimatedMinutes' => 5,
             'projectId' => $projectId,
         ]);
+        self::assertSame(400, $status);
+    }
+
+    // --- #236 (B): Unassigned filter + assign/unassign via PATCH ---
+
+    public function testUnassignedFilterAndCount(): void
+    {
+        $userId = $this->makeUser('unassigned-filter@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'P']);
+        $projectId = (int) $body['project']['id'];
+
+        // 1 assigned, 2 unassigned.
+        $this->assignTask($this->makeTask($userId, 'low', 5), $projectId);
+        $this->makeTask($userId, 'low', 5);
+        $this->makeTask($userId, 'low', 5);
+
+        [$status, $page] = $this->dispatch('GET', '/api/tasks', $sid, [], ['unassigned' => '1', 'limit' => '25']);
+        self::assertSame(200, $status);
+        self::assertCount(2, $page['tasks']);
+        foreach ($page['tasks'] as $t) {
+            self::assertNull($t['projectId']);
+        }
+        // First-page counts carry the unassigned axis.
+        self::assertSame(2, $page['counts']['unassigned']);
+        self::assertSame(3, $page['counts']['all']);
+    }
+
+    public function testAssignViaPatch(): void
+    {
+        $userId = $this->makeUser('assign-patch@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'P']);
+        $projectId = (int) $body['project']['id'];
+        $taskId = $this->makeTask($userId, 'low', 5);
+
+        [$status, $res] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['projectId' => $projectId]);
+        self::assertSame(200, $status);
+        self::assertSame($projectId, $res['task']['projectId']);
+    }
+
+    public function testUnassignViaPatchNull(): void
+    {
+        $userId = $this->makeUser('unassign-patch@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'P']);
+        $projectId = (int) $body['project']['id'];
+        $taskId = $this->makeTask($userId, 'low', 5);
+        $this->assignTask($taskId, $projectId);
+
+        [$status, $res] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['projectId' => null]);
+        self::assertSame(200, $status);
+        self::assertNull($res['task']['projectId']);
+    }
+
+    public function testAssignViaPatchRejectsForeignProject(): void
+    {
+        $ownerSid = Sessions::create($this->makeUser('assign-foreign-owner@test.local'));
+        [, $body] = $this->dispatch('POST', '/api/projects', $ownerSid, ['name' => 'Theirs']);
+        $projectId = (int) $body['project']['id'];
+
+        $otherId = $this->makeUser('assign-foreign-thief@test.local');
+        $otherSid = Sessions::create($otherId);
+        $taskId = $this->makeTask($otherId, 'low', 5);
+
+        [$status] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $otherSid, ['projectId' => $projectId]);
+        self::assertSame(400, $status);
+    }
+
+    public function testAssignViaPatchRejectsArchivedProject(): void
+    {
+        $userId = $this->makeUser('assign-archived@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'P']);
+        $projectId = (int) $body['project']['id'];
+        $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'archived']);
+        $taskId = $this->makeTask($userId, 'low', 5);
+
+        [$status] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['projectId' => $projectId]);
         self::assertSame(400, $status);
     }
 

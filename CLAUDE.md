@@ -166,9 +166,19 @@ to the old Node API.
   task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
   `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
   `?project=ID`, resolves it against active projects, shows a read-only "Adding to <project>"
-  line, and passes `projectId` to `createTask`. **Still pending in the epic:** #236 B (Unassigned
-  tab + assign flow — the "Assign task" card action links `?view=tasks&assign=ID` for B to
-  consume), #238 C (Play "Focus on projects"), #240 D (project-completion points).
+  line, and passes `projectId` to `createTask`.
+  **B (#236) — Unassigned tab + assign flow:** `GET /api/tasks?unassigned=1` filters
+  `project_id IS NULL` (any status — a different axis than the status tabs, covered by the
+  `(user_id, project_id)` index); the first-page `counts` gained an **`unassigned`** key.
+  `PATCH /api/tasks/{id}` accepts **`projectId`** (positive int → assign to an active owned
+  project, else 400; **`null`** → unassign). Client: a Dashboard **"Unassigned" tab** (set apart
+  with a divider), URL-driven via **`?tab=unassigned&project=ID`** — a project card's "Assign task"
+  deep-links here: a **ride-along banner** assigns in one click, direct-landing opens a small
+  **project-picker disclosure** (`AssignControl`). Assign is optimistic (row leaves the view,
+  counts adjusted, restore on failure). New **`belongsToFilter()`** helper makes `restoreRow` +
+  inline-edit drop **project-aware** (the unassigned axis is project-based, not status). `TaskCounts.unassigned`
+  + `fetchTasksPage({unassigned})` + `assignTaskToProject(id, projectId|null)` in `lib/tasks`.
+  **Still pending in the epic:** #238 C (Play "Focus on projects"), #240 D (project-completion points).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,
