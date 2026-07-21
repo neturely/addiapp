@@ -108,6 +108,18 @@ orchestration (`Points/Award.php`). See PROJECT_SPEC §7 for the full formulas.
   `UNIQUE(task_id)` on `points_log` plus a duplicate-key catch, so even a
   concurrent double-complete awards once (#74).
 - Points are shown up front (approximate base, before commitment) — decided.
+- **Project-completion bonus (#240):** awarded **once ever per project** when an
+  active project (≥1 task) has **every task done** — fired from the task-complete
+  path (`Award::awardProjectCompletion`), self-guarding so it only pays when the
+  project is now fully done. Formula (in `PointsConfig`, tunable): `bonus =
+  clamp(round(Σ base points × PROJECT_BONUS_RATIO 0.5), PROJECT_BONUS_MIN 10,
+  PROJECT_BONUS_MAX 100)` — size-scaled, floored so any completion rewards, capped.
+  Idempotent via **`UNIQUE(project_id)` on `points_log`** (migrations 011–013 add a
+  nullable `project_id` + FK + unique index; a bonus row has `task_id` NULL) +
+  dup-key catch, mirroring #74. Rides in `points_log` so lifetime total / Stats
+  include it; `PATCH /api/tasks` returns `projectCompleted` on the completing call,
+  surfaced as an accent bonus panel on the Play **Completion** screen. **NO other
+  project→points effect** (multiplier/speed unchanged) — deliberate for v1.
 
 ## Task-selection algorithm (Play mode, #31)
 
@@ -120,6 +132,11 @@ controller.
 - Default: **`weightedByAge`** — weighted random favouring older tasks
   (rank-based weights; oldest most likely, still random). Alternates
   `oldestFirst` / `uniformRandom` ship too.
+- **"Focus on projects" mode (#238):** `GET /api/tasks/next?mode=projects` ignores
+  win-type and calls **`Selection::focusProject`** — deterministic: group active-project
+  backlog candidates (time-filter-respecting), pick the project with the **least remaining
+  effort** (Σ `PointsConfig::BASE_POINTS`, closest to done), tie-break **oldest project**
+  (`created_at`, then id), then the **oldest task** within it. Same `{ task }` shape.
 - A future **per-user selection preference** is designed for (swap
   `Selection::strategies()[$name]`) but **not built** — no settings page yet.
 
@@ -150,6 +167,42 @@ to the old Node API.
   `GROUP BY`) rides **only the first page**. Bad `limit`/`before` → 400. Cross-user access is **404,
   not 403** (non-enumerating; locked by #129's test). Index `(user_id, status)` (migration 006) covers
   the keyset query (InnoDB appends the PK → no filesort).
+- **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
+  (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
+  `status enum('active','archived')`, archive = the terminal "completed" state — no
+  archived-browsing view in v1) + a nullable **`tasks.project_id`** FK (migrations 008/009,
+  `ON DELETE SET NULL` → deleting a project unassigns its tasks) + a `(user_id, project_id)`
+  index (010). `GET /api/projects` lists **active** projects with **remaining + total** task
+  counts (one grouped `LEFT JOIN`; "X of Y remaining", remaining = `status <> 'done'`);
+  `POST` creates, `PATCH` edits name/description and/or status (Archive). User-scoped +
+  **404-not-403** (non-enumerating, #129). `POST /api/tasks` gained an optional **`projectId`**
+  (must be an **active** project the caller owns, else 400); `projectId` is on `mapTask`.
+  Client: `lib/projects.ts`; the **Dashboard has a top-level `Tasks | Projects` toggle**
+  (`?view=projects`, linkable) — Projects is a **self-contained `ProjectsView`** grid (cards
+  with the count, a kebab Edit/Archive **disclosure** — NOT a `role=menu` widget — and Add
+  task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
+  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
+  `?project=ID`, resolves it against active projects, shows a read-only "Adding to <project>"
+  line, and passes `projectId` to `createTask`.
+  **B (#236) — Unassigned tab + assign flow:** `GET /api/tasks?unassigned=1` filters
+  `project_id IS NULL` (any status — a different axis than the status tabs, covered by the
+  `(user_id, project_id)` index); the first-page `counts` gained an **`unassigned`** key.
+  `PATCH /api/tasks/{id}` accepts **`projectId`** (positive int → assign to an active owned
+  project, else 400; **`null`** → unassign). Client: a Dashboard **"Unassigned" tab** (set apart
+  with a divider), URL-driven via **`?tab=unassigned&project=ID`** — a project card's "Assign task"
+  deep-links here: a **ride-along banner** assigns in one click, direct-landing opens a small
+  **project-picker disclosure** (`AssignControl`). Assign is optimistic (row leaves the view,
+  counts adjusted, restore on failure). New **`belongsToFilter()`** helper makes `restoreRow` +
+  inline-edit drop **project-aware** (the unassigned axis is project-based, not status). `TaskCounts.unassigned`
+  + `fetchTasksPage({unassigned})` + `assignTaskToProject(id, projectId|null)` in `lib/tasks`.
+  **C (#238) — Play "Focus on projects":** the Choice screen (`/play`) gained a **third full-width
+  option** ("Focus on projects", accent/Layers, "Auto-picked" chip; the two win-type options were
+  renamed "Get small tasks done" / "Take on bigger issues") that navigates to `/play/task?mode=projects`
+  (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
+  → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
+  `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
+  **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
+  project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,

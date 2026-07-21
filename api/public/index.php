@@ -9,6 +9,7 @@ use App\Controllers\AccountController;
 use App\Controllers\AuthController;
 use App\Controllers\HealthController;
 use App\Controllers\PointsController;
+use App\Controllers\ProjectsController;
 use App\Controllers\TasksController;
 use App\Http\Request;
 use App\Http\Router;
@@ -64,6 +65,7 @@ $auth = new AuthController();
 $tasks = new TasksController();
 $points = new PointsController();
 $account = new AccountController();
+$projects = new ProjectsController();
 
 $router->get('/api/health', [$health, 'index']);
 
@@ -87,6 +89,11 @@ $router->delete('/api/tasks/{id}', [$tasks, 'destroy'], true);
 
 $router->get('/api/points', [$points, 'index'], true);
 $router->get('/api/points/stats', [$points, 'stats'], true);
+
+// Projects (#234) — all require auth.
+$router->get('/api/projects', [$projects, 'index'], true);
+$router->post('/api/projects', [$projects, 'create'], true);
+$router->patch('/api/projects/{id}', [$projects, 'update'], true);
 
 // Account settings (#187, #200) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);

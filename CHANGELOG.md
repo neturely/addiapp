@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-21
+### Added
+- Projects — group tasks into projects, managed from a new Projects view on the Dashboard (create, edit, archive, and per-project progress) ([#234](https://github.com/neturely/addiapp/issues/234))
+- Assign tasks to projects — a Dashboard "Unassigned" tab and one-click assignment from a project ([#236](https://github.com/neturely/addiapp/issues/236))
+- Play mode "Focus on projects" — auto-picks a task from the project closest to done ([#238](https://github.com/neturely/addiapp/issues/238))
+- Project-completion bonus — finishing every task in a project earns bonus points ([#240](https://github.com/neturely/addiapp/issues/240))
+
 ## [1.8.0] - 2026-07-20
 ### Changed
 - Docs sync — EditTask desktop modal + dashboard pagination + test tiers (CLAUDE.md, PROJECT_SPEC.md) ([#228](https://github.com/neturely/addiapp/issues/228))
@@ -93,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/neturely/addiapp/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/neturely/addiapp/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/neturely/addiapp/compare/v1.5.0...v1.6.0

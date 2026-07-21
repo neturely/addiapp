@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Points\PointsConfig;
 use App\Tasks\Selection;
 use PHPUnit\Framework\TestCase;
 
@@ -101,5 +102,49 @@ final class SelectionTest extends TestCase
     {
         $names = array_keys(Selection::strategies());
         self::assertSame(['weightedByAge', 'oldestFirst', 'uniformRandom'], $names);
+    }
+
+    // --- #238 focusProject: least-effort project, oldest task within ---
+
+    /** A candidate row as focusProject expects it (raw-ish DB shape). */
+    private static function row(int $id, string $complexity, string $createdAt, int $projectId, string $projectCreatedAt): array
+    {
+        return [
+            'id' => $id,
+            'complexity' => $complexity,
+            'created_at' => $createdAt,
+            'project_id' => $projectId,
+            'project_created_at' => $projectCreatedAt,
+        ];
+    }
+
+    public function testFocusProjectEmptyReturnsNull(): void
+    {
+        self::assertNull(Selection::focusProject([], PointsConfig::BASE_POINTS));
+    }
+
+    public function testFocusProjectPicksLeastEffortProjectThenOldestTask(): void
+    {
+        $rows = [
+            // Project 1: one high task → effort 10.
+            self::row(1, 'high', '2026-01-01 10:00:00', 1, '2026-01-01 09:00:00'),
+            // Project 2: two low tasks → effort 4 (closest to done). Oldest is id 21.
+            self::row(20, 'low', '2026-01-05 10:00:00', 2, '2026-01-02 09:00:00'),
+            self::row(21, 'low', '2026-01-04 10:00:00', 2, '2026-01-02 09:00:00'),
+        ];
+        $picked = Selection::focusProject($rows, PointsConfig::BASE_POINTS);
+        self::assertSame(21, $picked['id']); // project 2 (least effort), its oldest task
+    }
+
+    public function testFocusProjectTieBreaksToOldestProject(): void
+    {
+        // Equal effort (2 each) → the older project (created earlier) wins.
+        $rows = [
+            self::row(30, 'low', '2026-01-05 10:00:00', 9, '2026-02-01 09:00:00'), // newer project
+            self::row(31, 'low', '2026-01-05 10:00:00', 4, '2026-01-01 09:00:00'), // older project
+        ];
+        $picked = Selection::focusProject($rows, PointsConfig::BASE_POINTS);
+        self::assertSame(31, $picked['id']); // task of the older project (id 4)
+        self::assertSame(4, $picked['project_id']);
     }
 }

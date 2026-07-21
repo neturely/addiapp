@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Mascot } from './Mascot'
 import { PlayCard } from './PlayCard'
 import { fetchUserStats } from '@/lib/points'
-import type { WinSize } from '@/lib/tasks'
+import type { PlayMode, ProjectCompletion, WinSize } from '@/lib/tasks'
 
 /**
  * Confetti-dot accents (#94 B1), repositioned to the card's corners (#181) rather
@@ -31,6 +31,10 @@ type CompletionProps = {
   /** Filters from the just-completed task's selection, reused by "Keep going". */
   size?: WinSize
   minutes?: number
+  /** "Focus on projects" mode (#238) — carried so "Keep going" stays in projects mode. */
+  mode?: PlayMode
+  /** Project-completion bonus (#240) when this task finished its project. */
+  projectBonus?: ProjectCompletion | null
 }
 
 /**
@@ -44,9 +48,18 @@ type CompletionProps = {
  * NOTE (#181): this white-card treatment is a good candidate to become the shared
  * celebratory/confirmation pattern (the empty state, #183, is the next adopter).
  */
-export function Completion({ title, totalPoints, multiplier, size, minutes }: CompletionProps) {
+export function Completion({
+  title,
+  totalPoints,
+  multiplier,
+  size,
+  minutes,
+  mode,
+  projectBonus,
+}: CompletionProps) {
   const params = new URLSearchParams()
-  if (size) params.set('size', size)
+  if (mode) params.set('mode', mode)
+  else if (size) params.set('size', size)
   if (minutes != null) params.set('minutes', String(minutes))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
 
@@ -71,13 +84,17 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
     headingRef.current?.focus()
   }, [])
   const announcement =
-    totalPoints != null
+    (totalPoints != null
       ? `Nice work! ${title} complete. You earned ${totalPoints} points.`
-      : `Nice work! ${title} complete.`
+      : `Nice work! ${title} complete.`) +
+    (projectBonus
+      ? ` Project ${projectBonus.name} complete — bonus ${projectBonus.bonus} points!`
+      : '')
 
   const contextParts: string[] = []
   if (streak != null && streak > 0) contextParts.push(`🔥 Day ${streak} streak`)
-  if (multiplier != null && multiplier > 1) contextParts.push(`×${+multiplier.toFixed(2)} daily bonus`)
+  if (multiplier != null && multiplier > 1)
+    contextParts.push(`×${+multiplier.toFixed(2)} daily bonus`)
 
   const confetti = CONFETTI.map((c, i) => (
     <span
@@ -104,15 +121,31 @@ export function Completion({ title, totalPoints, multiplier, size, minutes }: Co
       }
       body={<p className="text-muted">{title}</p>}
       context={
-        totalPoints != null ? (
-          <div className="rounded-2xl bg-primary-tint px-6 py-4">
-            <div className="text-6xl font-extrabold tabular-nums text-primary-ink">
-              +{totalPoints}
-            </div>
-            {contextParts.length > 0 && (
-              <p className="mt-1 text-sm font-semibold text-primary-ink">
-                {contextParts.join(' · ')}
-              </p>
+        totalPoints != null || projectBonus ? (
+          <div className="flex flex-col gap-3">
+            {totalPoints != null && (
+              <div className="rounded-2xl bg-primary-tint px-6 py-4">
+                <div className="text-6xl font-extrabold tabular-nums text-primary-ink">
+                  +{totalPoints}
+                </div>
+                {contextParts.length > 0 && (
+                  <p className="mt-1 text-sm font-semibold text-primary-ink">
+                    {contextParts.join(' · ')}
+                  </p>
+                )}
+              </div>
+            )}
+            {/* Project-completion bonus (#240) — accent-themed, aria-hidden since the
+                heading's aria-label already announces it as one message. */}
+            {projectBonus && (
+              <div className="rounded-2xl bg-accent-tint px-6 py-3" aria-hidden>
+                <div className="text-sm font-bold text-accent-ink">
+                  🎉 Project complete: {projectBonus.name}
+                </div>
+                <div className="text-3xl font-extrabold tabular-nums text-accent-ink">
+                  +{projectBonus.bonus} bonus
+                </div>
+              </div>
             )}
           </div>
         ) : undefined

@@ -11,6 +11,8 @@ export type Task = {
   complexity: TaskComplexity
   estimatedMinutes: number
   status: TaskStatus
+  /** Owning project id (#234); null when unassigned. */
+  projectId?: number | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
 }
@@ -41,7 +43,12 @@ export type NewTaskInput = {
   description?: string | null
   complexity: TaskComplexity
   estimatedMinutes: number
+  /** Optional project to create the task into (#234); must be an active owned project. */
+  projectId?: number
 }
+
+/** Play-mode pick strategy. Default (win-type) unless `projects` (#238). */
+export type PlayMode = 'projects'
 
 export type NextTaskFilters = {
   size?: WinSize
@@ -49,6 +56,8 @@ export type NextTaskFilters = {
   minutes?: number
   /** Task id to skip — used by the "give me something else" re-roll. */
   exclude?: number
+  /** "Focus on projects" mode (#238): win-type ignored; pick from active projects. */
+  mode?: PlayMode
 }
 
 /**
@@ -79,8 +88,15 @@ export async function fetchTasks(status?: TaskStatus): Promise<Task[]> {
   return tasks
 }
 
-/** Per-status task counts for the dashboard tab bar (#100), returned on page 1. */
-export type TaskCounts = { all: number; backlog: number; in_progress: number; done: number }
+/** Per-status task counts for the dashboard tab bar (#100), returned on page 1.
+ * `unassigned` (#236) is a separate axis: tasks with no project, any status. */
+export type TaskCounts = {
+  all: number
+  backlog: number
+  in_progress: number
+  done: number
+  unassigned: number
+}
 
 /** One page of the dashboard task list (#100). `counts` is present only on the
  * first page (no `before`). `nextCursor` is the id to pass as `before` for the
@@ -98,11 +114,14 @@ export type TaskPage = {
  */
 export async function fetchTasksPage(opts: {
   status?: TaskStatus
+  /** #236 Unassigned tab: tasks with no project (a different axis than status). */
+  unassigned?: boolean
   limit: number
   before?: number | null
 }): Promise<TaskPage> {
   const params = new URLSearchParams()
   if (opts.status) params.set('status', opts.status)
+  if (opts.unassigned) params.set('unassigned', '1')
   params.set('limit', String(opts.limit))
   if (opts.before != null) params.set('before', String(opts.before))
   return requestJson<TaskPage>(`/tasks?${params.toString()}`)
@@ -125,10 +144,24 @@ export async function deleteTask(id: number): Promise<void> {
   await requestJson<void>(`/tasks/${id}`, { method: 'DELETE' })
 }
 
+/**
+ * Assign a task to a project, or unassign it (#236). `projectId` must be an
+ * active project the caller owns; `null` clears the assignment. Reuses the #27
+ * PATCH endpoint.
+ */
+export async function assignTaskToProject(id: number, projectId: number | null): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ projectId }),
+  })
+  return task
+}
+
 /** Play-mode selection (issue #31). Returns one matching backlog task, or null. */
 export async function fetchNextTask(filters: NextTaskFilters): Promise<Task | null> {
   const params = new URLSearchParams()
-  if (filters.size) params.set('size', filters.size)
+  if (filters.mode) params.set('mode', filters.mode)
+  else if (filters.size) params.set('size', filters.size) // win-type is ignored in projects mode
   if (filters.minutes != null) params.set('minutes', String(filters.minutes))
   if (filters.exclude != null) params.set('exclude', String(filters.exclude))
   const qs = params.toString()
@@ -151,14 +184,23 @@ export async function getTask(id: number): Promise<Task> {
   return task
 }
 
+/** Project-completion bonus returned when a task-complete finishes its project (#240). */
+export type ProjectCompletion = { projectId: number; name: string; bonus: number }
+
 /**
  * Complete a task → done. Awards points on the first completion (issue #28), so
  * `pointsAwarded` is present the first time and omitted if it was already done.
+ * `projectCompleted` (#240) is present only when this completion finished the
+ * task's project (all its tasks done) — the once-ever project bonus.
  */
 export async function completeTask(
   id: number,
-): Promise<{ task: Task; pointsAwarded?: AwardResult }> {
-  return requestJson<{ task: Task; pointsAwarded?: AwardResult }>(`/tasks/${id}`, {
+): Promise<{ task: Task; pointsAwarded?: AwardResult; projectCompleted?: ProjectCompletion }> {
+  return requestJson<{
+    task: Task
+    pointsAwarded?: AwardResult
+    projectCompleted?: ProjectCompletion
+  }>(`/tasks/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),
   })

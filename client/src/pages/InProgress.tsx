@@ -4,7 +4,14 @@ import { Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { PlayCard } from '@/components/PlayCard'
 import { Completion } from '@/components/Completion'
-import { completeTask, getTask, parseMinutes, type AwardResult, type Task } from '@/lib/tasks'
+import {
+  completeTask,
+  getTask,
+  parseMinutes,
+  type AwardResult,
+  type ProjectCompletion,
+  type Task,
+} from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 import { formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
@@ -39,8 +46,13 @@ export function InProgress() {
   // Win/time filters carried from the task-presented screen (#31), so the #34
   // "Keep going" action can offer another task without re-asking.
   const [params] = useSearchParams()
+  const mode = params.get('mode') === 'projects' ? 'projects' : undefined // #238
   const sizeParam = params.get('size')
-  const size = sizeParam === 'small' || sizeParam === 'big' ? sizeParam : undefined
+  const size = mode
+    ? undefined
+    : sizeParam === 'small' || sizeParam === 'big'
+      ? sizeParam
+      : undefined
   const minutes = parseMinutes(params.get('minutes'))
 
   const [task, setTask] = useState<Task | null>(null)
@@ -50,6 +62,7 @@ export function InProgress() {
   const [error, setError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
+  const [projectDone, setProjectDone] = useState<ProjectCompletion | null>(null) // #240
   const [done, setDone] = useState(false)
   const [workingLabel] = useState(
     () => WORKING_LABELS[Math.floor(Math.random() * WORKING_LABELS.length)],
@@ -106,8 +119,9 @@ export function InProgress() {
     setCompleting(true)
     setError(null)
     try {
-      const { pointsAwarded } = await completeTask(task.id)
+      const { pointsAwarded, projectCompleted } = await completeTask(task.id)
       setAwarded(pointsAwarded ?? null)
+      setProjectDone(projectCompleted ?? null)
       setDone(true)
       // Completion renders in place (no route change), so refresh the header
       // chip imperatively — otherwise it would linger on the finished task (#135).
@@ -148,6 +162,8 @@ export function InProgress() {
         multiplier={awarded?.multiplier}
         size={size}
         minutes={minutes}
+        mode={mode}
+        projectBonus={projectDone}
       />
     )
   }
@@ -198,15 +214,22 @@ export function InProgress() {
           <p className="mt-4 text-sm font-medium text-gray-600">
             {inBonus ? (
               <>
-                <Zap className="mb-0.5 inline h-4 w-4 text-warning-ink" fill="currentColor" strokeWidth={0} />{' '}
+                <Zap
+                  className="mb-0.5 inline h-4 w-4 text-warning-ink"
+                  fill="currentColor"
+                  strokeWidth={0}
+                />{' '}
                 Finish within{' '}
-                <span className="font-bold text-success-ink">{formatClock(estimateSec - elapsed)}</span>{' '}
+                <span className="font-bold text-success-ink">
+                  {formatClock(estimateSec - elapsed)}
+                </span>{' '}
                 for a speed bonus
               </>
             ) : (
               <>
                 Past the estimate — no speed bonus now
-                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish strong.
+                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish
+                strong.
               </>
             )}
           </p>
@@ -223,7 +246,11 @@ export function InProgress() {
       }
       primary={
         <>
-          {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
+          {error && (
+            <p role="alert" className="mb-3 text-sm text-red-600">
+              {error}
+            </p>
+          )}
           <button
             type="button"
             onClick={() => void onComplete()}

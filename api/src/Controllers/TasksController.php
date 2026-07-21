@@ -8,6 +8,7 @@ use App\Db;
 use App\Http\Request;
 use App\Http\Response;
 use App\Points\Award;
+use App\Points\PointsConfig;
 use App\Support\Timestamps;
 use App\Tasks\Selection;
 use PDO;
@@ -49,6 +50,13 @@ final class TasksController
             }
             $conditions[] = 'status = ?';
             $args[] = $status;
+        }
+
+        // Unassigned filter (#236): tasks with no project, across all statuses (a
+        // different axis than the status tabs). Covered by the (user_id, project_id)
+        // index from #234's migration 010.
+        if ($req->query('unassigned') === '1') {
+            $conditions[] = 'project_id IS NULL';
         }
 
         $paginated = $req->query('limit') !== null;
@@ -103,7 +111,11 @@ final class TasksController
         Response::json($payload);
     }
 
-    /** Per-status task counts for the dashboard tab bar (#100), plus `all`. */
+    /**
+     * Per-status task counts for the dashboard tab bar (#100), plus `all` and
+     * `unassigned` (#236 — `project_id IS NULL`, its own axis so it's a separate
+     * count, not part of the status GROUP BY).
+     */
     private static function statusCounts(PDO $pdo, int $userId): array
     {
         $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? GROUP BY status');
@@ -114,14 +126,19 @@ final class TasksController
             $counts[$row['status']] = $n;
             $counts['all'] += $n;
         }
+
+        $u = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL');
+        $u->execute([$userId]);
+        $counts['unassigned'] = (int) $u->fetchColumn();
+
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42 */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects */
     public function next(Request $req, array $params): void
     {
-        $size = $req->query('size');
-        if ($size !== null && !isset(self::WIN_TYPE_COMPLEXITY[$size])) {
+        $mode = $req->query('mode');
+        if ($mode !== null && $mode !== 'projects') {
             Response::error('Invalid filters', 400);
             return;
         }
@@ -132,6 +149,19 @@ final class TasksController
         }
         $exclude = self::positiveInt($req->query('exclude'));
         if ($req->query('exclude') !== null && $exclude === null) {
+            Response::error('Invalid filters', 400);
+            return;
+        }
+
+        // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
+        // the active project closest to done, respecting the time filter.
+        if ($mode === 'projects') {
+            $this->nextInProjects($req, $minutes, $exclude);
+            return;
+        }
+
+        $size = $req->query('size');
+        if ($size !== null && !isset(self::WIN_TYPE_COMPLEXITY[$size])) {
             Response::error('Invalid filters', 400);
             return;
         }
@@ -158,6 +188,38 @@ final class TasksController
         Response::json(['task' => Selection::pick($candidates)]);
     }
 
+    /**
+     * "Focus on projects" pick (#238): backlog tasks in an ACTIVE project the user
+     * owns (join enforces both), optionally time-filtered, joined with the project's
+     * created_at for the tie-break. The least-effort-project / oldest-task logic
+     * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
+     * shape as the default mode, so TaskPresented → InProgress is unchanged.
+     */
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude): void
+    {
+        $conditions = ['t.user_id = ?', "t.status = 'backlog'"];
+        $args = [$req->userId];
+        if ($minutes !== null) {
+            $conditions[] = 't.estimated_minutes <= ?';
+            $args[] = $minutes;
+        }
+        if ($exclude !== null) {
+            $conditions[] = 't.id <> ?';
+            $args[] = $exclude;
+        }
+
+        $stmt = Db::pdo()->prepare(
+            'SELECT t.*, p.created_at AS project_created_at
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id AND p.user_id = t.user_id AND p.status = \'active\'
+             WHERE ' . implode(' AND ', $conditions),
+        );
+        $stmt->execute($args);
+
+        $chosen = Selection::focusProject($stmt->fetchAll(), PointsConfig::BASE_POINTS);
+        Response::json(['task' => $chosen !== null ? self::mapTask($chosen) : null]);
+    }
+
     /** POST /api/tasks */
     public function create(Request $req, array $params): void
     {
@@ -179,9 +241,24 @@ final class TasksController
             }
         }
 
+        // Optional project (#234): a task may be created directly into an active
+        // project the caller owns; anything else (bad shape, foreign/archived id) → 400.
+        $projectId = null;
+        if (array_key_exists('projectId', $req->body)) {
+            $projectId = self::positiveIntValue($req->input('projectId'));
+            if ($req->input('projectId') !== null && $projectId === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+
         $pdo = Db::pdo();
-        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes) VALUES (?, ?, ?, ?, ?)')
-            ->execute([$req->userId, $title, $description, $complexity, $minutes]);
+        if ($projectId !== null && !self::isActiveOwnedProject($pdo, $projectId, (int) $req->userId)) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id) VALUES (?, ?, ?, ?, ?, ?)')
+            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId]);
 
         $created = self::findOwned($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
         if ($created === null) {
@@ -256,6 +333,25 @@ final class TasksController
             $args[] = $description;
         }
 
+        // Assign / unassign a project (#236): projectId=null unassigns; a positive
+        // int assigns (validated active + owned below, once $pdo is in hand). $assign
+        // stays `false` when the key is absent (distinct from a null "unassign").
+        $assign = false;
+        if (array_key_exists('projectId', $req->body)) {
+            $raw = $req->input('projectId');
+            if ($raw === null) {
+                $assign = null;
+            } else {
+                $assign = self::positiveIntValue($raw);
+                if ($assign === null) {
+                    Response::error('Invalid input', 400);
+                    return;
+                }
+            }
+            $sets[] = 'project_id = ?';
+            $args[] = $assign;
+        }
+
         $newStatus = null;
         if (array_key_exists('status', $req->body)) {
             $newStatus = self::enum($req->input('status'), self::STATUS);
@@ -274,6 +370,13 @@ final class TasksController
         $existing = self::findOwned($pdo, $id, (int) $req->userId);
         if ($existing === null) {
             Response::error('Task not found', 404);
+            return;
+        }
+
+        // A non-null project assignment must reference an active project the caller
+        // owns (a foreign/archived id → 400, not a silent write).
+        if (is_int($assign) && !self::isActiveOwnedProject($pdo, $assign, (int) $req->userId)) {
+            Response::error('Invalid input', 400);
             return;
         }
 
@@ -314,6 +417,7 @@ final class TasksController
         }
 
         $pointsAwarded = null;
+        $projectCompleted = null;
         if ($completing) {
             $pointsAwarded = Award::awardTaskCompletion(
                 (int) $updated['id'],
@@ -322,11 +426,22 @@ final class TasksController
                 (int) $updated['estimated_minutes'],
                 $updated['actual_minutes'] !== null ? (int) $updated['actual_minutes'] : null,
             );
+            // Completing this task may have finished its project (#240) — the award
+            // self-guards (fires only when the project is now fully done, once ever).
+            if ($updated['project_id'] !== null) {
+                $projectCompleted = Award::awardProjectCompletion(
+                    (int) $updated['project_id'],
+                    (int) $updated['user_id'],
+                );
+            }
         }
 
         $body = ['task' => self::mapTask($updated)];
         if ($pointsAwarded !== null) {
             $body['pointsAwarded'] = $pointsAwarded;
+        }
+        if ($projectCompleted !== null) {
+            $body['projectCompleted'] = $projectCompleted;
         }
         Response::json($body);
     }
@@ -368,6 +483,7 @@ final class TasksController
             'complexity' => $r['complexity'],
             'estimatedMinutes' => (int) $r['estimated_minutes'],
             'status' => $r['status'],
+            'projectId' => $r['project_id'] !== null ? (int) $r['project_id'] : null,
             'startedAt' => Timestamps::iso($r['started_at']),
             'completedAt' => Timestamps::iso($r['completed_at']),
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
@@ -388,6 +504,20 @@ final class TasksController
         }
         $n = (int) $raw;
         return $n > 0 ? $n : null;
+    }
+
+    /** A positive int from a typed JSON body value (projectId); null otherwise. */
+    private static function positiveIntValue(mixed $v): ?int
+    {
+        return is_int($v) && $v > 0 ? $v : null;
+    }
+
+    /** True if $id is an active project owned by $userId (for task assignment). */
+    private static function isActiveOwnedProject(PDO $pdo, int $id, int $userId): bool
+    {
+        $stmt = $pdo->prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ? AND status = 'active' LIMIT 1");
+        $stmt->execute([$id, $userId]);
+        return $stmt->fetch() !== false;
     }
 
     private static function title(mixed $v): ?string
