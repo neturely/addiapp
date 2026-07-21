@@ -208,10 +208,10 @@ function ProjectCard({
           <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden />
           Add task
         </Link>
-        {/* Assign existing tasks — the Unassigned-tab flow lands in #236 (B); this
-            carries the project context it will consume. */}
+        {/* Assign existing tasks — deep-links into the Tasks view's Unassigned tab
+            with this project as the ride-along target (#236). */}
         <Link
-          to={`/dashboard?view=tasks&assign=${project.id}`}
+          to={`/dashboard?tab=unassigned&project=${project.id}`}
           className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
         >
           Assign task

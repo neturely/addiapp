@@ -83,8 +83,15 @@ export async function fetchTasks(status?: TaskStatus): Promise<Task[]> {
   return tasks
 }
 
-/** Per-status task counts for the dashboard tab bar (#100), returned on page 1. */
-export type TaskCounts = { all: number; backlog: number; in_progress: number; done: number }
+/** Per-status task counts for the dashboard tab bar (#100), returned on page 1.
+ * `unassigned` (#236) is a separate axis: tasks with no project, any status. */
+export type TaskCounts = {
+  all: number
+  backlog: number
+  in_progress: number
+  done: number
+  unassigned: number
+}
 
 /** One page of the dashboard task list (#100). `counts` is present only on the
  * first page (no `before`). `nextCursor` is the id to pass as `before` for the
@@ -102,11 +109,14 @@ export type TaskPage = {
  */
 export async function fetchTasksPage(opts: {
   status?: TaskStatus
+  /** #236 Unassigned tab: tasks with no project (a different axis than status). */
+  unassigned?: boolean
   limit: number
   before?: number | null
 }): Promise<TaskPage> {
   const params = new URLSearchParams()
   if (opts.status) params.set('status', opts.status)
+  if (opts.unassigned) params.set('unassigned', '1')
   params.set('limit', String(opts.limit))
   if (opts.before != null) params.set('before', String(opts.before))
   return requestJson<TaskPage>(`/tasks?${params.toString()}`)
@@ -127,6 +137,19 @@ export async function updateTask(
 /** Delete a task (issue #36 → #27 DELETE, 204). */
 export async function deleteTask(id: number): Promise<void> {
   await requestJson<void>(`/tasks/${id}`, { method: 'DELETE' })
+}
+
+/**
+ * Assign a task to a project, or unassign it (#236). `projectId` must be an
+ * active project the caller owns; `null` clears the assignment. Reuses the #27
+ * PATCH endpoint.
+ */
+export async function assignTaskToProject(id: number, projectId: number | null): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ projectId }),
+  })
+  return task
 }
 
 /** Play-mode selection (issue #31). Returns one matching backlog task, or null. */

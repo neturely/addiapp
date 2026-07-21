@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ChevronsUpDown,
   ChevronUp,
+  FolderPlus,
   Pencil,
   Play,
   Plus,
@@ -13,6 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import {
+  assignTaskToProject,
   deleteTask,
   fetchTasksPage,
   startTask,
@@ -22,11 +24,13 @@ import {
   type TaskCounts,
   type TaskStatus,
 } from '@/lib/tasks'
+import { fetchProjects, type Project } from '@/lib/projects'
 import { PointsCard } from '@/components/PointsCard'
 import { EditTaskModal } from '@/components/EditTaskModal'
 import { ProjectsView } from '@/components/ProjectsView'
+import { useToast } from '@/toast/useToast'
 
-type Filter = 'all' | TaskStatus
+type Filter = 'all' | TaskStatus | 'unassigned'
 type View = 'tasks' | 'projects'
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -81,6 +85,14 @@ const PAGE_SIZE = 25 // dashboard keyset page size (#100)
 
 const byIdDesc = (a: Task, b: Task) => b.id - a.id
 
+// Does a task belong in the given tab's server-filtered view? Status tabs match on
+// status; Unassigned (#236) matches on having no project (a different axis).
+function belongsToFilter(task: Task, f: Filter): boolean {
+  if (f === 'all') return true
+  if (f === 'unassigned') return task.projectId == null
+  return task.status === f
+}
+
 type EditValues = {
   title: string
   complexity: TaskComplexity
@@ -99,6 +111,7 @@ type EditValues = {
  */
 export function Dashboard() {
   const navigate = useNavigate()
+  const { showToast } = useToast()
 
   // Top-level Tasks | Projects toggle (#234). Driven by `?view=` so it's linkable
   // (e.g. a project card's "Assign task" deep-links back into the Tasks view) and
@@ -112,10 +125,17 @@ export function Dashboard() {
     setSearchParams(params)
   }
 
+  // Ride-along assign context (#236): a project card's "Assign task" deep-links to
+  // `?tab=unassigned&project=ID`. `tabParam` picks the initial tab; `projectParam`
+  // is the assign target, resolved to a real active project below.
+  const tabParam = searchParams.get('tab')
+  const projectParam = Number(searchParams.get('project'))
+  const rideAlongId = Number.isInteger(projectParam) && projectParam > 0 ? projectParam : null
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter] = useState<Filter>(tabParam === 'unassigned' ? 'unassigned' : 'all')
   // Latest filter for the deferred delete/undo paths (#100): those fire from a
   // timer or after a tab switch, so they must read the CURRENT filter, not the one
   // captured when the timer was armed.
@@ -144,15 +164,47 @@ export function Dashboard() {
   const [pendingTask, setPendingTask] = useState<Task | null>(null)
   const pendingRef = useRef<{ task: Task; timer: number } | null>(null)
 
+  // Active projects for the Unassigned tab (#236): the assign picker's options and
+  // the ride-along target resolution. Fetched lazily when that tab is active.
+  const [projects, setProjects] = useState<Project[]>([])
+  useEffect(() => {
+    if (filter !== 'unassigned') return
+    let cancelled = false
+    fetchProjects()
+      .then((p) => !cancelled && setProjects(p))
+      .catch(() => undefined) // picker still degrades to "no projects"; assign errors surface on PATCH
+    return () => {
+      cancelled = true
+    }
+  }, [filter])
+
+  // Follow a ride-along deep-link that arrives after mount (the Dashboard is already
+  // mounted when a project card navigates to `?tab=unassigned&project=ID`).
+  useEffect(() => {
+    if (tabParam === 'unassigned') setFilter('unassigned')
+  }, [tabParam])
+
+  // Resolve the ride-along target; a stale/archived/foreign id simply doesn't
+  // resolve → fall back to the plain picker (a notice is shown below).
+  const rideAlongProject =
+    rideAlongId !== null ? (projects.find((p) => p.id === rideAlongId) ?? null) : null
+
   // Load (or reload) the first page whenever the filter changes (#100). Server-side
   // filtering means a tab switch is a fresh first-page query — its own cursor +
   // counts. The `cancelled` guard drops a stale response if the user switches tabs
   // again before the request lands.
+  // Map the active filter to the #100/#236 query params. Unassigned is its own
+  // axis (`unassigned=1`, any status); the rest are status filters.
+  function pageQuery(f: Filter, before?: number | null) {
+    if (f === 'unassigned') return { unassigned: true, limit: PAGE_SIZE, before }
+    return { status: f === 'all' ? undefined : f, limit: PAGE_SIZE, before }
+  }
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchTasksPage({ status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE })
+    fetchTasksPage(pageQuery(filter))
       .then((page) => {
         if (cancelled) return
         setTasks(page.tasks) // already id DESC from the server
@@ -171,11 +223,7 @@ export function Dashboard() {
     setLoadingMore(true)
     setError(null)
     try {
-      const page = await fetchTasksPage({
-        status: filter === 'all' ? undefined : filter,
-        limit: PAGE_SIZE,
-        before: nextCursor,
-      })
+      const page = await fetchTasksPage(pageQuery(filter, nextCursor))
       setTasks((prev) => [...prev, ...page.tasks])
       setNextCursor(page.nextCursor)
     } catch (e) {
@@ -190,6 +238,35 @@ export function Dashboard() {
   function adjustCounts(status: TaskStatus, delta: number) {
     setCounts((c) => (c ? { ...c, all: c.all + delta, [status]: c[status] + delta } : c))
   }
+  // Unassigned is its own axis (#236): assigning a task decrements it without
+  // touching the status/all counts (the task still exists with the same status).
+  function adjustUnassigned(delta: number) {
+    setCounts((c) => (c ? { ...c, unassigned: c.unassigned + delta } : c))
+  }
+
+  // Assign a task (Unassigned tab, #236) to `projectId`. Optimistic: the row leaves
+  // the Unassigned view immediately; restored on failure. Only reachable from the
+  // Unassigned tab, so a failed restore always belongs back in the current view.
+  async function assign(task: Task, project: Project) {
+    setTasks((prev) => prev.filter((t) => t.id !== task.id))
+    adjustUnassigned(-1)
+    try {
+      await assignTaskToProject(task.id, project.id)
+      showToast({ message: `Assigned to ${project.name}`, icon: FolderPlus, tone: 'success' })
+    } catch (e) {
+      setTasks((prev) => [...prev, task].sort(byIdDesc))
+      adjustUnassigned(1)
+      setError(e instanceof Error ? e.message : 'Could not assign that task.')
+    }
+  }
+
+  // Clear the ride-along assign context (the banner's dismiss) — drops `project`
+  // from the URL but stays on the Unassigned tab.
+  function clearRideAlong() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('project')
+    setSearchParams(params)
+  }
 
   // Re-insert an undone / restore-on-failure row ONLY if it belongs in the current
   // filter view (#100). `tasks` is server-filtered per tab, so appending a row
@@ -197,7 +274,7 @@ export function Dashboard() {
   // restored separately (they're global); a later switch to a matching tab
   // re-fetches the row from the server.
   function restoreRow(task: Task) {
-    if (filterRef.current === 'all' || task.status === filterRef.current) {
+    if (belongsToFilter(task, filterRef.current)) {
       setTasks((prev) => [...prev, task].sort(byIdDesc))
     }
   }
@@ -314,7 +391,9 @@ export function Dashboard() {
         adjustCounts(task.status, -1)
         adjustCounts(updated.status, 1)
       }
-      if (filter !== 'all' && updated.status !== filter) {
+      if (!belongsToFilter(updated, filter)) {
+        // No longer matches the active tab (e.g. a status change on a status tab) —
+        // drop it. On Unassigned, membership is project-based, so a status edit keeps it.
         setTasks((prev) => prev.filter((t) => t.id !== task.id))
       } else {
         setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)).sort(byIdDesc))
@@ -445,7 +524,7 @@ export function Dashboard() {
         <>
           <PointsCard refreshSignal={pointsRefresh} />
 
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             {FILTERS.map((f) => {
               const active = filter === f.key
               const count = counts ? counts[f.key] : null // server counts (#100)
@@ -466,7 +545,54 @@ export function Dashboard() {
                 </button>
               )
             })}
+            {/* Unassigned (#236) filters by project, not status — a different axis,
+                so it's set apart with a divider. */}
+            <span className="mx-1 h-5 w-px self-center bg-gray-200" aria-hidden />
+            <button
+              onClick={() => setFilter('unassigned')}
+              className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
+                filter === 'unassigned'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface text-muted hover:bg-primary-tint'
+              }`}
+            >
+              Unassigned
+              {counts && (
+                <span className={filter === 'unassigned' ? ' text-on-primary' : ' text-muted'}>
+                  {' '}
+                  {counts.unassigned}
+                </span>
+              )}
+            </button>
           </div>
+
+          {/* Ride-along assign banner (#236): a project card's "Assign task" landed
+              here with a target — the row + buttons assign to it in one click. */}
+          {filter === 'unassigned' && rideAlongProject && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent-tint px-4 py-2.5 text-sm">
+              <span className="text-accent-ink">
+                Assigning to <span className="font-semibold">{rideAlongProject.name}</span> — tap{' '}
+                <span className="font-semibold">Assign</span> on a task below.
+              </span>
+              <button
+                type="button"
+                onClick={clearRideAlong}
+                className="shrink-0 cursor-pointer rounded-md p-1 text-accent-ink transition hover:bg-white/50"
+                aria-label="Stop assigning to this project"
+              >
+                <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+              </button>
+            </div>
+          )}
+          {/* Ride-along id that didn't resolve (archived/foreign) — plain picker + notice. */}
+          {filter === 'unassigned' &&
+            rideAlongId !== null &&
+            !rideAlongProject &&
+            projects.length > 0 && (
+              <p role="status" className="mb-4 text-sm text-muted">
+                That project isn’t available — pick one from each task’s Assign button.
+              </p>
+            )}
 
           {error && (
             <p role="alert" className="mb-3 text-sm text-red-600">
@@ -483,7 +609,9 @@ export function Dashboard() {
               <p className="text-muted">
                 {(counts?.all ?? 0) === 0
                   ? 'No tasks yet.'
-                  : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
+                  : filter === 'unassigned'
+                    ? 'No unassigned tasks — every task is in a project.'
+                    : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
               </p>
               <Link
                 to="/tasks/new"
@@ -681,6 +809,16 @@ export function Dashboard() {
                           </td>
                           <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
                             <div className="inline-flex items-center justify-end gap-1">
+                              {/* Assign (#236) — Unassigned tab only: one-click to the
+                                  ride-along target, else a small project picker. */}
+                              {filter === 'unassigned' && (
+                                <AssignControl
+                                  task={task}
+                                  rideAlong={rideAlongProject}
+                                  projects={projects}
+                                  onAssign={assign}
+                                />
+                              )}
                               {task.status === 'backlog' && (
                                 <button
                                   onClick={() => void onStart(task)}
@@ -815,5 +953,86 @@ export function Dashboard() {
         </>
       )}
     </main>
+  )
+}
+
+/**
+ * Row-level assign control for the Unassigned tab (#236). With a ride-along target
+ * it's a one-click Assign button; otherwise it's a small project picker — a plain
+ * disclosure (Escape + outside-click close, initial focus into the list), not a
+ * role=menu widget, matching the ProjectsView kebab.
+ */
+function AssignControl({
+  task,
+  rideAlong,
+  projects,
+  onAssign,
+}: {
+  task: Task
+  rideAlong: Project | null
+  projects: Project[]
+  onAssign: (task: Task, project: Project) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const firstItemRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    firstItemRef.current?.focus()
+    const close = () => setOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+
+  if (rideAlong) {
+    return (
+      <button
+        type="button"
+        onClick={() => onAssign(task, rideAlong)}
+        aria-label={`Assign ${task.title} to ${rideAlong.name}`}
+        className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-accent-ink transition hover:bg-accent-tint"
+      >
+        <FolderPlus className="h-4 w-4" strokeWidth={2} aria-hidden />
+      </button>
+    )
+  }
+
+  return (
+    <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={`Assign ${task.title} to a project`}
+        aria-expanded={open}
+        className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-accent-ink transition hover:bg-accent-tint"
+      >
+        <FolderPlus className="h-4 w-4" strokeWidth={2} aria-hidden />
+      </button>
+      {open && (
+        <div
+          onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+          className="absolute right-0 z-10 mt-1 max-h-64 w-52 overflow-y-auto rounded-lg bg-surface py-1 text-left ring-1 ring-gray-200"
+        >
+          {projects.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-muted">No active projects — create one first.</p>
+          ) : (
+            projects.map((p, i) => (
+              <button
+                key={p.id}
+                ref={i === 0 ? firstItemRef : undefined}
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  onAssign(task, p)
+                }}
+                className="block w-full cursor-pointer truncate px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+              >
+                {p.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   )
 }
