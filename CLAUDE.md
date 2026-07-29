@@ -3,7 +3,9 @@
 > Authoritative project reference — supersedes stale chat history. Originally a
 > rebuild-planning draft (2026-07-11); synced 2026-07-12 for the merged work
 > #25–#70, and re-synced 2026-07-13 for the **PHP backend rewrite (#77)**, the
-> **deploy pipeline (#39)**, and **live production email (#65)**. Most core
+> **deploy pipeline (#39)**, and **live production email (#65)**; currency pass
+> 2026-07-29 (post-1.9.0 — Projects follow-ups #245/#248 + the #250 recurring/snooze
+> spec filed). Most core
 > decisions are settled; open items live in the Open decisions log. Where this
 > file and the code disagree, the code (on `develop`) wins — update this file.
 
@@ -170,7 +172,7 @@ to the old Node API.
 - **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
   (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
   `status enum('active','archived')`, archive = the terminal "completed" state — no
-  archived-browsing view in v1) + a nullable **`tasks.project_id`** FK (migrations 008/009,
+  archived-browsing view in v1; the visibility + unarchive gap is filed as **#248**) + a nullable **`tasks.project_id`** FK (migrations 008/009,
   `ON DELETE SET NULL` → deleting a project unassigns its tasks) + a `(user_id, project_id)`
   index (010). `GET /api/projects` lists **active** projects with **remaining + total** task
   counts (one grouped `LEFT JOIN`; "X of Y remaining", remaining = `status <> 'done'`);
@@ -270,6 +272,8 @@ addiapp/
 │       ├── Tasks/Selection.php   #   swappable weighted-random selection
 │       ├── RateLimit.php         #   DB fixed-window limiter
 │       └── Controllers/          #   Auth, Tasks, Points, Health
+├── tests/                        # PHPUnit backend tests (Unit + Db; #124/#128/#129)
+├── composer.json · phpunit.xml   # dev-only test tooling (vendor/ git-ignored, never rsynced)
 ├── public/fonts/                 # Nunito web fonts (kept from original)
 ├── CLAUDE.md · PROJECT_SPEC.md · README.md
 ```
@@ -550,6 +554,14 @@ Genuinely still open:
 - [ ] Real mascot art — the **v3 "star character" is now LIVE (#210, superseding the v2 icon
   #96); the half-out PlayCard placement shipped (#211).** Still SVG icon art, so this is
   *advanced, not closed* — illustrated art remains a later pass.
+- [ ] Archived-projects visibility — **#248** (filed 2026-07-29): an "Archived" entry
+  point on both Dashboard views + Unarchive; archiving currently makes a project
+  invisible (deliberate v1 cut in #234, but it reads as data loss in live use).
+- [ ] Recurring tasks + "snooze until" — **#250** (spec agreed 2026-07-29, ready to
+  build): clone-per-occurrence on completion + a nullable `available_from` date
+  (excluded from Play selection), per-task rules (every-N-days/weeks or
+  monthly-on-day-D). Recurring is a task attribute, NOT an auto project; recurring
+  tasks are excluded from the #240 project all-done check. Full spec in the issue.
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes super-light card
   drop-shadows + button polish, which would revise the long-standing flat "no shadows/borders"
   rule; **triage / not adopted** (the flat rule holds until it ships). The mascot half-out

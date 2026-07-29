@@ -1,8 +1,10 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-07-20
-(1.8.0 batch on develop: dashboard keyset pagination + the EditTask desktop modal,
-plus Tier-2/3 backend tests; 1.7.0 shipped mascot v3 / PlayCard Phase 2 / FormCard).
+Living document. Updated as decisions are made. Last updated: 2026-07-29
+(1.9.0 shipped the **Projects epic #233 A–D** — projects CRUD + Dashboard Projects
+view, Unassigned tab + assign flow, Play "Focus on projects", project-completion
+bonus; 1.8.0 was dashboard keyset pagination + the EditTask desktop modal + Tier-2/3
+backend tests).
 Note: **CLAUDE.md is the more frequently-synced authoritative reference** — where the
 two disagree, prefer CLAUDE.md and the code on `develop`.
 
@@ -104,9 +106,12 @@ redirects to the Choice screen as the single Play landing. The flow:
    redirects to **Choice**. A mid-flight task is now surfaced by a **Resume banner on
    Choice** plus the header in-progress **timer chip** (#135), not a Home affordance.
 2. **Choice screen** (#30, `/play`) — "What kind of win do you want?" →
-   Something small (quick/low effort) vs Something big (real progress). A
-   time-available filter (preset chips) sits alongside. Selections are carried
-   to the task screen as URL params.
+   "Get small tasks done" (quick/low effort) vs "Take on bigger issues" (real
+   progress), plus a third full-width option **"Focus on projects" (#238)** —
+   auto-picks from the project closest to done (no size choice; "Auto-picked"
+   chip). A time-available filter (preset chips) sits alongside. Selections are
+   carried to the task screen as URL params (`mode=projects` is mutually
+   exclusive with the win-type `size` and rides the whole Play chain).
 3. **Task presented** (#31, `/play/task`) — the selection algorithm (see below)
    picks ONE matching backlog task. Shows title, estimated time, effort tag, and
    approximate base points (shown up front per §7). Primary **Start** → moves the
@@ -164,6 +169,11 @@ already-filtered candidate list + an injectable rng and return one task or null)
   feels fresh (vs. pure random re-offering, or strict oldest-first reading like a
   to-do list). Rank-based weights keep the function pure/deterministically
   testable. Alternates `oldestFirst` and `uniformRandom` also ship.
+- **"Focus on projects" (#238)**: `GET /api/tasks/next?mode=projects` ignores
+  win-type and calls the deterministic **`Selection::focusProject`** — group
+  active-project backlog candidates (time filter still applies), pick the project
+  with the **least remaining effort** (Σ base points — closest to done), tie-break
+  oldest project, then the oldest task within it. Same `{ task }` response shape.
 - A **future per-user selection preference** is designed for — becoming
   `strategies[user.preference]` is a one-line change — but is **not built** (no
   settings page exists yet).
@@ -198,9 +208,29 @@ everything at once (not one-at-a-time like Play mode).
   pending timer. Fits the fast inline-edit model; fail-safe (navigating away in
   the window leaves the task). Header has **Play** and **Add task** buttons.
 
+**Projects (#233 epic, A–D, shipped 1.9.0)**: a **project** groups tasks —
+`projects` table + a nullable `tasks.project_id` FK (`ON DELETE SET NULL`);
+`status enum('active','archived')`, archive being the terminal "completed" state
+(no archived-browsing view in v1 — visibility + unarchive is filed as #248).
+- The Dashboard has a top-level **`Tasks | Projects` toggle** (`?view=projects`,
+  linkable). The Projects view (#234) is a card grid — name, "X of Y remaining"
+  count, kebab Edit/Archive, and Add task / Assign task footer actions; New/Edit
+  uses the shared `Modal` + its own small `ProjectForm`. `GET/POST/PATCH
+  /api/projects`, user-scoped, 404-not-403.
+- **Unassigned tab + assign flow (#236)**: a Dashboard "Unassigned" tab
+  (`GET /api/tasks?unassigned=1`, project-axis rather than status-axis) with a
+  URL-driven deep link from a project card's "Assign task"
+  (`?tab=unassigned&project=ID` → one-click ride-along banner, or a
+  project-picker disclosure when landing directly). `PATCH /api/tasks/{id}`
+  accepts `projectId` (assign to an active owned project, or `null` to
+  unassign); assignment is optimistic in the UI.
+- Play-mode **"Focus on projects" (#238)** and the **project-completion bonus
+  (#240)** — see §5 and §7.
+
 **Add-task form (#35, `/tasks/new`)**: title, complexity (segmented picker
 showing base points up front), estimated minutes. Validation mirrors the CRUD
-rules (§ below). Reachable from the empty state, Home, and the Dashboard.
+rules (§ below). Reachable from the empty state, Home, and the Dashboard. Reads
+`?project=ID` to pre-assign the new task to a project (#234).
 
 **User points card (#37)**: at the top of the Dashboard — lifetime **total
 points**, current **live daily multiplier**, and **today's** points + tasks.
@@ -252,6 +282,16 @@ also surfaced to the UI via `GET /api/points` so the front end never hardcodes t
 - **Points are shown up front** (approximate base, before commitment) — decided
   explicitly: visibility is motivating; the speed bonus rewards finishing fast
   rather than the reward being a surprise.
+- **Project-completion bonus (#240)** — awarded **once ever per project** when an
+  active project (≥1 task) has every task done, fired from the task-complete path
+  (`Award::awardProjectCompletion`, self-guarding):
+  `bonus = clamp(round(Σ base points × PROJECT_BONUS_RATIO 0.5), MIN 10, MAX 100)`
+  — size-scaled, floored, capped; all three knobs in `PointsConfig`. Idempotent
+  via `UNIQUE(project_id)` on `points_log` (a bonus row has `task_id` NULL) + a
+  dup-key catch, mirroring the per-task guarantee. The completing
+  `PATCH /api/tasks` call returns `projectCompleted`, surfaced as an accent bonus
+  panel on the Play Completion screen. **No other project→points effect**
+  (multiplier/speed unchanged) — deliberate for v1.
 
 The `points_log` ledger stores the award *components* (base / speed bonus /
 multiplier / total) per completion, and `daily_stats` is the per-user/day rollup
@@ -275,25 +315,30 @@ actually built and merged to `develop`.
 - ✅ Dashboard: task list/management + inline edit + full edit page — #36
 - ✅ Dashboard user points card — #37
 - ✅ User points/stats page — #38
-- ⬜ **Marketing / landing homepage** (#40) — the only remaining Release-1 item
-  on the app itself; **not yet scoped**.
-- ⬜ **Basic user guide / help content** (#41) — **not yet scoped**.
 - ✅ Email verification (#61) + password reset (#62) — production email **LIVE** (#65).
 - ✅ **Backend rewritten to PHP 8.2 + PDO** (Node unavailable on the plan) — #77.
 - ✅ Deploy pipeline (GitHub Actions + rsync + `php migrate.php` over SSH) — #39.
+- ✅ **Projects epic (#233, A–D, shipped 1.9.0)** — projects CRUD + Dashboard
+  Projects view (#234), Unassigned tab + assign flow (#236), Play "Focus on
+  projects" (#238), project-completion bonus (#240). Originally deferred; pulled
+  forward post-Release-1.
 - ⬜ Marketing / landing homepage (#40) and user guide (#41) — the only remaining
   Release-1 items, both **not yet scoped**.
 
 ### Explicitly deferred to later releases
 - Multi-user competitive features: leaderboards, scoreboard
-- Projects (grouping tasks), Teams, task sharing for bonus points
-- Per-user task-selection preference + settings page (interface is ready)
+- Teams, task sharing for bonus points (Projects itself SHIPPED in 1.9.0, #233 —
+  follow-ups filed: #245 view-tasks link, #248 archived-projects visibility)
+- Per-user task-selection preference (interface is ready; the settings page now
+  exists, #187 — the preference itself is still unbuilt)
+- Recurring tasks + "snooze until" scheduled availability — **spec agreed in
+  #250**, ready to build
 - Real (illustrated) mascot art — the expression-driven SVG **icon** shipped and
   advanced through the v3 "star character" rebuild (#210, live; superseded the v2
   #96 icon); fully **illustrated** art remains the deferred pass
-- Anything else from `OLD_SPEC.md` not listed above (categories, tags, due
-  dates, recurring tasks, attachments, notifications, dark mode, search,
-  filtering, drag & drop, PWA/offline, audit history, AI-assisted management)
+- Anything else from `OLD_SPEC.md` not listed above (categories/tags #179, due
+  dates, attachments, notifications, dark mode, search, filtering, drag & drop,
+  PWA/offline, audit history, AI-assisted management)
 
 ## 9. Old codebase audit — summary
 
@@ -325,9 +370,9 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
 
 - [ ] **#40 marketing / landing homepage** — scope/content not defined.
 - [ ] **#41 user guide / help content** — scope/content not defined.
-- [ ] **Auth hardening beyond rate-limiting** — CAPTCHA (Cloudflare Turnstile) +
-  edge protection (WAF/Bot Fight). Login/register rate-limiting is done (#80); the
-  rest is #79.
+- [ ] **Auth hardening — edge protection only** — rate-limiting (#80) and the
+  Turnstile CAPTCHA (#79) are done; what remains is Cloudflare edge config
+  (WAF on `/api/auth/*`, Bot Fight Mode) as a dashboard-only task.
 - [ ] **Privacy policy / Terms of Service** pages (needed before public launch).
 - [ ] Final color palette / brand direction — **vivid v3 is live (#143)** and current;
   only a "final/locked brand" sign-off remains (placeholder coral `#D85A30` retired).
@@ -370,3 +415,13 @@ production email (**#65, live**).
   all **now BUILT + live on develop**. Still open/filed: **#213 "spit & polish"** (revisit the
   flat "no shadows" rule) and the **EditTask desktop modal** (#218, split from #206). CLAUDE.md
   holds the authoritative detail.
+- **2026-07-29** — Projects sync (this doc had lagged since the 1.8.0 pass; CLAUDE.md
+  stayed current). Folded in the **Projects epic #233 A–D (shipped 1.9.0)**: projects
+  CRUD + Dashboard Projects view (#234), Unassigned tab + assign flow (#236), Play
+  "Focus on projects" + `Selection::focusProject` (#238), and the project-completion
+  bonus (#240, §7). Also: 1.8.0's dashboard keyset pagination (#100) + EditTask desktop
+  modal (#218) were already noted in §6; de-duped §8; corrected §10's auth-hardening
+  item (Turnstile shipped, only Cloudflare edge config remains). Newly filed, not
+  built: archived-projects visibility/unarchive (#248), recurring tasks + snooze
+  (spec agreed, #250), project view-tasks link (#245). README.md was rewritten in the
+  same pass (it still described the pre-rewrite Node/Express era).
