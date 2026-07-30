@@ -79,13 +79,13 @@ export function Dashboard() {
   // The filter is purely URL-derived (#256 review): the rail's Tasks entries set
   // `?tab=` — there is no in-page filter UI any more.
   const filter = filterFromTab(tabParam)
-  // Sort toggle (#256 review): `?sort=newest` flips the default oldest-first;
-  // URL-driven so the choice is shareable and survives refresh.
-  const newestFirst = searchParams.get('sort') === 'newest'
+  // Sort toggle (#256 review): NEWEST FIRST is the default; `?sort=oldest`
+  // flips it. URL-driven so the choice is shareable and survives refresh.
+  const newestFirst = searchParams.get('sort') !== 'oldest'
   function toggleSort() {
     const params = new URLSearchParams(searchParams)
-    if (newestFirst) params.delete('sort')
-    else params.set('sort', 'newest')
+    if (newestFirst) params.set('sort', 'oldest')
+    else params.delete('sort')
     setSearchParams(params)
   }
 
@@ -287,7 +287,7 @@ export function Dashboard() {
                 type="button"
                 onClick={toggleSort}
                 aria-label={`Sorted ${newestFirst ? 'newest' : 'oldest'} first — switch to ${newestFirst ? 'oldest' : 'newest'} first`}
-                className="cursor-pointer underline-offset-2 transition hover:text-primary-ink hover:underline"
+                className="cursor-pointer transition hover:text-primary-ink"
               >
                 {newestFirst ? 'newest first' : 'oldest first'}
               </button>
@@ -339,7 +339,9 @@ export function Dashboard() {
                 {visible.map((task, i) => (
                   <li
                     key={task.id}
-                    className={`flex h-12 items-center bg-surface transition hover:bg-page/60 ${
+                    // Hover is a barely-off-white (#256 review) — distinct from
+                    // the cream page behind the table, softer than the old tint.
+                    className={`flex h-12 items-center bg-surface transition hover:bg-[#fbf8f3] ${
                       i === 0 ? 'rounded-t-xl' : ''
                     } ${i === visible.length - 1 ? 'rounded-b-xl' : ''}`}
                   >

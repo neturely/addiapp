@@ -258,10 +258,11 @@ to the old Node API.
   #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
   returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
   range; global `counts` on every page) — the toolbar reads **"{selection} ·
-  oldest first · N tasks ready to do"** (selection mirrors the rail; ready =
-  `counts.backlog`) + range + prev/next pagers (top and foot), 25/page. **The
-  paginated list is OLDEST FIRST** (#256 review; the unbounded legacy list stays
-  id DESC). **There is no in-page filter UI** — the status filters (All / To do /
+  newest first · N tasks ready to do"** (selection mirrors the rail; ready =
+  `counts.backlog`; the sort text is a TOGGLE button flipping newest/oldest via
+  `?sort=oldest` + the server's validated `order=asc|desc` param) + range +
+  prev/next pagers (top and foot), 25/page. **Default order: NEWEST FIRST**
+  (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All / To do /
   In progress / Done / Unassigned, with counts) live in the rail's Tasks section
   as `?tab=` links, and the filter is purely URL-derived.
   Filtering stays server-side; column sorting was dropped with the table. The
@@ -502,8 +503,9 @@ recorded in `index.css` comments:
 **⚠ Flat-surface rule — STILL the rule, with one scoped exception and one open proposal.**
 The UI is deliberately **FLAT — no shadows/borders**, colour separation only (established
 across #91/#92/#94/#143; the palette leans on this). Two qualifications to track:
-- **Scoped exception (mascot only, #210/#211):** the half-out mascot on PlayCard carries a
-  thin halo + a **light drop-shadow on the mascot itself** — the *cards/surfaces stay flat*.
+- **Scoped exception (mascot only, #210/#211; narrowed on #256 review):** the half-out
+  mascot carries a thin sticker halo — its **soft lift shadow was removed** (outline
+  only now), so the UI is fully shadow-free again; the *cards/surfaces stay flat*.
 - **Open proposal — #213 "spit & polish" (NOT adopted):** a filed *candidate/triage* issue to
   revisit the flat rule by adding **super-light card drop-shadows** + button/UI polish. Read
   #213's body for the actual (still-being-triaged) scope. **The flat rule remains authoritative
