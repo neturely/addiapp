@@ -362,7 +362,9 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   ONLY when the right column isn't rendered** (narrow viewport, toggled off, or
   solo mode) — the epic acceptance that points are never invisible; the
   **avatar-as-Stats #92 decision is reversed**.
-- **Rail** (`Rail.tsx`, `w-56`, collapsible, hidden `< sm` until G): Tasks section
+- **Rail** (`Rail.tsx`, `w-56`, collapsible; below `sm` it's an **overlay drawer**,
+  #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
+  hamburger, entries are ≥44px targets): Tasks section
   (All / Unassigned / Completed → the Dashboard's `?tab=` filters, counts from the
   server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
@@ -409,9 +411,13 @@ flattened into muted eyebrow text). **Remaining #204 cleanup (deferred):** Compl
 still uses `title="Nice work!"` + `body`=task name — the `eyebrow="NICE WORK"` +
 `title`=task-name re-slot was NOT applied in #211 (placement-only scope); pick it up
 in a later polish pass. Reach for `PlayCard` for any single-message Play screen
-rather than re-rolling the shell. Responsive note: the app's only breakpoint is
-**`sm`** (640px) — no `md`/`lg`; the Choice screen (deliberately NOT on `PlayCard`)
-flanks the mascot side-by-side at `sm+` and stacks it above the two win cards below `sm`.
+rather than re-rolling the shell. Responsive note (#270): the breakpoints are
+**`sm`** (640px — the rail drawer/static split, row-detail visibility, touch-target
+sizing via `h-11 sm:h-8`-style pairs) and **1240px** (the right column, via
+`useMediaQuery` + `min-[1240px]:`); no `md`/`lg`. Phone rules (#98's framing, kept):
+no horizontal scroll at 375px, interactive targets ≥44px, points always one tap away
+(the header Stats icon). The Choice screen (deliberately NOT on `PlayCard`) is one
+card at every width since #264. e2e: `e2e/responsive.mjs`.
 
 Shared **`FormCard`** (`components/FormCard.tsx`, #206): the **utility/admin
 counterpart** to `PlayCard` — the titled flat surface box (`rounded-2xl bg-surface

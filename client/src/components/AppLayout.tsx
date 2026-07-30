@@ -41,7 +41,25 @@ function RouteFocus() {
  * `min-h-screen`.
  */
 function ShellFrame() {
-  const { solo, railOpen, columnVisible } = useShell()
+  const { solo, railOpen, columnVisible, narrow, drawerOpen, closeDrawer } = useShell()
+
+  // Mobile rail drawer (#270): Escape closes + returns focus to the hamburger;
+  // initial focus moves onto the first rail link so keyboard users land inside.
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const showDrawer = !solo && narrow && drawerOpen
+  useEffect(() => {
+    if (!showDrawer) return
+    drawerRef.current?.querySelector<HTMLElement>('a, button')?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeDrawer()
+        document.querySelector<HTMLElement>('button[aria-label="Toggle sidebar"]')?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showDrawer, closeDrawer])
+
   return (
     <div className="flex h-screen flex-col bg-page">
       <RouteFocus />
@@ -53,7 +71,9 @@ function ShellFrame() {
       </a>
       <Header />
       <div className="flex min-h-0 flex-1">
-        {!solo && railOpen && <Rail />}
+        {/* Static rail at sm+ only — below sm the drawer owns the markup (and
+            the #app-rail id, so aria-controls never points at a duplicate). */}
+        {!solo && railOpen && !narrow && <Rail />}
         <div
           id="main-content"
           tabIndex={-1}
@@ -64,6 +84,20 @@ function ShellFrame() {
         {columnVisible && <RightColumn />}
       </div>
       <Footer />
+
+      {showDrawer && (
+        <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Navigation">
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={closeDrawer}
+            className="absolute inset-0 h-full w-full cursor-default bg-gray-900/45"
+          />
+          <div ref={drawerRef} className="absolute inset-y-0 left-0 w-64 bg-page shadow-none">
+            <Rail drawer />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

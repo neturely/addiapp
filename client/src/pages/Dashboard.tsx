@@ -185,7 +185,7 @@ export function Dashboard() {
           onClick={() => canPrev && setOffset((o) => Math.max(0, o - PAGE_SIZE))}
           disabled={!canPrev}
           aria-label="Previous page"
-          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent"
+          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
         </button>
@@ -194,7 +194,7 @@ export function Dashboard() {
           onClick={() => canNext && setOffset((o) => o + PAGE_SIZE)}
           disabled={!canNext}
           aria-label="Next page"
-          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent"
+          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
         >
           <ChevronRight className="h-4 w-4" aria-hidden />
         </button>
@@ -271,7 +271,7 @@ export function Dashboard() {
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
-                    className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
+                    className={`cursor-pointer rounded-full px-3 py-2 text-sm font-medium sm:py-1 transition ${
                       active
                         ? 'bg-primary text-on-primary'
                         : 'bg-surface text-muted hover:bg-primary-tint'
@@ -288,7 +288,7 @@ export function Dashboard() {
               <span className="mx-1 h-5 w-px self-center bg-gray-200" aria-hidden />
               <button
                 onClick={() => setFilter('unassigned')}
-                className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
+                className={`cursor-pointer rounded-full px-3 py-2 text-sm font-medium sm:py-1 transition ${
                   filter === 'unassigned'
                     ? 'bg-primary text-on-primary'
                     : 'bg-surface text-muted hover:bg-primary-tint'
@@ -487,7 +487,7 @@ function AssignControl({
         type="button"
         onClick={() => onAssign(target)}
         aria-label={`Assign ${task.title} to ${target.name}`}
-        className="mr-4 flex-none cursor-pointer rounded-lg bg-accent-tint px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-80"
+        className="mr-4 flex-none cursor-pointer rounded-lg bg-accent-tint px-3 py-2.5 text-xs font-semibold text-accent-ink transition hover:opacity-80 sm:py-1.5"
       >
         Assign
       </button>
@@ -501,7 +501,7 @@ function AssignControl({
         onClick={() => setOpen((v) => !v)}
         aria-label={`Assign ${task.title} to a project`}
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-field px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
       >
         Assign
         <ChevronDown className="h-3.5 w-3.5" aria-hidden />

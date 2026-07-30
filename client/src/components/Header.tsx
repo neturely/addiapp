@@ -53,8 +53,19 @@ export function Header() {
   const { showToast } = useToast()
   const { pathname } = useLocation()
   const { activeTask } = useInProgress()
-  const { search, setSearch, railOpen, toggleRail, columnOpen, toggleColumn, solo, columnVisible } =
-    useShell()
+  const {
+    search,
+    setSearch,
+    railOpen,
+    toggleRail,
+    narrow,
+    drawerOpen,
+    toggleDrawer,
+    columnOpen,
+    toggleColumn,
+    solo,
+    columnVisible,
+  } = useShell()
 
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -94,11 +105,13 @@ export function Header() {
       {!solo && (
         <button
           type="button"
-          onClick={toggleRail}
+          // At sm+ this collapses the static rail; below sm it opens the
+          // overlay drawer (#270) — same control, per-breakpoint target.
+          onClick={narrow ? toggleDrawer : toggleRail}
           aria-label="Toggle sidebar"
-          aria-expanded={railOpen}
+          aria-expanded={narrow ? drawerOpen : railOpen}
           aria-controls="app-rail"
-          className="hidden h-10 w-10 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page sm:inline-flex"
+          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
