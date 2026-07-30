@@ -351,18 +351,38 @@ export function Dashboard() {
                       i === 0 ? 'rounded-t-xl' : ''
                     } ${i === visible.length - 1 ? 'rounded-b-xl' : ''}`}
                   >
+                    {/* Leading pole cell — on ready rows at sm+, hovering the
+                        row swaps the colour indicator for the play button
+                        (#256 review; below sm the trailing button serves). */}
+                    <span className="relative ml-5 flex h-full w-2 flex-none items-center">
+                      {task.status === 'backlog' && (
+                        <button
+                          type="button"
+                          onClick={() => void playNow(task)}
+                          aria-label={`Start ${task.title}`}
+                          className="peer absolute left-1/2 top-1/2 hidden h-8 w-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-success-ink opacity-0 transition hover:bg-success-tint focus-visible:opacity-100 group-hover:opacity-100 sm:inline-flex"
+                        >
+                          <Play
+                            className="h-4 w-4"
+                            fill="currentColor"
+                            strokeWidth={0}
+                            aria-hidden
+                          />
+                        </button>
+                      )}
+                      <span
+                        className={`h-2 w-2 rounded-[3px] ${
+                          task.project ? projectPole(task.project.color) : 'bg-gray-300'
+                        } ${task.status === 'backlog' ? 'sm:peer-focus-visible:opacity-0 sm:group-hover:opacity-0' : ''}`}
+                        aria-hidden
+                      />
+                    </span>
                     <button
                       type="button"
                       onClick={() => navigate(`/tasks/${task.id}`)}
                       aria-label={`Open ${task.title}`}
-                      className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3.5 px-5 text-left"
+                      className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3.5 pl-3.5 pr-5 text-left"
                     >
-                      <span
-                        className={`h-2 w-2 flex-none rounded-[3px] ${
-                          task.project ? projectPole(task.project.color) : 'bg-gray-300'
-                        }`}
-                        aria-hidden
-                      />
                       <span
                         className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
                           task.project ? 'font-medium text-gray-700' : 'text-muted'
@@ -390,34 +410,32 @@ export function Dashboard() {
                         )}
                       </span>
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
-                          (#256 review). Done rows show the points actually
+                          (#256 review): same weight/size as the minutes, the
+                          points half in gold (warning ink — the AA gold for
+                          small text). Done rows show the points actually
                           EARNED; the rest show the base forecast. The minutes
                           half hides below sm. */}
-                      <span className="w-14 flex-none text-right text-sm tabular-nums sm:w-32">
-                        <span className="hidden text-xs text-muted sm:inline">
+                      <span className="w-14 flex-none text-right text-xs tabular-nums sm:w-32">
+                        <span className="hidden text-muted sm:inline">
                           {task.estimatedMinutes} min /{' '}
                         </span>
                         {task.status === 'done' && task.earnedPoints != null ? (
-                          <span className="font-semibold text-success-ink">
-                            +{task.earnedPoints} pts
-                          </span>
+                          <span className="text-warning-ink">+{task.earnedPoints} pts</span>
                         ) : basePoints ? (
-                          <span className="font-semibold text-gray-700">
+                          <span className="text-warning-ink">
                             {basePoints[task.complexity]} pts
                           </span>
                         ) : null}
                       </span>
                     </button>
-                    {/* Ready rows get a one-click play (#256 review): start +
-                        jump straight into the InProgress screen. Hover-only on
-                        pointer widths (#256 review); always visible below sm
-                        (no hover on touch) and on keyboard focus. */}
+                    {/* Below sm there's no hover for the pole swap, so ready
+                        rows keep a trailing always-visible play button there. */}
                     {task.status === 'backlog' && (
                       <button
                         type="button"
                         onClick={() => void playNow(task)}
                         aria-label={`Start ${task.title}`}
-                        className="mr-3 inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+                        className="mr-3 inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint sm:hidden"
                       >
                         <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
                       </button>
