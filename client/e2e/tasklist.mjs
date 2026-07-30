@@ -46,31 +46,10 @@ ok(
   '#262: prev disabled on the first page',
 )
 
-// Sort toggle: "oldest first" ↔ "newest first" flips the row order + URL.
+// Sort toggle: "newest first" (the default) ↔ "oldest first" flips row order + URL.
 const firstBefore = await page.$eval(
   'ul[aria-label="Tasks"] button[aria-label^="Open "]',
   (b) => b.getAttribute('aria-label'),
-)
-await page.evaluate(() =>
-  [...document.querySelectorAll('button')]
-    .find((b) => b.textContent?.trim() === 'oldest first')
-    ?.click(),
-)
-await sleep(500)
-ok(
-  await page.evaluate(() => location.search.includes('sort=newest')),
-  '#256r: sort toggle writes ?sort=newest',
-)
-const firstAfter = await page.$eval(
-  'ul[aria-label="Tasks"] button[aria-label^="Open "]',
-  (b) => b.getAttribute('aria-label'),
-)
-ok(firstAfter !== firstBefore, '#256r: newest-first reverses the row order')
-ok(
-  await page.evaluate(() =>
-    [...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'newest first'),
-  ),
-  '#256r: toggle label flips to "newest first"',
 )
 await page.evaluate(() =>
   [...document.querySelectorAll('button')]
@@ -79,10 +58,31 @@ await page.evaluate(() =>
 )
 await sleep(500)
 ok(
+  await page.evaluate(() => location.search.includes('sort=oldest')),
+  '#256r: sort toggle writes ?sort=oldest',
+)
+const firstAfter = await page.$eval(
+  'ul[aria-label="Tasks"] button[aria-label^="Open "]',
+  (b) => b.getAttribute('aria-label'),
+)
+ok(firstAfter !== firstBefore, '#256r: oldest-first reverses the row order')
+ok(
+  await page.evaluate(() =>
+    [...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'oldest first'),
+  ),
+  '#256r: toggle label flips to "oldest first"',
+)
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => b.textContent?.trim() === 'oldest first')
+    ?.click(),
+)
+await sleep(500)
+ok(
   (await page.$eval('ul[aria-label="Tasks"] button[aria-label^="Open "]', (b) =>
     b.getAttribute('aria-label'),
   )) === firstBefore,
-  '#256r: toggling back restores oldest-first',
+  '#256r: toggling back restores newest-first',
 )
 
 // Row → task view → edit round-trip.

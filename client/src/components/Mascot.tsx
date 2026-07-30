@@ -97,7 +97,7 @@ const HALO_FILTER = [
   [-1.1, -1.1],
 ]
   .map(([x, y]) => `drop-shadow(${x}px ${y}px 0 var(--color-surface))`)
-  .concat('drop-shadow(0 2px 3px rgba(0,0,0,0.18))')
+// (#256 review: the halo's soft lift shadow was removed — sticker outline only.)
   .join(' ')
 
 export function Mascot({
