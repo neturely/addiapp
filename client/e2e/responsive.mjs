@@ -73,7 +73,7 @@ await page.click('button[aria-label="Toggle sidebar"]')
 await sleep(200)
 await page.evaluate(() =>
   [...document.querySelectorAll('#app-rail a')]
-    .find((a) => /completed/i.test(a.textContent || ''))
+    .find((a) => a.textContent?.trim().startsWith('Done'))
     ?.click(),
 )
 await sleep(400)

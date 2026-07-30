@@ -74,14 +74,11 @@ export function Dashboard() {
   const [offset, setOffset] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<Filter>(filterFromTab(tabParam))
   const [basePoints, setBasePoints] = useState<Record<TaskComplexity, number> | null>(null)
 
-  // Follow tab deep-links arriving after mount (#236 ride-along, #260 rail);
-  // an absent tab (rail "All tasks") resets to the default view.
-  useEffect(() => {
-    setFilter(filterFromTab(tabParam))
-  }, [tabParam])
+  // The filter is purely URL-derived (#256 review): the rail's Tasks entries set
+  // `?tab=` — there is no in-page filter UI any more.
+  const filter = filterFromTab(tabParam)
 
   // A filter change is a fresh first page.
   useEffect(() => setOffset(0), [filter, projectFilterId])
@@ -199,6 +196,16 @@ export function Dashboard() {
 
   const rangeLabel = `${first}–${last} of ${total}`
   const ready = counts?.backlog ?? 0
+  // Toolbar's selection label — mirrors the rail choice (project name, a status
+  // filter, or "All tasks").
+  const selectionLabel =
+    projectFilterId !== null
+      ? (projects.find((p) => p.id === projectFilterId)?.name ?? 'Project')
+      : filter === 'all'
+        ? 'All tasks'
+        : filter === 'unassigned'
+          ? 'Unassigned'
+          : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
 
   return (
     // No page heading / view toggle (review feedback on #256): the rail's
@@ -233,48 +240,7 @@ export function Dashboard() {
                 <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
               </Link>
             </div>
-          ) : (
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              {FILTERS.map((f) => {
-                const active = filter === f.key
-                const count = counts ? counts[f.key] : null
-                return (
-                  <button
-                    key={f.key}
-                    onClick={() => setFilter(f.key)}
-                    className={`cursor-pointer rounded-full px-3 py-2 text-sm font-medium sm:py-1 transition ${
-                      active
-                        ? 'bg-primary text-on-primary'
-                        : 'bg-surface text-muted hover:bg-primary-tint'
-                    }`}
-                  >
-                    {f.label}
-                    {count !== null && (
-                      <span className={active ? ' text-on-primary' : ' text-muted'}> {count}</span>
-                    )}
-                  </button>
-                )
-              })}
-              {/* Unassigned (#236) filters by project, not status — set apart. */}
-              <span className="mx-1 h-5 w-px self-center bg-gray-200" aria-hidden />
-              <button
-                onClick={() => setFilter('unassigned')}
-                className={`cursor-pointer rounded-full px-3 py-2 text-sm font-medium sm:py-1 transition ${
-                  filter === 'unassigned'
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-surface text-muted hover:bg-primary-tint'
-                }`}
-              >
-                Unassigned
-                {counts && (
-                  <span className={filter === 'unassigned' ? ' text-on-primary' : ' text-muted'}>
-                    {' '}
-                    {counts.unassigned}
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
+          ) : null}
 
           {/* Ride-along assign banner (#236). */}
           {filter === 'unassigned' && rideAlongProject && (
@@ -302,8 +268,11 @@ export function Dashboard() {
               </p>
             )}
 
-          {/* Toolbar (#262): ready count · range · pager. */}
+          {/* Toolbar (#262; #256 review layout): "{selection} · oldest first" —
+              dynamic from the rail — then the ready count; range + pager right. */}
           <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
+            <span>{selectionLabel} · oldest first</span>
+            <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
             <span className="font-medium text-gray-700 tabular-nums">
               {ready} {ready === 1 ? 'task' : 'tasks'} ready to do
             </span>

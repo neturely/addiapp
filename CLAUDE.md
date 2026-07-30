@@ -257,8 +257,13 @@ to the old Node API.
   presentation-only; never string-match the label. **Pagination (#262 — supersedes
   #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
   returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
-  range; global `counts` on every page) — the toolbar shows **"N tasks ready to
-  do"** (`counts.backlog`) + range + prev/next pagers (top and foot), 25/page.
+  range; global `counts` on every page) — the toolbar reads **"{selection} ·
+  oldest first · N tasks ready to do"** (selection mirrors the rail; ready =
+  `counts.backlog`) + range + prev/next pagers (top and foot), 25/page. **The
+  paginated list is OLDEST FIRST** (#256 review; the unbounded legacy list stays
+  id DESC). **There is no in-page filter UI** — the status filters (All / To do /
+  In progress / Done / Unassigned, with counts) live in the rail's Tasks section
+  as `?tab=` links, and the filter is purely URL-derived.
   Filtering stays server-side; column sorting was dropped with the table. The
   Unassigned tab keeps the #236 assign flow as a trailing row action
   (`AssignControl`); assigns refetch the current page (server-authoritative).
