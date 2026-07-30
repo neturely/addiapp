@@ -5,35 +5,36 @@ import { Mascot } from '@/components/Mascot'
 import { fetchUserStats, type UserStats } from '@/lib/points'
 
 /**
- * Color-identity stat card (#185). Each metric gets its own vivid fill with a
- * white number (large → clears the 3:1 rule) and a dark on-fill label; the
- * neutral "Tasks done" card overrides to a white surface + dark number. The
- * optional icon inherits the label colour via currentColor.
+ * Color-identity stat card (#185, re-tinted #254). Each metric keeps its own
+ * hue, but as a soft tint fill with ink-coloured label AND number (≥4.5:1) —
+ * the old vivid-fill white numbers only cleared the 3:1 large-text tier and
+ * read weak. The neutral "Tasks done" card overrides to a white surface + dark
+ * number. The optional icon inherits the label colour via currentColor.
  */
 function StatCard({
   label,
   value,
   icon,
   fill,
-  labelText,
-  valueText = 'text-white',
+  ink,
+  valueText,
 }: {
   label: string
   value: string
   icon?: ReactNode
   fill: string
-  labelText: string
+  ink: string
   valueText?: string
 }) {
   return (
     <div className={`rounded-2xl p-5 text-center ${fill}`}>
       <div
-        className={`flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide ${labelText}`}
+        className={`flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide ${ink}`}
       >
         {label}
         {icon}
       </div>
-      <div className={`mt-1 text-3xl font-extrabold tabular-nums ${valueText}`}>{value}</div>
+      <div className={`mt-1 text-3xl font-extrabold tabular-nums ${valueText ?? ink}`}>{value}</div>
     </div>
   )
 }
@@ -86,43 +87,42 @@ export function Stats() {
         <h1 className="text-2xl font-bold text-gray-800">Your stats</h1>
       </div>
 
-      {/* #143 rule: white only on the large stat number (≥24px) — WCAG 3:1 on
-          the vivid fill; the small label stays dark (text-on-primary). */}
-      <section className="mb-4 rounded-2xl bg-primary p-6 text-center text-on-primary">
-        <div className="text-xs font-medium uppercase tracking-wide text-on-primary">Total points</div>
-        <div className="text-5xl font-extrabold tabular-nums text-white">{total.toLocaleString()}</div>
+      {/* Tint + ink (#254): both label and number clear small-text AA
+          (primary-ink on primary-tint = 4.76:1). */}
+      <section className="mb-4 rounded-2xl bg-primary-tint p-6 text-center">
+        <div className="text-xs font-medium uppercase tracking-wide text-primary-ink">Total points</div>
+        <div className="text-5xl font-extrabold tabular-nums text-primary-ink">{total.toLocaleString()}</div>
       </section>
 
       {/* 2×2 colour-identity grid (#185) — also the mobile fix (was a cramped
-          4-across row). Violet fill (#a855f7) is a one-off here: bg-accent is a
-          light blue not tuned for white, so the Daily-bonus card uses a mid-tone
-          violet where white (3.96) and the dark label #180938 (4.68) both pass. */}
+          4-across row). The Daily-bonus card rides accent-tint/accent-ink: the
+          ink is already violet, so the old one-off #a855f7 fill is gone. */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           label="Day streak"
           value={`${streak.currentDays}`}
           icon={<Flame className="h-3.5 w-3.5" />}
-          fill="bg-warning"
-          labelText="text-on-warning"
+          fill="bg-warning-tint"
+          ink="text-warning-ink"
         />
         <StatCard
           label="Speed bonus"
           value={`+${lifetime.speedBonusTotal.toLocaleString()}`}
           icon={<Zap className="h-3.5 w-3.5" fill="currentColor" strokeWidth={0} />}
-          fill="bg-success"
-          labelText="text-on-success"
+          fill="bg-success-tint"
+          ink="text-success-ink"
         />
         <StatCard
           label="Daily bonus"
           value={`×${+today.currentMultiplier.toFixed(2)}`}
-          fill="bg-[#a855f7]"
-          labelText="text-[#180938]"
+          fill="bg-accent-tint"
+          ink="text-accent-ink"
         />
         <StatCard
           label="Tasks done"
           value={lifetime.tasksCompleted.toLocaleString()}
           fill="bg-surface"
-          labelText="text-muted"
+          ink="text-muted"
           valueText="text-gray-800"
         />
       </div>

@@ -232,15 +232,19 @@ showing base points up front), estimated minutes. Validation mirrors the CRUD
 rules (§ below). Reachable from the empty state, Home, and the Dashboard. Reads
 `?project=ID` to pre-assign the new task to a project (#234).
 
-**User points card (#37)**: at the top of the Dashboard — lifetime **total
-points**, current **live daily multiplier**, and **today's** points + tasks.
-Reads `GET /api/points`; refreshes as tasks complete. Links to the stats page.
+**Shell right column (#260; retired the #37 points card)**: on wide viewports
+(≥1240px) every non-Play screen carries a right column — an idle Play card plus
+**Today** (points, tasks, the multiplier progress track — cap served on the API)
+and **All-time** stat tiles. Reads `GET /api/points/stats`; refetches on route
+change.
 
-**User stats page (#38, `/stats`)**: dedicated at-a-glance screen — total points
-(hero) + stat tiles for **lifetime tasks completed**, **day streak** (consecutive
-days with ≥1 completion in the app timezone), **total speed bonus earned**, and
-the **current daily multiplier**, plus today's summary. Reads a richer
-`GET /api/points/stats` (kept separate from the card's lean endpoint).
+**User stats page (#38, `/stats`)**: since #260 the **narrow-viewport stats
+surface** — shown via a header Stats icon that appears exactly when the right
+column isn't rendered, so points are visible or one tap away at every width.
+Total points (hero) + stat tiles for **lifetime tasks completed**, **day streak**
+(consecutive days with ≥1 completion in the app timezone), **total speed bonus
+earned**, and the **current daily multiplier**, plus today's summary. Reads a
+richer `GET /api/points/stats` (kept separate from `GET /api/points`).
 
 ## 7. Points / gamification system — FINALIZED (#28)
 

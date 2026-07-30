@@ -16,6 +16,13 @@ import { fetchPoints, type PointsStats } from '@/lib/points'
 import { formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
 
+/** Effort → tint pill classes (#264; the #178 palette, AA dark-on-tint). */
+const EFFORT_PILL = {
+  low: 'bg-[#bfe9cd] text-on-success',
+  medium: 'bg-[#ffe3a0] text-on-warning',
+  high: 'bg-[#ffcdb8] text-on-primary',
+} as const
+
 /** Rotating "in progress" labels (#181) — a random one is picked per mount. */
 const WORKING_LABELS = [
   'Working on it',
@@ -182,11 +189,24 @@ export function InProgress() {
       eyebrow={workingLabel}
       title={<h1 className="text-xl font-bold text-gray-800">{task.title}</h1>}
       body={
-        task.description ? (
-          <p className="mt-2 text-left text-sm whitespace-pre-wrap text-gray-600">
-            {task.description}
-          </p>
-        ) : undefined
+        <>
+          {/* Effort + estimate pills (#264, prototype play-meta). */}
+          <div className="mt-2 flex justify-center gap-1.5">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${EFFORT_PILL[task.complexity]}`}
+            >
+              {task.complexity[0].toUpperCase() + task.complexity.slice(1)}
+            </span>
+            <span className="rounded-full bg-field px-2.5 py-0.5 text-[11px] font-semibold text-gray-700">
+              {task.estimatedMinutes} min estimate
+            </span>
+          </div>
+          {task.description && (
+            <p className="mt-2 text-left text-sm whitespace-pre-wrap text-gray-600">
+              {task.description}
+            </p>
+          )}
+        </>
       }
       hero={
         <div className="font-mono text-5xl font-bold tabular-nums text-gray-900">
@@ -255,9 +275,9 @@ export function InProgress() {
             type="button"
             onClick={() => void onComplete()}
             disabled={completing}
-            className="w-full cursor-pointer rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="w-full cursor-pointer rounded-control bg-success-deep py-3 text-lg font-semibold text-white transition hover:bg-success-deep-hover disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400"
           >
-            {completing ? 'Completing…' : 'Complete'}
+            {completing ? 'Completing…' : 'Mark done'}
           </button>
         </>
       }
