@@ -272,9 +272,13 @@ to the old Node API.
   Unassigned tab keeps the #236 assign flow as a trailing row action
   (`AssignControl`); assigns refetch the current page (server-authoritative).
   e2e: `e2e/tasklist.mjs` + the rewritten task-view blocks in `e2e/a11y.mjs`.
-- **Add task (#35)**: `/tasks/new`. **Stats page (#38)**: `/stats` — since #260 the
-  **narrow-viewport stats surface** (header Stats icon when the right column isn't
-  rendered); the #37 PointsCard was retired into the shell's right column.
+- **Add task**: `/tasks/new` is **TaskView in create mode** (#256 review — the
+  #35 AddTask page, `TaskForm`, and `FormCard` are DELETED): blank fields, no
+  Status/Delete/Start, "Add task" submit, honours `?project=ID` pre-assign and
+  `state.from` return. **Stats page (#38)**: `/stats` — a **solo surface** like
+  Play (#256 review: no rail/column, content vertically centred), reached via the
+  header Stats icon (shown when the right column isn't rendered — which on /stats
+  itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
   (Profile / Email / Password / **Play** / **Delete account**, hairline dividers —
   replaced the three FormCards). `AccountController`:
@@ -366,7 +370,8 @@ routes render inside `AppLayout` as a fixed-viewport frame — Header on top, th
 **rail | scrolling content | right column**, then a thin footer; the three middle
 panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Header** (`Header.tsx`): hamburger (rail toggle) + wordmark + **search field**
-  + icon nav (**Dashboard + Play + Settings**, `bg-primary-tint` active state) +
+  + icon nav (**Play + Dashboard + Settings** — that order (#256 review), then the
+  conditional Stats icon; `bg-primary-tint` active state) +
   right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
   Account settings + **Sign out**; logout moved here from the Footer). The old
   header "Add task" CTA moved to the rail's Tasks plus. A **Stats icon appears
@@ -386,7 +391,8 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   hardcoded) + **All-time** tint tiles. Refetches on route change + after in-column
   completion, no polling. The Play card mirrors the running task (#264 — see Play
   mode). **`PointsCard` is deleted** (the column replaced it on the Dashboard).
-- **Solo mode**: `/play*` hides rail + column + search — Play is the focus surface.
+- **Solo mode**: `/play*` AND `/stats` (#256 review) hide rail + column + search —
+  the focus surfaces.
 - **Stats page survives** as the narrow-viewport surface at `/stats` (reached via
   the conditional header icon); it is no longer in any desktop nav path.
 - Shell state lives in `client/src/shell/` (`ShellProvider`/`useShell`: search text,
@@ -430,15 +436,9 @@ no horizontal scroll at 375px, interactive targets ≥44px, points always one ta
 (the header Stats icon). The Choice screen (deliberately NOT on `PlayCard`) is one
 card at every width since #264. e2e: `e2e/responsive.mjs`.
 
-Shared **`FormCard`** (`components/FormCard.tsx`, #206): the **utility/admin
-counterpart** to `PlayCard` — the titled flat surface box (`rounded-2xl bg-surface
-p-6` + heading) that the form screens each hand-rolled, with **no mascot and no
-celebratory framing** (forms aren't part of the game loop). **AddTask** + **EditTask**
-each wrap one (centred `h1`); **Settings** stacks three sections (left-aligned `h2`).
-Page-level layout stays per screen; FormCard only unifies the card + heading. The
-**EditTask desktop-modal** half of #206 (over the dashboard, `sm+`, with focus
-trap / return-focus / Escape / `role="dialog"`) was split to **#218** — filed, not
-built; mobile stays the full page pending #98.
+(`FormCard` (#206) and `TaskForm` are **DELETED** — the #256 review rounds folded
+every consumer into TaskView (create+edit) and the sectioned Settings surface;
+`ProjectForm`/`ProjectModal` remain the project form.)
 
 Mascot — **currently LIVE = v3 "star character" (#210; supersedes the v2 penguin
 #96 entirely)** — one `Mascot` component (`client/src/components/Mascot.tsx`) with
@@ -470,7 +470,7 @@ double duty:
   warning from `#FFC800` in #176 — both so large/bold white text clears 3:1 on the
   fill, like primary's `#FF5A36`→`#FB5231` tune. `accent` is NOT tuned — it still
   fails white, stays dark-on-fill only. Solid-fill uses: the dashboard banner, the
-  AddTask effort picker, and the InProgress meter bars.)
+  TaskView effort picker, and the InProgress meter bars.)
 - `--color-{h}-ink` = **text on LIGHT** (`text-{h}-ink`, colored text/badges on
   cream/white): primary `#C43A0C`, success `#0B7C63`, accent `#6E3FD6`, warning
   `#8A5A00`. (These are the old v2 values — they were already AA as text.)
@@ -522,9 +522,9 @@ across #91/#92/#94/#143; the palette leans on this). Two qualifications to track
 `--color-warning` — only for large/bold text** (≥24px, or ≥19px bold — WCAG's 3:1
 large-text tier; white on `#FB5231` = 3.31, on `#1F9E3E` = 3.49, on `#C17F00` = 3.33).
 Those three fills were deepened (#143/#174/#176) specifically so white clears 3:1;
-**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the AddTask
-effort-tile labels (#176, `text-xl` bold) AND **all primary CTA buttons** — standardized
-to `text-xl`
+**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the TaskView
+effort-tile labels (#176 style, `text-xl` bold — retained on #256 review) AND **all
+primary CTA buttons** — standardized to `text-xl`
 (20px) `font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
 read muddy). This includes the compact utility buttons — Header "Add task" and Dashboard
 inline "Save" ARE primary CTAs and follow the same standardization. Everything else stays

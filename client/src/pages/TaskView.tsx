@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, CircleCheck, Play, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
@@ -8,6 +8,7 @@ import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 import { fetchProjects, type Project } from '@/lib/projects'
 import {
+  createTask,
   deleteTask,
   getTask,
   startTask,
@@ -28,10 +29,13 @@ const COMPLEXITY_LABEL: Record<TaskComplexity, string> = {
   medium: 'Medium',
   high: 'High',
 }
-const SEG_CHECKED: Record<TaskComplexity, string> = {
-  low: 'bg-accent-tint text-accent-ink font-semibold',
-  medium: 'bg-warning-tint text-warning-ink font-semibold',
-  high: 'bg-primary-tint text-primary-ink font-semibold',
+/** Vivid effort tiles (#176, retained here on #256 review): each hue as a solid
+ *  fill with a white large/bold label (clears 3:1 on the tuned fills) and a
+ *  dark on-fill caption (4.5:1); the checked tile gets the offset ring. */
+const EFFORT_TILE: Record<TaskComplexity, { fill: string; caption: string }> = {
+  low: { fill: 'bg-success', caption: 'text-on-success' },
+  medium: { fill: 'bg-warning', caption: 'text-on-warning' },
+  high: { fill: 'bg-primary', caption: 'text-on-primary' },
 }
 const STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: 'Ready', // presentation label; enum value stays `backlog` (#178)
@@ -66,7 +70,15 @@ const DELETE_TITLE_ID = 'task-delete-title'
 export function TaskView() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { showToast } = useToast()
+
+  // Create mode (#256 review — replaces the AddTask page): /tasks/new renders
+  // this same view with blank fields; `?project=ID` pre-assigns (project card's
+  // "Add task"), and `state.from` returns you where you came from (EmptyState).
+  const creating = id === undefined
+  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard'
 
   const [task, setTask] = useState<Task | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
@@ -87,13 +99,31 @@ export function TaskView() {
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
+
+    if (creating) {
+      const preselect = Number(searchParams.get('project'))
+      Promise.all([fetchProjects(), fetchPoints()])
+        .then(([p, pts]) => {
+          if (cancelled) return
+          setProjects(p)
+          setPoints(pts)
+          // Pre-assign only when the id resolves to an active project.
+          if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
+        })
+        .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
+        .finally(() => !cancelled && setLoading(false))
+      return () => {
+        cancelled = true
+      }
+    }
+
     const taskId = Number(id)
     if (!Number.isInteger(taskId) || taskId <= 0) {
       setNotFound(true)
       setLoading(false)
       return
     }
-    let cancelled = false
     Promise.all([getTask(taskId), fetchProjects(), fetchPoints()])
       .then(([t, p, pts]) => {
         if (cancelled) return
@@ -116,7 +146,8 @@ export function TaskView() {
     return () => {
       cancelled = true
     }
-  }, [id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, creating])
 
   // Roving-tabindex radiogroup for the difficulty segment (#126 pattern).
   const segRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -135,7 +166,7 @@ export function TaskView() {
 
   async function save(e: FormEvent) {
     e.preventDefault()
-    if (!task) return
+    if (!creating && !task) return
     setError(null)
     const trimmed = title.trim()
     if (trimmed.length < 1 || trimmed.length > MAX_TITLE) {
@@ -149,7 +180,19 @@ export function TaskView() {
     }
     setSaving(true)
     try {
-      const updated = await updateTask(task.id, {
+      if (creating) {
+        await createTask({
+          title: trimmed,
+          complexity,
+          estimatedMinutes: mins,
+          description: description.trim(),
+          ...(projectId !== '' ? { projectId } : {}),
+        })
+        showToast({ message: `Task added: ${trimmed}`, icon: CircleCheck, tone: 'success' })
+        navigate(from)
+        return
+      }
+      const updated = await updateTask(task!.id, {
         title: trimmed,
         complexity,
         estimatedMinutes: mins,
@@ -158,7 +201,7 @@ export function TaskView() {
         // #236 semantics: an int assigns to an active owned project; null unassigns.
         projectId: projectId === '' ? null : projectId,
       })
-      setTask({ ...task, ...updated })
+      setTask({ ...task!, ...updated })
       setStatus(updated.status)
       showToast({ message: 'Task saved', icon: CircleCheck, tone: 'success' })
     } catch (err) {
@@ -201,7 +244,7 @@ export function TaskView() {
       </main>
     )
   }
-  if (notFound || !task) {
+  if (!creating && (notFound || !task)) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
         <p className="text-gray-700">That task doesn’t exist.</p>
@@ -217,42 +260,44 @@ export function TaskView() {
   const speedMax =
     base !== undefined && points ? Math.round(base * points.speedBonus.maxRatio) : undefined
   const bonusMinutes = points
-    ? Math.floor(Number(minutes || task.estimatedMinutes) * points.speedBonus.saturation)
+    ? Math.floor(Number(minutes || task?.estimatedMinutes || 0) * points.speedBonus.saturation)
     : undefined
-  const added = addedLabel(task.createdAt)
+  const added = addedLabel(task?.createdAt)
 
   return (
     <main className="flex min-h-screen flex-col p-4 sm:p-6">
-      <div className="mb-3">
-        <Button variant="secondary" onClick={() => navigate('/dashboard')}>
+      {/* Top bar: back on the left; the project/added eyebrow sits top right —
+          the spot the dashboard's pager occupies (#256 review). */}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <Button variant="secondary" onClick={() => navigate(from)}>
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          All tasks
+          {creating ? 'Back' : 'All tasks'}
         </Button>
+        <div className="flex items-center gap-2 px-1 text-xs text-muted">
+          <span
+            className={`h-2.5 w-2.5 flex-none rounded-[3px] ${project ? projectPole(project.color) : 'bg-gray-300'}`}
+            aria-hidden
+          />
+          <span>
+            {creating ? 'New task' : (project?.name ?? 'No project')}
+            {!creating && added ? ` · ${added}` : ''}
+          </span>
+        </div>
       </div>
 
       <form onSubmit={save} className="flex-1 rounded-xl bg-surface">
         {/* mx-auto (#256 review): centre the content column in the full-width
             surface so the whitespace is symmetric, not all on the right. */}
         <div className="mx-auto max-w-3xl px-6 py-8 sm:px-9">
-          <div className="mb-2 flex items-center gap-2 text-sm text-muted">
-            <span
-              className={`h-2.5 w-2.5 flex-none rounded-[3px] ${project ? projectPole(project.color) : 'bg-gray-300'}`}
-              aria-hidden
-            />
-            <span>
-              {project?.name ?? 'No project'}
-              {added ? ` · ${added}` : ''}
-            </span>
-          </div>
-
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={MAX_TITLE}
             aria-label="Title"
+            placeholder={creating ? 'What needs doing?' : undefined}
             // -ml only (not -mx): a full-width input with symmetric negative
             // margins overflows a 375px viewport (#270).
-            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 hover:bg-field focus:bg-field focus:outline-none"
+            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field focus:bg-field focus:outline-none"
           />
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -297,10 +342,11 @@ export function TaskView() {
               <div
                 role="radiogroup"
                 aria-labelledby="task-difficulty-label"
-                className="flex gap-1.5"
+                className="grid grid-cols-3 gap-2"
               >
                 {COMPLEXITY_ORDER.map((c, i) => {
                   const checked = complexity === c
+                  const tile = EFFORT_TILE[c]
                   return (
                     <button
                       key={c}
@@ -310,22 +356,29 @@ export function TaskView() {
                       type="button"
                       role="radio"
                       aria-checked={checked}
+                      aria-label={
+                        points ? `${COMPLEXITY_LABEL[c]} — ${points.basePoints[c]} points` : COMPLEXITY_LABEL[c]
+                      }
                       tabIndex={checked ? 0 : -1}
                       onClick={() => setComplexity(c)}
                       onKeyDown={(e) => onSegKeyDown(e, i)}
-                      className={`h-10 flex-1 cursor-pointer rounded-control text-sm transition ${
-                        checked ? SEG_CHECKED[c] : 'bg-field text-gray-700 hover:bg-field-hover'
+                      className={`cursor-pointer rounded-lg py-2.5 text-center transition ${tile.fill} ${
+                        checked ? 'ring-4 ring-gray-900 ring-offset-2' : 'hover:opacity-90'
                       }`}
                     >
-                      {COMPLEXITY_LABEL[c]}
-                      {points ? ` · ${points.basePoints[c]} pts` : ''}
+                      <div className="text-xl font-bold text-white">{COMPLEXITY_LABEL[c]}</div>
+                      {points && (
+                        <div className={`text-sm font-medium ${tile.caption}`}>
+                          {points.basePoints[c]} pts
+                        </div>
+                      )}
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
               <label htmlFor="task-status" className={FIELD_LABEL}>
                 Status
               </label>
@@ -377,20 +430,22 @@ export function TaskView() {
 
           <div className="mt-7 flex flex-wrap items-center gap-2.5">
             <Button type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? 'Saving…' : creating ? 'Add task' : 'Save changes'}
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmingDelete(true)}
-              className="hover:bg-danger-tint hover:text-danger-ink"
-            >
-              Delete
-            </Button>
+            {!creating && (
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmingDelete(true)}
+                className="hover:bg-danger-tint hover:text-danger-ink"
+              >
+                Delete
+              </Button>
+            )}
             <span className="flex-1" aria-hidden />
-            {status !== 'done' && (
+            {!creating && status !== 'done' && (
               <Button onClick={() => void startNow()}>
                 <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
-                {task.status === 'in_progress' ? 'Resume' : 'Start now'}
+                {task?.status === 'in_progress' ? 'Resume' : 'Start now'}
               </Button>
             )}
           </div>
@@ -403,8 +458,8 @@ export function TaskView() {
             Delete this task?
           </h2>
           <p className="mb-5 text-sm leading-relaxed text-gray-700">
-            “{task.title}” will be permanently deleted.
-            {task.status === 'done' ? ' Points already earned from it are kept.' : ''}
+            “{task?.title}” will be permanently deleted.
+            {task?.status === 'done' ? ' Points already earned from it are kept.' : ''}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirmingDelete(false)}>
