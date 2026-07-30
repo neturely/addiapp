@@ -44,8 +44,12 @@ await page.evaluate(() =>
     .find((b) => /sign out other devices/i.test(b.textContent || ''))
     ?.click(),
 )
+// Toasts STACK now — scan every pill, not just the first.
 await page.waitForFunction(
-  () => /other devices/i.test(document.querySelector('[role=status]')?.textContent || ''),
+  () =>
+    [...document.querySelectorAll('[role=status]')].some((t) =>
+      /other devices/i.test(t.textContent || ''),
+    ),
   { timeout: 5000 },
 )
 ok(true, '#266: sign-out-other-devices fires its confirmation toast')
