@@ -81,7 +81,10 @@ export function Header() {
   useEffect(() => {
     if (!menuOpen) return
     const onDown = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node) && e.target !== avatarRef.current) {
+      if (
+        !menuRef.current?.contains(e.target as Node) &&
+        !avatarRef.current?.contains(e.target as Node)
+      ) {
         setMenuOpen(false)
       }
     }
