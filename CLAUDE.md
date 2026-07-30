@@ -406,15 +406,17 @@ across #91/#92/#94/#143; the palette leans on this). Two qualifications to track
 `--color-warning` — only for large/bold text** (≥24px, or ≥19px bold — WCAG's 3:1
 large-text tier; white on `#FB5231` = 3.31, on `#1F9E3E` = 3.49, on `#C17F00` = 3.33).
 Those three fills were deepened (#143/#174/#176) specifically so white clears 3:1;
-**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the
-PointsCard/Stats large stat numbers, the dashboard banner (#174), the AddTask effort-tile
-labels (#176, `text-xl` bold), AND **all primary CTA buttons** — standardized to `text-xl`
+**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the AddTask
+effort-tile labels (#176, `text-xl` bold) AND **all primary CTA buttons** — standardized
+to `text-xl`
 (20px) `font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
 read muddy). This includes the compact utility buttons — Header "Add task" and Dashboard
 inline "Save" ARE primary CTAs and follow the same standardization. Everything else stays
 dark on-fill: small labels/captions, badges, the filter/time pills, and the initials avatar
 (small on-fill text needs 4.5:1, which is why `text-on-{h}` was deepened for the tuned hues).
-Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
+Emphasis tiers: solid vivid + on-fill = high; tint + ink = low. **Stats tiles + the
+PointsCard banner moved to tint + ink in #254** (ink-on-tint measures 4.57–5.39:1, AA at
+any text size) — the vivid-fill-with-white-number stat treatment is retired.
 
 ## Coding standards
 
