@@ -12,6 +12,10 @@ export type PointsStats = {
     currentMultiplier: number
   }
   basePoints: Record<TaskComplexity, number>
+  /** Speed-bonus config (#262) — served from PointsConfig for the task view's
+   * forecast panel; bonus caps at `maxRatio`×base when finishing within
+   * `saturation`×estimate. */
+  speedBonus: { maxRatio: number; saturation: number }
 }
 
 export async function fetchPoints(): Promise<PointsStats> {
