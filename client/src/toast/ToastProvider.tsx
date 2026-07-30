@@ -69,7 +69,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) resume()
           }}
-          className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white"
+          // Bottom-centred on phones; bottom-RIGHT on desktop (#256 review) —
+          // tucked up and in so it sits neatly clear of the corner.
+          className="fixed bottom-6 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl bg-gray-900 px-4 py-3 text-sm text-white sm:bottom-8 sm:left-auto sm:right-8 sm:translate-x-0"
         >
           {Icon && (
             <span
