@@ -286,11 +286,16 @@ function ProjectCard({
         <p className="mt-1 line-clamp-2 text-sm text-muted">{project.description}</p>
       )}
 
-      <p className="mt-3 text-sm font-medium text-muted">
+      {/* Count-as-link (#245 option a): opens the Dashboard filtered to this
+          project's tasks (the #260 rail filter). */}
+      <Link
+        to={`/dashboard?project=${project.id}`}
+        className="mt-3 self-start text-sm font-medium text-muted underline-offset-2 transition hover:text-accent-ink hover:underline"
+      >
         {project.totalCount === 0
           ? 'No tasks yet'
           : `${project.remainingCount} of ${project.totalCount} remaining`}
-      </p>
+      </Link>
 
       <div className="mt-4 flex gap-2">
         <Link

@@ -1,23 +1,33 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Play } from 'lucide-react'
+import { CircleCheck, Play } from 'lucide-react'
 import { buttonClasses } from './buttonClasses'
 import { Mascot } from './Mascot'
+import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchUserStats, type UserStats } from '@/lib/points'
+import { PROJECTS_CHANGED_EVENT } from '@/lib/projects'
+import { completeTask, type Task } from '@/lib/tasks'
+import { elapsedSecondsSince, formatClock } from '@/lib/time'
+import { useToast } from '@/toast/useToast'
+
+/** Effort → tint pill classes (the #178 palette, AA dark-on-tint). */
+const EFFORT_PILL = {
+  low: 'bg-[#bfe9cd] text-on-success',
+  medium: 'bg-[#ffe3a0] text-on-warning',
+  high: 'bg-[#ffcdb8] text-on-primary',
+} as const
 
 /**
- * The shell's right column (#260): the Play entry card plus Today / All-time
- * stat panels off GET /api/points/stats — the desktop home of the numbers the
- * Stats page shows on narrow viewports. Refetches on route change (a completion
- * happens on the Play routes where the column is hidden, so returning to a
- * shell view is the natural refresh point — no polling). The running-task
- * mirror lands in D (#264).
- *
- * Tiles are tint + ink (#254 — small-text AA at any size, ratios in index.css).
+ * The shell's right column (#260; running mirror #264): the Play entry card —
+ * mirroring the running task when one is in flight — plus Today / All-time stat
+ * panels off GET /api/points/stats (the desktop home of the numbers the Stats
+ * page shows on narrow viewports). Refetches on route change and after an
+ * in-column completion — no polling. Tiles are tint + ink (#254).
  */
 export function RightColumn() {
   const location = useLocation()
   const [stats, setStats] = useState<UserStats | null>(null)
+  const [statsRefresh, setStatsRefresh] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -27,33 +37,15 @@ export function RightColumn() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search])
+  }, [location.pathname, location.search, statsRefresh])
 
   const mult = stats?.today.currentMultiplier ?? 1
   const cap = stats?.multiplier.cap ?? 2
   const fillPct = Math.min(((mult - 1) / (cap - 1)) * 100, 100)
 
   return (
-    <aside
-      aria-label="Play and today"
-      className="w-72 flex-none overflow-y-auto px-3 pb-4 pt-14"
-    >
-      <div className="relative mb-3 rounded-card bg-surface px-4 pb-5 pt-12 text-center">
-        <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2">
-          <Mascot expression="idle" halo className="h-[4.5rem] w-[4.5rem]" />
-        </div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-primary-ink">
-          Ready when you are
-        </div>
-        <h2 className="mb-1 mt-1.5 font-semibold text-gray-800">Nothing running</h2>
-        <p className="mb-4 text-xs leading-relaxed text-muted">
-          Pick one for me and start the clock.
-        </p>
-        <Link to="/play" className={buttonClasses('primary', 'lg', 'w-full')}>
-          <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
-          Play
-        </Link>
-      </div>
+    <aside aria-label="Play and today" className="w-72 flex-none overflow-y-auto px-3 pb-4 pt-14">
+      <PlayColumnCard onCompleted={() => setStatsRefresh((n) => n + 1)} />
 
       <section className="mb-3 rounded-xl bg-surface p-4">
         <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Today</h2>
@@ -106,6 +98,130 @@ export function RightColumn() {
         </div>
       </section>
     </aside>
+  )
+}
+
+/** Idle Play entry, or the running-task mirror when one is in flight (#264). */
+function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
+  const { activeTask, refresh } = useInProgress()
+
+  return (
+    <div className="relative mb-3 rounded-card bg-surface px-4 pb-5 pt-12 text-center">
+      <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2">
+        <Mascot expression={activeTask ? 'neutral' : 'idle'} halo className="h-[4.5rem] w-[4.5rem]" />
+      </div>
+      {activeTask ? (
+        <RunningMirror
+          task={activeTask}
+          onCompleted={() => {
+            void refresh()
+            onCompleted()
+          }}
+        />
+      ) : (
+        <>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-primary-ink">
+            Ready when you are
+          </div>
+          <h2 className="mb-1 mt-1.5 font-semibold text-gray-800">Nothing running</h2>
+          <p className="mb-4 text-xs leading-relaxed text-muted">
+            Pick one for me and start the clock.
+          </p>
+          <Link to="/play" className={buttonClasses('primary', 'lg', 'w-full')}>
+            <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
+            Play
+          </Link>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The running-task mirror (#264): live clock off `startedAt` (client-side tick,
+ * same anchor as the InProgress screen + timer chip — always in sync), the
+ * speed-bonus deadline, and Mark done right from the column. Completing here
+ * doesn't navigate, so it refreshes the InProgressProvider imperatively (the
+ * #135 chip pattern) and signals the rail/stats to refetch.
+ */
+function RunningMirror({ task, onCompleted }: { task: Task; onCompleted: () => void }) {
+  const { showToast } = useToast()
+  const [now, setNow] = useState(() => Date.now())
+  const [completing, setCompleting] = useState(false)
+
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [])
+
+  const elapsed = elapsedSecondsSince(task.startedAt, now)
+  const estimateSec = task.estimatedMinutes * 60
+  const remaining = estimateSec - elapsed
+
+  async function markDone() {
+    setCompleting(true)
+    try {
+      const { pointsAwarded } = await completeTask(task.id)
+      showToast({
+        message: pointsAwarded
+          ? `Nice work! +${pointsAwarded.totalPoints} points`
+          : `Done: ${task.title}`,
+        icon: CircleCheck,
+        tone: 'success',
+      })
+      // Remaining-count listeners (the rail) refetch on this signal.
+      window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT))
+      onCompleted()
+    } catch {
+      showToast({ message: 'Could not complete the task.', icon: CircleCheck, tone: 'neutral' })
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-primary-ink">
+        Working on
+      </div>
+      <h2 className="mb-2 mt-1.5 line-clamp-2 font-semibold leading-snug text-gray-800">
+        {task.title}
+      </h2>
+      <div className="mb-3 flex flex-wrap justify-center gap-1.5">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${EFFORT_PILL[task.complexity]}`}
+        >
+          {task.complexity[0].toUpperCase() + task.complexity.slice(1)}
+        </span>
+        <span className="rounded-full bg-field px-2.5 py-0.5 text-[11px] font-semibold text-gray-700">
+          {task.estimatedMinutes} min
+        </span>
+      </div>
+      <div className="text-4xl font-bold tabular-nums tracking-tight text-gray-900">
+        {formatClock(elapsed)}
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        {remaining > 0
+          ? `Full speed bonus if done within ${formatClock(remaining)}`
+          : 'Past the estimate — finish strong'}
+      </p>
+      <div className="mt-4 flex gap-2">
+        <Link
+          to={`/play/progress/${task.id}`}
+          className={buttonClasses('secondary', 'md', 'flex-1')}
+        >
+          Open
+        </Link>
+        <button
+          type="button"
+          disabled={completing}
+          onClick={() => void markDone()}
+          className={buttonClasses('success', 'md', 'flex-1')}
+        >
+          {completing ? 'Saving…' : 'Mark done'}
+        </button>
+      </div>
+    </>
   )
 }
 
