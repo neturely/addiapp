@@ -1,0 +1,684 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AddiApp — app shell layout prototype v6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #FB5231; --primary-deep: #C93A1D; --primary-tint: #FFEAE4; --primary-ink: #B23A1C;
+    --success: #1F9E3E; --success-deep: #16752C; --success-tint: #E4F5E8; --success-ink: #14702A;
+    --accent:  #1CB0F6; --accent-tint:  #E2F4FE; --accent-ink:  #0A6A99;
+    --warning: #C17F00; --warning-tint: #FCF0D8; --warning-ink: #8A5A00;
+    --violet:  #8B5CF6;
+    --danger: #D92D20; --danger-deep: #B42318; --danger-tint: #FEECEA; --danger-ink: #912018;
+    --card: #FFFFFF; --canvas: #F3EFE9; --rail-bg: #F3EFE9;
+    --divider: #E7E1D8; --field: #EFEBE4; --field-hover: #E5E0D8; --hover: #FBF8F3;
+    --ink: #1C1A17; --ink-soft: #4A463F; --ink-muted: #7C776E;
+    --mascot: #F5C93F; --mascot-face: #4A3200;
+    --r: 9px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         color: var(--ink); background: var(--canvas); -webkit-font-smoothing: antialiased;
+         font-feature-settings: "cv05" 1, "ss01" 1; letter-spacing: -0.006em; }
+  button { font: inherit; color: inherit; border: none; background: none; cursor: pointer; }
+  input, textarea, select { font: inherit; color: inherit; border: none; outline: none; }
+  :focus-visible { outline: 2.5px solid var(--accent); outline-offset: 2px; }
+  .hidden { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- buttons ---------- */
+  .btn { height: 36px; padding: 0 14px; border-radius: 8px; font-size: 13.5px; font-weight: 500;
+         display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+  .btn-secondary { background: var(--field); color: var(--ink-soft); }
+  .btn-secondary:hover { background: var(--field-hover); }
+  .btn-ghost { background: none; color: var(--ink-muted); }
+  .btn-ghost:hover { background: var(--field); color: var(--ink-soft); }
+  .btn-primary { background: var(--primary-deep); color: #fff; font-weight: 600; }
+  .btn-primary:hover { background: #B03418; }
+  .btn-success { background: var(--success-deep); color: #fff; font-weight: 600; }
+  .btn-success:hover { background: #115E23; }
+  .btn-danger { background: var(--danger-deep); color: #fff; font-weight: 600; }
+  .btn-danger:hover { background: #96190F; }
+  .btn:disabled { background: var(--field); color: #B9B2A7; cursor: default; }
+  .btn-lg { height: 42px; padding: 0 20px; font-size: 15px; border-radius: 9px; }
+
+  .proto { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #24211D; color: #CFC9BF; font-size: 12px; }
+  .proto b { color: #fff; font-weight: 600; }
+  .proto button { padding: 4px 12px; border-radius: 7px; font-size: 12px; background: #3A362F; color: #E8E3DA; }
+  .proto button[aria-pressed="true"] { background: #E8E3DA; color: #24211D; font-weight: 600; }
+  .proto .sp { flex: 1; }
+
+  /* ---------- header ---------- */
+  header { height: 62px; background: var(--card); display: flex; align-items: center; gap: 15px; padding: 0 16px 0 12px; position: relative; z-index: 5; }
+  .hamburger { width: 40px; height: 40px; border-radius: var(--r); display: grid; place-items: center; color: var(--ink-soft); flex: none; }
+  .hamburger:hover { background: var(--hover); }
+  .wordmark { font-size: 20px; font-weight: 700; letter-spacing: -0.03em; flex: none; margin-right: 6px; }
+  .wordmark span { color: var(--primary); }
+  .search { flex: 1; max-width: 620px; height: 40px; border-radius: var(--r); background: var(--field);
+            display: flex; align-items: center; gap: 11px; padding: 0 15px; }
+  .search input { flex: 1; background: none; font-size: 14px; }
+  .search input::placeholder { color: var(--ink-muted); }
+  .head-right { margin-left: auto; display: flex; align-items: center; gap: 3px; }
+  .icon-btn { width: 38px; height: 38px; border-radius: var(--r); display: grid; place-items: center; color: var(--ink-soft); }
+  .icon-btn:hover { background: var(--hover); }
+  .icon-btn[aria-current="true"] { background: var(--primary-tint); color: var(--primary-ink); }
+  .hsep { width: 1px; height: 22px; background: var(--divider); margin: 0 7px; flex: none; }
+  .avatar { width: 34px; height: 34px; border-radius: 999px; background: var(--accent-tint); margin-left: 8px;
+            display: grid; place-items: center; font-size: 12.5px; font-weight: 600; color: var(--accent-ink); flex: none; }
+
+  .menu { position: absolute; top: 58px; right: 14px; width: 246px; background: var(--card); border-radius: 12px;
+          padding: 8px; z-index: 20; outline: 1px solid #DED7CC; }
+  .menu .who { padding: 10px 12px 12px; }
+  .menu .who b { display: block; font-size: 14.5px; font-weight: 600; }
+  .menu .who span { font-size: 12.5px; color: var(--ink-muted); }
+  .menu button:hover { background: var(--field); }
+  .menu .sep { height: 1px; background: var(--divider); margin: 4px 0; }
+  .menu button { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; height: 36px;
+                 padding: 0 12px; border-radius: 7px; font-size: 14px; color: var(--ink-soft); }
+  .menu button:hover { background: var(--hover); }
+
+  .app { display: flex; height: calc(100vh - 133px); overflow: hidden; }
+  footer { height: 38px; display: flex; align-items: center; gap: 16px; padding: 0 18px;
+           font-size: 12px; color: var(--ink-muted); }
+  footer a { color: inherit; text-decoration: none; }
+  footer a:hover { color: var(--ink-soft); text-decoration: underline; }
+  footer .sp { flex: 1; }
+
+  /* ---------- rail ---------- */
+  .rail { width: 218px; flex: none; background: var(--rail-bg); display: flex; flex-direction: column; padding: 16px 10px 14px; }
+  .rail-head { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; margin: 0 0 5px; }
+  .rail-head span { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); flex: 1; }
+  .plus { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-muted); flex: none; }
+  .plus:hover { background: var(--field-hover); color: var(--primary-ink); }
+  .rail-scroll { flex: 1; overflow-y: auto; }
+  .rail-scroll > .rail-head:not(:first-child) { margin-top: 20px; }
+  .nav { display: flex; align-items: center; gap: 10px; height: 33px; padding: 0 10px; border-radius: 7px;
+         font-size: 14px; color: var(--ink-soft); width: 100%; text-align: left; }
+  .nav:hover { background: #E9E3DA; }
+  .nav[aria-current="true"] { background: var(--primary-tint); color: var(--primary-ink); font-weight: 600; }
+  .nav .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav .count { font-size: 12.5px; color: var(--ink-muted); }
+  .nav[aria-current="true"] .count { color: var(--primary-ink); }
+  .pole { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+
+  /* ---------- main ---------- */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 14px 14px 14px 4px; min-width: 0; }
+  .toolbar { display: flex; align-items: center; gap: 10px; padding: 0 6px 12px; font-size: 12.5px; color: var(--ink-muted); }
+  .toolbar .sp { flex: 1; }
+  .toolbar .ready { color: var(--ink-soft); font-weight: 500; }
+  .toolbar .dot { width: 3px; height: 3px; border-radius: 999px; background: #C9C2B7; flex: none; }
+  .pager { display: flex; align-items: center; gap: 2px; }
+  .pager button { width: 30px; height: 30px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-soft); }
+  .pager button:hover { background: #E9E3DA; }
+  .pager button[disabled] { color: #C4BEB4; cursor: default; background: none; }
+
+  .table { flex: 1; overflow-y: auto; }
+  .rowlist { display: flex; flex-direction: column; gap: 1px; }
+  .row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--card);
+         padding: 0 20px; height: 48px; flex: none; }
+  .row:first-child { border-radius: 12px 12px 0 0; }
+  .row:last-child { border-radius: 0 0 12px 12px; }
+  .row:hover { background: var(--hover); }
+  .proj { width: 150px; flex: none; font-size: 13.5px; font-weight: 500; color: var(--ink-soft);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .proj.none { color: var(--ink-muted); font-weight: 400; }
+  .pill { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; flex: none; }
+  .p-high { background: var(--primary-tint); color: var(--primary-ink); }
+  .p-med  { background: var(--warning-tint); color: var(--warning-ink); }
+  .p-low  { background: var(--accent-tint);  color: var(--accent-ink); }
+  .body { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .body b { font-weight: 600; }
+  .body i { font-style: normal; color: var(--ink-muted); }
+  .est { font-size: 12.5px; color: var(--ink-muted); flex: none; }
+  .pts { font-size: 14px; font-weight: 600; color: var(--ink-soft); flex: none; width: 58px; text-align: right; }
+  .table-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 10px 6px 4px; font-size: 12.5px; color: var(--ink-muted); }
+
+  /* ---------- page surface (open task, settings) ---------- */
+  .backbar { display: flex; align-items: center; gap: 12px; padding: 0 6px 12px; }
+  .surface { flex: 1; overflow-y: auto; background: var(--card); border-radius: 12px; }
+  .inner { max-width: 760px; padding: 30px 34px 40px; }
+  .page-h1 { font-size: 25px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .page-sub { font-size: 13.5px; color: var(--ink-muted); margin-bottom: 26px; }
+
+  .eyebrow { font-size: 12.5px; color: var(--ink-muted); margin-bottom: 10px; display: flex; align-items: center; gap: 9px; }
+  .title-field { width: 100%; font-size: 26px; font-weight: 700; letter-spacing: -0.03em; background: transparent;
+                 border-radius: var(--r); padding: 4px 8px; margin: 0 -8px 22px; line-height: 1.25; }
+  .title-field:hover, .title-field:focus { background: var(--field); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 22px; }
+  .field-w { display: flex; flex-direction: column; gap: 7px; }
+  .field-w .k { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted); }
+  .control { height: 40px; border-radius: var(--r); background: var(--field); padding: 0 12px; font-size: 14px; display: flex; align-items: center; width: 100%; }
+  select.control { appearance: none; }
+  textarea.control { height: auto; min-height: 96px; padding: 11px 12px; resize: vertical; line-height: 1.6; }
+  .full { grid-column: 1 / -1; }
+  .help { font-size: 12.5px; color: var(--ink-muted); line-height: 1.55; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; height: 40px; border-radius: var(--r); background: var(--field); font-size: 14px; color: var(--ink-soft); }
+  .seg button[aria-pressed="true"].s-low  { background: var(--accent-tint);  color: var(--accent-ink);  font-weight: 600; }
+  .seg button[aria-pressed="true"].s-med  { background: var(--warning-tint); color: var(--warning-ink); font-weight: 600; }
+  .seg button[aria-pressed="true"].s-high { background: var(--primary-tint); color: var(--primary-ink); font-weight: 600; }
+  .award { margin-top: 24px; background: var(--success-tint); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+  .award .big { font-size: 26px; font-weight: 700; color: var(--success-ink); letter-spacing: -0.03em; }
+  .award .txt { font-size: 13px; color: var(--success-ink); line-height: 1.5; }
+  .actions { display: flex; gap: 9px; margin-top: 26px; align-items: center; }
+  .actions .sp { flex: 1; }
+
+  .sec { padding: 24px 0; }
+  .sec + .sec { border-top: 1px solid var(--divider); }
+  .sec h2 { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; margin-bottom: 3px; }
+  .sec .lede { font-size: 13px; color: var(--ink-muted); margin-bottom: 18px; line-height: 1.55; }
+  .stack { display: flex; flex-direction: column; gap: 16px; max-width: 460px; }
+
+  /* ---------- right column ---------- */
+  .today { width: 282px; flex: none; padding: 56px 14px 14px 0; overflow-y: auto; }
+  .play-col { position: relative; background: var(--card); border-radius: 14px; padding: 50px 18px 20px; text-align: center; margin-bottom: 12px; }
+  .play-col .mascot { position: absolute; top: -38px; left: 50%; transform: translateX(-50%); }
+  .col-eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--primary-ink); }
+  .col-title { font-size: 16.5px; font-weight: 600; letter-spacing: -0.02em; margin: 7px 0 12px; line-height: 1.3; }
+  .col-meta { display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .col-clock { font-size: 36px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+  .col-sub { font-size: 12.5px; color: var(--ink-muted); margin-top: 8px; line-height: 1.5; }
+  .col-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .col-actions .btn { flex: 1; }
+  .play-col .btn-lg { width: 100%; }
+
+  .panel { background: var(--card); border-radius: 12px; padding: 16px 16px 18px; margin-bottom: 12px; }
+  .panel h2 { font-size: 11.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-muted); margin-bottom: 12px; }
+  .big-pts { font-size: 38px; font-weight: 700; letter-spacing: -0.04em; color: var(--success-ink); line-height: 1; }
+  .big-sub { font-size: 13px; color: var(--ink-muted); margin-top: 6px; }
+  .track { height: 7px; border-radius: 999px; background: var(--field); margin: 16px 0 8px; overflow: hidden; }
+  .fill { height: 100%; width: 62.5%; background: var(--success); border-radius: 999px; }
+  .track-k { font-size: 12.5px; color: var(--ink-soft); display: flex; justify-content: space-between; }
+  .mini { display: flex; align-items: center; gap: 10px; font-size: 13.5px; padding: 6px 0; color: var(--ink-soft); }
+  .mini .c { width: 12px; height: 12px; border-radius: 4px; background: var(--success); flex: none; }
+  .mini .p { margin-left: auto; font-weight: 600; color: var(--success-ink); }
+
+  /* ---------- play choice ---------- */
+  .choice-stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 44px 20px 20px; overflow-y: auto; }
+  .choice-card { position: relative; width: 100%; max-width: 520px; background: var(--card); border-radius: 20px; padding: 56px 26px 26px; }
+  .choice-card .mascot { position: absolute; top: -46px; left: 50%; transform: translateX(-50%); }
+  .choice-h { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; text-align: center; margin-bottom: 20px; }
+  .choice { display: flex; align-items: center; gap: 15px; width: 100%; text-align: left; padding: 14px 16px;
+            border-radius: 12px; background: var(--hover); margin-bottom: 8px; }
+  .choice:hover { background: var(--field); }
+  .choice .ic { width: 34px; display: grid; place-items: center; flex: none; }
+  .choice .ct { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; display: block; }
+  .choice .cs { font-size: 12.5px; color: var(--ink-muted); margin-top: 4px; display: block; }
+  .choice .tag { margin-left: auto; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+                 background: var(--accent-tint); color: var(--accent-ink); flex: none; }
+  .time-lbl { font-size: 12.5px; color: var(--ink-muted); text-align: center; margin: 20px 0 10px; }
+  .chips { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .chip { height: 32px; padding: 0 14px; border-radius: 8px; background: var(--hover); font-size: 13px; color: var(--ink-soft); }
+  .chip:hover { background: var(--field); }
+  .chip[aria-pressed="true"] { background: var(--primary-deep); color: #fff; font-weight: 600; }
+
+  /* ---------- right column stat tiles ---------- */
+  .col-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ctile { border-radius: 10px; padding: 12px 12px 13px; background: var(--field); display: flex; flex-direction: column; min-height: 74px; }
+  .ctile .k { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+  .ctile .v { font-size: 22px; font-weight: 700; letter-spacing: -0.03em; margin-top: auto; padding-top: 8px; line-height: 1; color: var(--ink-soft); }
+  .ctile.streak { background: var(--warning-tint); } .ctile.streak .k, .ctile.streak .v { color: var(--warning-ink); }
+  .ctile.speed { background: var(--success-tint); } .ctile.speed .k, .ctile.speed .v { color: var(--success-ink); }
+  .ctile.mult { background: var(--accent-tint); } .ctile.mult .k, .ctile.mult .v { color: var(--accent-ink); }
+  .ctile.total { grid-column: 1 / -1; background: var(--primary-tint); }
+  .ctile.total .k, .ctile.total .v { color: var(--primary-ink); } .ctile.total .v { font-size: 28px; }
+  .play-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; position: relative; }
+  .play-top { position: absolute; top: 14px; left: 10px; }
+  .timer-chip { height: 32px; padding: 0 15px; border-radius: var(--r); display: flex; align-items: center;
+                background: var(--warning-tint); color: var(--warning-ink); font-size: 13px; font-weight: 600; }
+  .play-card { position: relative; width: 100%; max-width: 470px; background: #fff; border-radius: 20px; padding: 72px 34px 30px; text-align: center; }
+  .play-card .mascot { position: absolute; top: -70px; left: 50%; transform: translateX(-50%); }
+  .play-eyebrow { font-size: 12.5px; font-weight: 600; color: var(--primary-ink); letter-spacing: .07em; text-transform: uppercase; }
+  .play-title { font-size: 27px; font-weight: 700; letter-spacing: -0.03em; margin: 10px 0 14px; line-height: 1.2; }
+  .play-meta { display: flex; justify-content: center; gap: 8px; margin-bottom: 22px; }
+  .play-clock { font-size: 50px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; }
+  .play-sub { font-size: 13px; color: var(--ink-muted); margin-top: 10px; }
+  .play-actions { display: flex; gap: 10px; justify-content: center; margin-top: 24px; }
+
+  .scrim { position: fixed; inset: 0; background: rgba(28,26,23,.45); display: grid; place-items: center; z-index: 60; padding: 20px; }
+  .modal { width: 100%; max-width: 440px; background: var(--card); border-radius: 16px; padding: 24px 24px 22px; }
+  .modal h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.025em; margin-bottom: 8px; }
+  .modal p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 16px; }
+  .modal .warn { background: var(--danger-tint); color: var(--danger-ink); border-radius: 10px; padding: 12px 14px;
+                 font-size: 13px; line-height: 1.55; margin-bottom: 16px; }
+  .modal .k { font-size: 12px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted); display: block; margin-bottom: 7px; }
+  .modal .row-end { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  @media (max-width: 1240px) { .today { display: none; } }
+</style>
+
+<div class="proto">
+  <b>Prototype v6</b><span class="sp"></span>
+  <button id="t-list" aria-pressed="true">Tasks</button>
+  <button id="t-open" aria-pressed="false">Task open</button>
+  <button id="t-settings" aria-pressed="false">Settings</button>
+  <button id="t-choice" aria-pressed="false">Play choice</button>
+  <button id="t-play" aria-pressed="false">Play running</button>
+  <button id="t-run" aria-pressed="false">Task running</button>
+</div>
+
+<header>
+  <button class="hamburger" id="burger" aria-label="Toggle sidebar" aria-expanded="true">
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+  </button>
+  <div class="wordmark">Addi<span>App</span></div>
+  <div class="search">
+    <svg width="17" height="17" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.75" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <input placeholder="Search tasks and projects">
+  </div>
+  <div class="head-right">
+    <button class="icon-btn" id="i-dash" aria-label="Dashboard" aria-current="true"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.6" y="2.6" width="6.2" height="6.2" rx="1.8" fill="currentColor"/><rect x="11.2" y="2.6" width="6.2" height="6.2" rx="1.8" fill="currentColor"/><rect x="2.6" y="11.2" width="6.2" height="6.2" rx="1.8" fill="currentColor"/><rect x="11.2" y="11.2" width="6.2" height="6.2" rx="1.8" fill="currentColor"/></svg></button>
+    <button class="icon-btn" id="i-play" aria-label="Play"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 3.4v13.2L16.4 10z" fill="currentColor"/></svg></button>
+    <button class="icon-btn" id="i-settings" aria-label="Settings"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10" cy="10" r="2.7"/><path d="M10 2.3v2.2M10 15.5v2.2M17.7 10h-2.2M4.5 10H2.3M15.45 4.55l-1.55 1.55M6.1 13.9l-1.55 1.55M15.45 15.45l-1.55-1.55M6.1 6.1L4.55 4.55" stroke-linecap="round"/></svg></button>
+    <span class="hsep"></span>
+    <button class="icon-btn" id="panel-toggle" aria-label="Toggle side column" aria-pressed="true"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.4" y="3.6" width="15.2" height="12.8" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12.8 3.6v12.8" stroke="currentColor" stroke-width="1.7"/></svg></button>
+    <button class="avatar" id="av" aria-haspopup="menu" aria-expanded="false">JC</button>
+  </div>
+
+  <div class="menu hidden" id="menu" role="menu">
+    <div class="who"><b>Jon-Craig</b><span>jc@neturely.com</span></div>
+    <div class="sep"></div>
+    <button role="menuitem" id="m-settings">Account settings</button>
+    <div class="sep"></div>
+    <button role="menuitem">Sign out</button>
+    <button role="menuitem">Sign out all devices</button>
+  </div>
+</header>
+
+<div class="app">
+  <nav class="rail" id="rail" aria-label="Main">
+    <div class="rail-scroll">
+      <div class="rail-head"><span>Tasks</span><button class="plus" aria-label="Add task"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+      <button class="nav" aria-current="true"><span class="pole" style="background:var(--primary)"></span><span class="label">All tasks</span><span class="count num">22</span></button>
+      <button class="nav"><span class="pole" style="background:var(--warning)"></span><span class="label">Due today</span><span class="count num">4</span></button>
+      <button class="nav"><span class="pole" style="background:#A8A29A"></span><span class="label">Unassigned</span><span class="count num">7</span></button>
+      <button class="nav"><span class="pole" style="background:var(--success)"></span><span class="label">Completed</span><span class="count num">5</span></button>
+
+      <div class="rail-head"><span>Projects</span><button class="plus" aria-label="New project"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button></div>
+      <button class="nav"><span class="pole" style="background:var(--accent)"></span><span class="label">Kitchen renovation</span><span class="count num">6</span></button>
+      <button class="nav"><span class="pole" style="background:var(--success)"></span><span class="label">AddiApp 2.0</span><span class="count num">5</span></button>
+      <button class="nav"><span class="pole" style="background:var(--warning)"></span><span class="label">Neturely admin</span><span class="count num">3</span></button>
+      <button class="nav"><span class="pole" style="background:var(--violet)"></span><span class="label">Bilen &amp; garaget</span><span class="count num">1</span></button>
+      <button class="nav"><span class="pole" style="background:#A8A29A"></span><span class="label">Archived</span><span class="count num">3</span></button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <!-- tasks -->
+    <div id="view-list" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div class="toolbar">
+        <span>All tasks · oldest first</span>
+        <span class="dot"></span>
+        <span class="ready num" id="ready">22 tasks ready to do</span>
+        <span class="sp"></span>
+        <span class="num" id="range">1–20 of 22</span>
+        <div class="pager">
+          <button id="prev" aria-label="Previous page"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3l-5 5 5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button id="next" aria-label="Next page"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+      <div class="table">
+        <div class="rowlist" id="rows" role="listbox" aria-label="Tasks"></div>
+        <div class="table-foot">
+        <span class="num" id="range2">1–20 of 22</span>
+        <div class="pager">
+          <button id="prev2" aria-label="Previous page"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3l-5 5 5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button id="next2" aria-label="Next page"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- open task -->
+    <div id="view-open" class="hidden" style="flex-direction:column;flex:1;overflow:hidden">
+      <div class="backbar"><button class="btn btn-secondary" id="btn-back"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 3.5 5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>All tasks</button></div>
+      <div class="surface"><div class="inner">
+        <div class="eyebrow"><span class="pole" id="d-pole" style="background:var(--accent)"></span><span id="d-eyebrow">Kitchen renovation · added 12 days ago</span></div>
+        <input class="title-field" id="d-title" value="Grout the splashback">
+        <div class="grid">
+          <div class="field-w"><span class="k">Project</span>
+            <select class="control" id="d-project"><option>Kitchen renovation</option><option>AddiApp 2.0</option><option>Neturely admin</option><option>Bilen &amp; garaget</option><option>No project</option></select>
+          </div>
+          <div class="field-w"><span class="k">Estimate</span><div class="control" id="d-est">45 minutes</div></div>
+          <div class="field-w full"><span class="k">Difficulty</span>
+            <div class="seg" id="d-seg">
+              <button class="s-low" aria-pressed="false">Low · 2 pts</button>
+              <button class="s-med" aria-pressed="false">Medium · 5 pts</button>
+              <button class="s-high" aria-pressed="true">High · 10 pts</button>
+            </div>
+          </div>
+          <div class="field-w full"><span class="k">Description</span>
+            <textarea class="control" id="d-desc">Upper row first, then the run behind the tap. Wipe the haze before it sets.</textarea>
+          </div>
+        </div>
+        <div class="award">
+          <div class="big num" id="d-pts">10</div>
+          <div class="txt">base points, plus up to <strong>10</strong> speed bonus if you finish inside 23 minutes. Today's multiplier of ×1.6 applies on completion.</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary">Save changes</button>
+          <button class="btn btn-ghost">Delete</button>
+          <span class="sp"></span>
+          <button class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>Start now</button>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- settings -->
+    <div id="view-settings" class="hidden" style="flex-direction:column;flex:1;overflow:hidden">
+      <div class="surface"><div class="inner">
+        <div class="page-h1">Account settings</div>
+        <div class="page-sub">Your profile, sign-in details and how AddiApp behaves.</div>
+
+        <div class="sec">
+          <h2>Profile</h2>
+          <p class="lede">Shown on your avatar. Leave blank to use your email initial.</p>
+          <div class="stack">
+            <div class="field-w"><span class="k">Display name</span><input class="control" value="Jon-Craig"></div>
+            <div><button class="btn btn-primary">Save profile</button></div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2>Email</h2>
+          <p class="lede">We'll send a confirmation link to the new address. Your email changes only once you click it, and you'll be signed out on your other devices.</p>
+          <div class="stack">
+            <div class="field-w"><span class="k">Current email</span><div class="control" style="color:var(--ink-muted)">jc@neturely.com</div></div>
+            <div class="field-w"><span class="k">New email</span><input class="control" placeholder="you@example.com"></div>
+            <div><button class="btn btn-secondary">Send confirmation</button></div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2>Password</h2>
+          <p class="lede">At least 8 characters. Changing it signs out your other devices.</p>
+          <div class="stack">
+            <div class="field-w"><span class="k">Current password</span><input class="control" type="password" value="passwordy"></div>
+            <div class="field-w"><span class="k">New password</span><input class="control" type="password"></div>
+            <div><button class="btn btn-primary">Change password</button></div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2>Play</h2>
+          <p class="lede">How AddiApp picks the next task when you press Play.</p>
+          <div class="stack">
+            <div class="field-w"><span class="k">Selection</span>
+              <select class="control"><option>Weighted random — favours older tasks</option><option>Oldest first</option><option>Closest project to done</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h2>Delete account</h2>
+          <p class="lede">Removes your account, every task and project, and your whole points history. This can't be undone and nothing is recoverable afterwards.</p>
+          <div><button class="btn btn-lg btn-danger" id="open-del">Delete my account</button></div>
+        </div>
+
+      </div></div>
+    </div>
+
+    <!-- play choice -->
+    <div id="view-choice" class="hidden choice-stage">
+      <div class="choice-card">
+        <svg class="mascot" width="92" height="92" viewBox="0 0 120 120" aria-hidden="true">
+          <polygon points="60,10 73.5,41.4 107.6,44.5 81.9,67.1 89.4,100.5 60,83 30.6,100.5 38.1,67.1 12.4,44.5 46.5,41.4" fill="#fff" stroke="#fff" stroke-width="26" stroke-linejoin="round"/>
+          <polygon points="60,10 73.5,41.4 107.6,44.5 81.9,67.1 89.4,100.5 60,83 30.6,100.5 38.1,67.1 12.4,44.5 46.5,41.4" fill="var(--mascot)" stroke="var(--mascot)" stroke-width="17" stroke-linejoin="round"/>
+          <circle cx="49" cy="56" r="5" fill="var(--mascot-face)"/><circle cx="71" cy="56" r="5" fill="var(--mascot-face)"/>
+          <path d="M48 70 q12 11 24 0" stroke="var(--mascot-face)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="choice-h">What sounds good?</div>
+
+        <button class="choice">
+          <span class="ic"><svg width="28" height="28" viewBox="0 0 20 20" aria-hidden="true"><path d="M11.2 2.2 4.4 11h4.2l-.8 6.8L15 9h-4.2z" fill="var(--success)"/></svg></span>
+          <span><span class="ct">Get small tasks done</span><span class="cs">A quick, low-effort win</span></span>
+        </button>
+
+        <button class="choice">
+          <span class="ic"><svg width="28" height="28" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3.2 17.4 16H2.6z" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round"/></svg></span>
+          <span><span class="ct">Take on bigger issues</span><span class="cs">Real progress, worth more points</span></span>
+        </button>
+
+        <button class="choice">
+          <span class="ic"><svg width="28" height="28" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.6 17.6 7 10 11.4 2.4 7z" fill="var(--accent)"/><path d="M2.4 11.4 10 15.8l7.6-4.4" fill="none" stroke="var(--accent)" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+          <span><span class="ct">Focus on projects</span><span class="cs">The project closest to done</span></span>
+          <span class="tag">Auto-picked</span>
+        </button>
+
+        <div class="time-lbl">How much time do you have?</div>
+        <div class="chips" id="chips">
+          <button class="chip" aria-pressed="true">Any time</button>
+          <button class="chip" aria-pressed="false">5 min</button>
+          <button class="chip" aria-pressed="false">15 min</button>
+          <button class="chip" aria-pressed="false">30 min</button>
+          <button class="chip" aria-pressed="false">1 hour</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- play -->
+    <div id="view-play" class="hidden play-stage">
+      <div class="play-top"><div class="timer-chip num">In progress · 12:04</div></div>
+      <div class="play-card">
+        <svg class="mascot" width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+          <polygon points="60,10 73.5,41.4 107.6,44.5 81.9,67.1 89.4,100.5 60,83 30.6,100.5 38.1,67.1 12.4,44.5 46.5,41.4" fill="#fff" stroke="#fff" stroke-width="26" stroke-linejoin="round"/>
+          <polygon points="60,10 73.5,41.4 107.6,44.5 81.9,67.1 89.4,100.5 60,83 30.6,100.5 38.1,67.1 12.4,44.5 46.5,41.4" fill="var(--mascot)" stroke="var(--mascot)" stroke-width="17" stroke-linejoin="round"/>
+          <circle cx="49" cy="56" r="5" fill="var(--mascot-face)"/><circle cx="71" cy="56" r="5" fill="var(--mascot-face)"/>
+          <path d="M48 70 q12 11 24 0" stroke="var(--mascot-face)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="play-eyebrow">Working on</div>
+        <div class="play-title">Grout the splashback</div>
+        <div class="play-meta"><span class="pill p-high">High</span><span class="pill p-med">45 min estimate</span></div>
+        <div class="play-clock num">12:04</div>
+        <div class="play-sub">Finish inside 23:00 for the full speed bonus</div>
+        <div class="play-actions"><button class="btn btn-secondary">Pause</button><button class="btn btn-lg btn-success">Mark done</button></div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="today" id="today" aria-label="Play and today">
+    <div class="play-col">
+      <svg class="mascot" width="76" height="76" viewBox="0 0 120 120" aria-hidden="true">
+        <polygon points="60,10 73.5,41.4 107.6,44.5 81.9,67.1 89.4,100.5 60,83 30.6,100.5 38.1,67.1 12.4,44.5 46.5,41.4" fill="#fff" stroke="#fff" stroke-width="26" stroke-linejoin="round"/>
+        <polygon points="60,10 73.5,41.4 107.6,44.5 81.9,67.1 89.4,100.5 60,83 30.6,100.5 38.1,67.1 12.4,44.5 46.5,41.4" fill="var(--mascot)" stroke="var(--mascot)" stroke-width="17" stroke-linejoin="round"/>
+        <circle cx="49" cy="56" r="5" fill="var(--mascot-face)"/><circle cx="71" cy="56" r="5" fill="var(--mascot-face)"/>
+        <path d="M48 70 q12 11 24 0" stroke="var(--mascot-face)" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div id="col-idle">
+        <div class="col-eyebrow">Ready when you are</div>
+        <div class="col-title">Nothing running</div>
+        <div class="col-sub" style="margin:-4px 0 16px">Pick one for me and start the clock.</div>
+        <button class="btn btn-lg btn-primary" style="width:100%"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>Play</button>
+      </div>
+      <div id="col-run" class="hidden">
+        <div class="col-eyebrow">Working on</div>
+        <div class="col-title">Grout the splashback</div>
+        <div class="col-meta"><span class="pill p-high">High</span><span class="pill p-med">45 min</span></div>
+        <div class="col-clock num">12:04</div>
+        <div class="col-sub">Full speed bonus until 23:00</div>
+        <div class="col-actions">
+          <button class="btn btn-secondary">Pause</button>
+          <button class="btn btn-success">Mark done</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Today</h2>
+      <div class="big-pts num">124</div>
+      <div class="big-sub">points earned · 5 tasks done</div>
+      <div class="track"><div class="fill"></div></div>
+      <div class="track-k"><span>Multiplier ×1.6</span><span>×2.0 at 8</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>All time</h2>
+      <div class="col-tiles">
+        <div class="ctile total"><div class="k">Total points</div><div class="v num">4,182</div></div>
+        <div class="ctile streak"><div class="k">Day streak</div><div class="v num">6</div></div>
+        <div class="ctile speed"><div class="k">Speed bonus</div><div class="v num">+948</div></div>
+        <div class="ctile mult"><div class="k">Best multiplier</div><div class="v num">×2.0</div></div>
+        <div class="ctile"><div class="k">Tasks done</div><div class="v num">311</div></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="scrim hidden" id="del-scrim" role="dialog" aria-modal="true" aria-labelledby="del-h">
+  <div class="modal">
+    <h2 id="del-h">Delete your account?</h2>
+    <div class="warn">You'll lose 311 completed tasks, 4 projects and 4,182 points. We can't restore any of it.</div>
+    <p>Type <strong>delete</strong> below to confirm.</p>
+    <label><span class="k">Confirm</span><input class="control" id="del-input" placeholder="delete" autocomplete="off"></label>
+    <div class="row-end">
+      <button class="btn btn-secondary" id="del-cancel">Cancel</button>
+      <button class="btn btn-danger" id="del-go" disabled>Delete my account</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="#">About</a>
+  <a href="#">Privacy</a>
+  <a href="#">Terms</a>
+  <a href="#">Support</a>
+  <span class="sp"></span>
+  <span>© 2026 Neturely</span>
+</footer>
+
+<script>
+  const COLOR = { "Kitchen renovation":"var(--accent)", "AddiApp 2.0":"var(--success)", "Neturely admin":"var(--warning)", "Bilen & garaget":"var(--violet)", "":"#A8A29A" };
+  const tasks = [
+    ["Grout the splashback","Kitchen renovation","high",45,10,"12 days ago","Upper row first, then the run behind the tap."],
+    ["Book the electrician for the hob","Kitchen renovation","low",10,2,"11 days ago","Ask about the separate circuit."],
+    ["Draft the projects epic follow-up","AddiApp 2.0","medium",30,5,"11 days ago","Archived visibility and unarchive."],
+    ["Renew the wildcard cert","Neturely admin","medium",25,5,"10 days ago","Expires in three weeks."],
+    ["Sort last quarter's receipts","Neturely admin","high",90,10,"9 days ago","Everything from April is still loose."],
+    ["Order the tap adapter","Kitchen renovation","low",10,2,"9 days ago","The 22mm one, not the 15."],
+    ["Write the mobile card view spec","AddiApp 2.0","medium",35,5,"8 days ago","Rail collapses behind a hamburger."],
+    ["Ring the insurance about the excess","","low",15,2,"8 days ago","They close at four."],
+    ["Fill the holes above the skirting","Kitchen renovation","medium",40,5,"7 days ago","Sand once it has gone off properly."],
+    ["Winter tyres to the garage","Bilen & garaget","low",20,2,"7 days ago","Booked for the 14th."],
+    ["Rework the seed data script","AddiApp 2.0","high",75,10,"6 days ago","It still assumes no projects exist."],
+    ["Chase the invoice from March","Neturely admin","low",10,2,"6 days ago","Second reminder."],
+    ["Descale the coffee machine","","low",15,2,"5 days ago","Been beeping for a fortnight."],
+    ["Pick the splashback trim","Kitchen renovation","medium",30,5,"5 days ago","Brushed steel or matt black."],
+    ["Back up the old laptop","","medium",45,5,"4 days ago","Before it gets wiped."],
+    ["Draft the recurring-tasks migration","AddiApp 2.0","high",60,10,"4 days ago","Snooze-until column plus the rule table."],
+    ["Cancel the unused domain","","low",5,2,"3 days ago","Renews on the 2nd."],
+    ["Reply to Marcus about the quote","Kitchen renovation","low",10,2,"3 days ago","He wants a decision this week."],
+    ["Rewrite the empty-state copy","AddiApp 2.0","medium",25,5,"2 days ago","An invitation, not an apology."],
+    ["Sharpen the kitchen knives","","low",15,2,"2 days ago","The whetstone is in the drawer."],
+    ["Clear the loft hatch","","medium",50,5,"yesterday","Boxes from the move are still stacked under it."],
+    ["Update the deploy runbook","Neturely admin","medium",30,5,"yesterday","Backup gating changed the order."]
+  ];
+  const cls = { low:"p-low", medium:"p-med", high:"p-high" };
+  const cap = s => s[0].toUpperCase() + s.slice(1);
+  const PER = 20; let page = 0;
+  const rows = document.getElementById("rows");
+
+  function render() {
+    const start = page * PER, slice = tasks.slice(start, start + PER);
+    rows.innerHTML = slice.map(([t,p,d,e,pts,age,snip], i) => `
+      <button class="row" role="option" data-i="${start + i}">
+        <span class="pole" style="background:${COLOR[p]}"></span>
+        <span class="proj ${p ? "" : "none"}">${p || "No project"}</span>
+        <span class="pill ${cls[d]}">${cap(d)}</span>
+        <span class="body"><b>${t}</b> <i>— ${snip}</i></span>
+        <span class="est num">${e} min</span>
+        <span class="pts num">${pts} pts</span>
+      </button>`).join("");
+    document.getElementById("ready").textContent =
+      `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"} ready to do`;
+    const label = `${start + 1}–${start + slice.length} of ${tasks.length}`;
+    range.textContent = range2.textContent = label;
+    const last = page >= Math.ceil(tasks.length / PER) - 1;
+    [prev, prev2].forEach(b => b.disabled = page === 0);
+    [next, next2].forEach(b => b.disabled = last);
+    rows.parentElement.scrollTop = 0;
+  }
+  [prev, prev2].forEach(b => b.onclick = () => { if (page > 0) { page--; render(); } });
+  [next, next2].forEach(b => b.onclick = () => { if ((page + 1) * PER < tasks.length) { page++; render(); } });
+  render();
+
+  const views = { list:"view-list", open:"view-open", settings:"view-settings", choice:"view-choice", play:"view-play" };
+  const protoBtns = { list:"t-list", open:"t-open", settings:"t-settings", choice:"t-choice", play:"t-play" };
+  const headIcon = { list:"i-dash", choice:"i-play", settings:"i-settings" };
+  const rail = document.getElementById("rail"), today = document.getElementById("today");
+  const burger = document.getElementById("burger"), panelToggle = document.getElementById("panel-toggle");
+  let railOpen = true, todayOpen = true, view = "list", running = false;
+
+  function show(v) {
+    view = v;
+    for (const k in views) {
+      const el = document.getElementById(views[k]);
+      el.classList.toggle("hidden", k !== v);
+      if (k !== "play" && k !== "choice" && k === v) el.style.display = "flex";
+      document.getElementById(protoBtns[k]).setAttribute("aria-pressed", k === v);
+    }
+    for (const k in headIcon) {
+      const on = k === v || (v === "open" && k === "list") || (v === "play" && k === "choice");
+      document.getElementById(headIcon[k]).setAttribute("aria-current", on ? "true" : "false");
+    }
+    const solo = v === "play" || v === "choice";
+    rail.classList.toggle("hidden", solo || !railOpen);
+    today.classList.toggle("hidden", solo || !todayOpen);
+    menu.classList.add("hidden");
+  }
+  for (const k in protoBtns) document.getElementById(protoBtns[k]).onclick = () => show(k);
+  document.getElementById("i-dash").onclick = () => show("list");
+  document.getElementById("i-play").onclick = () => show("choice");
+  document.getElementById("i-settings").onclick = () => show("settings");
+  document.getElementById("m-settings").onclick = () => show("settings");
+  document.getElementById("btn-back").onclick = () => show("list");
+
+  const menu = document.getElementById("menu"), av = document.getElementById("av");
+  av.onclick = e => { e.stopPropagation(); const open = menu.classList.toggle("hidden"); av.setAttribute("aria-expanded", !open); };
+  document.addEventListener("click", () => { menu.classList.add("hidden"); av.setAttribute("aria-expanded", false); });
+  menu.onclick = e => e.stopPropagation();
+
+  burger.onclick = () => { railOpen = !railOpen; burger.setAttribute("aria-expanded", railOpen); rail.classList.toggle("hidden", !railOpen || view === "play" || view === "choice"); };
+  panelToggle.onclick = () => { todayOpen = !todayOpen; panelToggle.setAttribute("aria-pressed", todayOpen); today.classList.toggle("hidden", !todayOpen || view === "play" || view === "choice"); };
+
+  const tRun = document.getElementById("t-run");
+  tRun.onclick = () => { running = !running; tRun.setAttribute("aria-pressed", running);
+    document.getElementById("col-idle").classList.toggle("hidden", running);
+    document.getElementById("col-run").classList.toggle("hidden", !running); };
+
+  const scrim = document.getElementById("del-scrim"), delInput = document.getElementById("del-input"),
+        delGo = document.getElementById("del-go");
+  document.getElementById("open-del").onclick = () => {
+    scrim.classList.remove("hidden"); delInput.value = ""; delGo.disabled = true; delInput.focus();
+  };
+  const closeDel = () => scrim.classList.add("hidden");
+  document.getElementById("del-cancel").onclick = closeDel;
+  scrim.addEventListener("click", e => { if (e.target === scrim) closeDel(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeDel(); });
+  delInput.addEventListener("input", () => { delGo.disabled = delInput.value.trim().toLowerCase() !== "delete"; });
+
+  rows.addEventListener("click", e => {
+    const row = e.target.closest(".row"); if (!row) return;
+    const [t,p,d,est,pts,age,snip] = tasks[row.dataset.i];
+    document.getElementById("d-title").value = t;
+    document.getElementById("d-eyebrow").textContent = `${p || "No project"} · added ${age}`;
+    document.getElementById("d-pole").style.background = COLOR[p];
+    document.getElementById("d-est").textContent = est + " minutes";
+    document.getElementById("d-pts").textContent = pts;
+    document.getElementById("d-project").value = p || "No project";
+    document.getElementById("d-desc").value = snip;
+    document.querySelectorAll("#d-seg button").forEach(b => b.setAttribute("aria-pressed", b.classList.contains("s-" + (d === "medium" ? "med" : d))));
+    show("open");
+  });
+  document.getElementById("chips").addEventListener("click", e => {
+    const c = e.target.closest(".chip"); if (!c) return;
+    document.querySelectorAll("#chips .chip").forEach(x => x.setAttribute("aria-pressed", x === c));
+  });
+  document.querySelectorAll(".choice").forEach(c => c.onclick = () => show("play"));
+
+  document.getElementById("d-seg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.querySelectorAll("#d-seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  });
+</script>

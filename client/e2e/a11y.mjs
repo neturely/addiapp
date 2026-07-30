@@ -115,47 +115,84 @@ const earrow = await page.evaluate(() => {
 })
 ok(earrow.checked === 2 && earrow.focused === 2, 'A11Y-5: effort — ArrowRight moves checked + focus together')
 
-// ── A11Y-5 table + A11Y-3 inline edit + A11Y-1 toast ─────────────────────────
+// ── A11Y-5 task list + A11Y-3 open-in-place view + A11Y-1 dialog (#262) ──────
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
-await page.waitForSelector('table')
-const table = await page.evaluate(() => ({
-  caption: document.querySelector('table caption')?.textContent?.trim(),
-  captionSrOnly: document.querySelector('table caption')?.classList.contains('sr-only'),
-  scoped: [...document.querySelectorAll('th')].every((t) => t.getAttribute('scope') === 'col'),
-}))
-ok(!!table.caption && table.captionSrOnly, `A11Y-5: table has sr-only <caption> ("${table.caption}")`)
-ok(table.scoped, 'A11Y-5: every <th> has scope="col"')
+await page.waitForSelector('ul[aria-label="Tasks"]')
+ok(
+  (await page.$('ul[aria-label="Tasks"] button[aria-label^="Open "]')) !== null,
+  'A11Y-5: rows are keyboard-reachable buttons with aria-labels',
+)
 
-ok((await page.$('tbody td button[aria-label^="Edit "]')) !== null, 'A11Y-3: title cell is a keyboard-reachable <button> with aria-label')
-await page.focus('tbody td button[aria-label^="Edit "]')
+// Enter on a row opens the task in place.
+await page.focus('ul[aria-label="Tasks"] button[aria-label^="Open "]')
 await page.keyboard.press('Enter')
-await page.waitForSelector('input[aria-label="Title"]', { timeout: 3000 }).catch(() => {})
-const labels = await page.evaluate(() => ({
-  title: !!document.querySelector('input[aria-label="Title"]'),
-  effort: !!document.querySelector('select[aria-label="Effort"]'),
-  minutes: !!document.querySelector('input[aria-label="Estimated minutes"]'),
-  status: !!document.querySelector('select[aria-label="Status"]'),
-}))
-ok(labels.title && labels.effort && labels.minutes && labels.status, 'A11Y-3: Enter opens inline edit; all 4 inputs aria-labelled')
-await page.keyboard.press('Escape')
-await sleep(200)
-ok(!(await page.$('input[aria-label="Title"]')), 'A11Y-3: Escape cancels inline edit')
+await page.waitForFunction(() => /^\/tasks\/\d+$/.test(location.pathname), { timeout: 3000 })
+await page.waitForSelector('input[aria-label="Title"]', { timeout: 3000 })
+const fields = await page.evaluate(() => {
+  const seg = document.querySelector('[role=radiogroup][aria-labelledby="task-difficulty-label"]')
+  const radios = [...(seg?.querySelectorAll('[role=radio]') ?? [])]
+  const labelled = (id) => {
+    const el = document.getElementById(id)
+    return !!el && !!document.querySelector(`label[for="${id}"]`)
+  }
+  return {
+    title: !!document.querySelector('input[aria-label="Title"]'),
+    project: labelled('task-project'),
+    minutes: labelled('task-minutes'),
+    status: labelled('task-status'),
+    description: labelled('task-description'),
+    segRadios: radios.length,
+    segChecked: radios.filter((r) => r.getAttribute('aria-checked') === 'true').length,
+    segTabbable: radios.filter((r) => r.getAttribute('tabindex') === '0').length,
+  }
+})
+ok(
+  fields.title && fields.project && fields.minutes && fields.status && fields.description,
+  'A11Y-3: task view — every field is labelled (title/project/minutes/status/description)',
+)
+ok(
+  fields.segRadios === 3 && fields.segChecked === 1 && fields.segTabbable === 1,
+  'A11Y-3: difficulty segment is a roving-tabindex radiogroup',
+)
 
-// Delete is an icon-only button (#178) — select it by its aria-label.
-await page.evaluate(() => document.querySelector('tbody button[aria-label^="Delete "]')?.click())
+// Save fires the shared toast (role=status + aria-live + atomic).
+await page.click('button[type="submit"]')
 await page.waitForSelector('[role=status][aria-live=polite]', { timeout: 3000 }).catch(() => {})
-const toast = await page.evaluate(() => {
+const saveToast = await page.evaluate(() => {
   const t = document.querySelector('[role=status][aria-live=polite]')
   return t ? { text: t.textContent?.trim(), atomic: t.getAttribute('aria-atomic') } : null
 })
-ok(toast && /deleted/i.test(toast.text || '') && toast.atomic === 'true', 'A11Y-1: undo toast is role=status + aria-live=polite + aria-atomic')
-// pause-on-focus: focus Undo, wait past the 5s window → still there
-await page.focus('[role=status] button')
-await sleep(6500)
-ok((await page.$('[role=status]')) !== null, 'A11Y-1: toast persists past 5s while Undo is focused (pause-on-focus)')
-await page.evaluate(() => document.activeElement?.blur())
-await sleep(6000)
-ok((await page.$('[role=status]')) === null, 'A11Y-1: after blur the timer resumes and the toast dismisses')
+ok(
+  saveToast && /saved/i.test(saveToast.text || '') && saveToast.atomic === 'true',
+  'A11Y-1: Save toast is role=status + aria-live=polite + aria-atomic',
+)
+
+// Delete opens the shared Modal: dialog semantics, Escape closes + returns focus.
+// Focus the trigger before activating (as a real keyboard/mouse user would) so
+// the Modal's return-focus has a real opener to go back to.
+await page.evaluate(() => {
+  const b = [...document.querySelectorAll('button')].find((x) => x.textContent?.trim() === 'Delete')
+  b?.focus()
+  b?.click()
+})
+await page.waitForSelector('[role=dialog]', { timeout: 3000 })
+const dialog = await page.evaluate(() => {
+  const d = document.querySelector('[role=dialog]')
+  return {
+    modal: d?.getAttribute('aria-modal') === 'true',
+    labelled: !!d?.getAttribute('aria-labelledby'),
+    focusInside: d?.contains(document.activeElement) ?? false,
+  }
+})
+ok(dialog.modal && dialog.labelled, 'A11Y-1: delete dialog is role=dialog + aria-modal + labelled')
+ok(dialog.focusInside, 'A11Y-1: initial focus moves into the delete dialog')
+await page.keyboard.press('Escape')
+await sleep(200)
+ok((await page.$('[role=dialog]')) === null, 'A11Y-1: Escape closes the delete dialog')
+ok(
+  await page.evaluate(() => document.activeElement?.textContent?.trim() === 'Delete'),
+  'A11Y-1: focus returns to the Delete trigger on close',
+)
 
 // ── A11Y-2 Completion focus + A11Y-4 milestone announcer ─────────────────────
 const taskId = await page.evaluate(async () => {
@@ -170,7 +207,7 @@ const milestone = await page.evaluate(() => {
   return { present: !!sr, text: sr?.textContent ?? null }
 })
 ok(milestone.present && milestone.text === '', 'A11Y-4: InProgress sr-only milestone announcer present + empty in the bonus window')
-await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /complete/i.test(b.textContent || ''))?.click())
+await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /mark done/i.test(b.textContent || ''))?.click())
 await page.waitForFunction(() => /nice work/i.test(document.body.textContent || ''), { timeout: 5000 })
 await sleep(200)
 const completion = await page.evaluate(() => {

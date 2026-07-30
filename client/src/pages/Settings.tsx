@@ -1,15 +1,56 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/toast/useToast'
-import { FormCard } from '@/components/FormCard'
-import { changePassword, requestEmailChange, updateAccount } from '@/lib/account'
+import { Button } from '@/components/Button'
+import { Modal } from '@/components/Modal'
+import { changePassword, deleteAccount, requestEmailChange, updateAccount } from '@/lib/account'
 
 /**
- * Account settings (#187): username (display name) + password. Email display is
- * read-only for now — changing it is its own re-verification flow (#200). This is
- * also the future home for preferences (e.g. task-selection strategy).
+ * Account settings (#266, consolidating #187/#200): one sectioned surface —
+ * Profile / Email / Password / Play / Delete account, divider-separated (the
+ * prototype's settings view; replaces the three FormCards). The Play section
+ * finally wires the Selection::strategies() preference; Delete account is the
+ * #266 danger zone (type-to-confirm + password re-auth).
  */
+
+/**
+ * Selection strategies offered (#266) — names must match the server seam
+ * (`Selection::strategies()`). Decided: `focusProject` stays a Play MODE, not a
+ * persistent strategy — as a stored default it would silently override the
+ * win-type choice; the Choice screen's third option is its home.
+ */
+const STRATEGIES: { value: string; label: string }[] = [
+  { value: 'weightedByAge', label: 'Weighted random — favours older tasks' },
+  { value: 'oldestFirst', label: 'Oldest first' },
+  { value: 'uniformRandom', label: 'Uniform random' },
+]
+
+const FIELD =
+  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
+const LABEL = 'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted'
+const DELETE_TITLE_ID = 'account-delete-title'
+
+function Section({
+  title,
+  lede,
+  children,
+  first = false,
+}: {
+  title: string
+  lede: string
+  children: ReactNode
+  first?: boolean
+}) {
+  return (
+    <section className={`py-6 ${first ? '' : 'border-t border-field-hover'}`}>
+      <h2 className="text-base font-semibold tracking-tight text-gray-800">{title}</h2>
+      <p className="mb-4 mt-0.5 text-[13px] leading-relaxed text-muted">{lede}</p>
+      <div className="flex max-w-md flex-col gap-3.5">{children}</div>
+    </section>
+  )
+}
+
 export function Settings() {
   const { user, updateUser } = useAuth()
   const { showToast } = useToast()
@@ -27,6 +68,15 @@ export function Settings() {
   const [newPassword, setNewPassword] = useState('')
   const [savingPw, setSavingPw] = useState(false)
   const [pwError, setPwError] = useState<string | null>(null)
+
+  const [strategy, setStrategy] = useState(user?.selectionStrategy ?? 'weightedByAge')
+  const [savingStrategy, setSavingStrategy] = useState(false)
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleteText, setDeleteText] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault()
@@ -79,138 +129,270 @@ export function Settings() {
     }
   }
 
-  const field = 'w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none'
-  const cta =
-    'cursor-pointer rounded-lg bg-primary px-6 py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400'
+  async function saveStrategy(next: string) {
+    setStrategy(next)
+    setSavingStrategy(true)
+    try {
+      const updated = await updateAccount({ selectionStrategy: next })
+      updateUser(updated)
+      showToast({ message: 'Play selection updated', icon: CircleCheck, tone: 'success' })
+    } catch {
+      setStrategy(user?.selectionStrategy ?? 'weightedByAge')
+      showToast({ message: 'Could not save that preference.', icon: CircleCheck, tone: 'neutral' })
+    } finally {
+      setSavingStrategy(false)
+    }
+  }
+
+  async function confirmDelete(e: FormEvent) {
+    e.preventDefault()
+    setDeleteError(null)
+    setDeleting(true)
+    try {
+      await deleteAccount(deletePassword)
+      // Everything server-side is gone and the cookie is cleared — a full
+      // reload to the login screen drops all client state with it.
+      window.location.assign('/login')
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Could not delete the account.')
+      setDeleting(false)
+    }
+  }
+
+  const deleteArmed = deleteText.trim().toLowerCase() === 'delete' && deletePassword !== ''
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-2xl p-4 sm:p-8">
-      <h1 className="mb-6 text-2xl font-bold text-gray-800">Settings</h1>
+    <main className="flex min-h-screen flex-col p-4 sm:p-6">
+      <div className="flex-1 rounded-xl bg-surface">
+        <div className="max-w-2xl px-6 py-8 sm:px-9">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Account settings</h1>
+          <p className="mb-2 mt-1 text-[13px] text-muted">
+            Your profile, sign-in details and how AddiApp behaves.
+          </p>
 
-      <FormCard title="Profile" className="mb-6">
-        <form onSubmit={saveProfile} className="space-y-4">
-          <div>
-            <label htmlFor="displayName" className="mb-1 block text-sm font-medium text-gray-600">
-              Display name
-            </label>
-            <input
-              id="displayName"
-              type="text"
-              value={displayName}
-              maxLength={50}
-              placeholder="Your name"
-              onChange={(e) => setDisplayName(e.target.value)}
-              className={field}
-            />
-            <p className="mt-1 text-xs text-muted">
-              Shown on your avatar. Leave blank to use your email initial.
-            </p>
-          </div>
-          {profileError && (
-            <p role="alert" className="text-sm text-red-600">
-              {profileError}
-            </p>
-          )}
-          <button type="submit" disabled={savingProfile} className={cta}>
-            {savingProfile ? 'Saving…' : 'Save profile'}
-          </button>
-        </form>
-      </FormCard>
-
-      <FormCard title="Email" className="mb-6">
-        <form onSubmit={saveEmail} className="space-y-4">
-          <div>
-            <label htmlFor="currentEmail" className="mb-1 block text-sm font-medium text-gray-600">
-              Current email
-            </label>
-            <input
-              id="currentEmail"
-              type="email"
-              value={user?.email ?? ''}
-              disabled
-              className={`${field} text-muted`}
-            />
-          </div>
-          <div>
-            <label htmlFor="newEmail" className="mb-1 block text-sm font-medium text-gray-600">
-              New email
-            </label>
-            <input
-              id="newEmail"
-              type="email"
-              autoComplete="email"
-              required
-              value={newEmail}
-              placeholder="you@example.com"
-              onChange={(e) => setNewEmail(e.target.value)}
-              className={field}
-            />
-            <p className="mt-1 text-xs text-muted">
-              We'll email a confirmation link to the new address; your email changes only after you
-              click it (and you'll be signed out on your other devices).
-            </p>
-          </div>
-          {emailError && (
-            <p role="alert" className="text-sm text-red-600">
-              {emailError}
-            </p>
-          )}
-          {emailSent && (
-            <p role="status" className="text-sm text-success-ink">
-              {emailSent}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={savingEmail || newEmail.trim() === ''}
-            className={cta}
+          <Section
+            first
+            title="Profile"
+            lede="Shown on your avatar. Leave blank to use your email initial."
           >
-            {savingEmail ? 'Sending…' : 'Send confirmation'}
-          </button>
-        </form>
-      </FormCard>
+            <form onSubmit={saveProfile} className="flex flex-col gap-3.5">
+              <div>
+                <label htmlFor="displayName" className={LABEL}>
+                  Display name
+                </label>
+                <input
+                  id="displayName"
+                  type="text"
+                  value={displayName}
+                  maxLength={50}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className={FIELD}
+                />
+              </div>
+              {profileError && (
+                <p role="alert" className="text-sm text-danger-ink">
+                  {profileError}
+                </p>
+              )}
+              <div>
+                <Button type="submit" disabled={savingProfile}>
+                  {savingProfile ? 'Saving…' : 'Save profile'}
+                </Button>
+              </div>
+            </form>
+          </Section>
 
-      <FormCard title="Password">
-        <form onSubmit={savePassword} className="space-y-4">
-          <div>
-            <label htmlFor="currentPassword" className="mb-1 block text-sm font-medium text-gray-600">
-              Current password
-            </label>
-            <input
-              id="currentPassword"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className={field}
-            />
+          <Section
+            title="Email"
+            lede="We'll send a confirmation link to the new address. Your email changes only once you click it, and you'll be signed out on your other devices."
+          >
+            <form onSubmit={saveEmail} className="flex flex-col gap-3.5">
+              <div>
+                <label htmlFor="currentEmail" className={LABEL}>
+                  Current email
+                </label>
+                <input
+                  id="currentEmail"
+                  type="email"
+                  value={user?.email ?? ''}
+                  readOnly
+                  className={`${FIELD} text-muted`}
+                />
+              </div>
+              <div>
+                <label htmlFor="newEmail" className={LABEL}>
+                  New email
+                </label>
+                <input
+                  id="newEmail"
+                  type="email"
+                  value={newEmail}
+                  placeholder="you@example.com"
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className={FIELD}
+                />
+              </div>
+              {emailError && (
+                <p role="alert" className="text-sm text-danger-ink">
+                  {emailError}
+                </p>
+              )}
+              {emailSent && (
+                <p role="status" className="text-sm text-success-ink">
+                  {emailSent}
+                </p>
+              )}
+              <div>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  disabled={savingEmail || newEmail.trim() === ''}
+                >
+                  {savingEmail ? 'Sending…' : 'Send confirmation'}
+                </Button>
+              </div>
+            </form>
+          </Section>
+
+          <Section
+            title="Password"
+            lede="At least 8 characters. Changing it signs out your other devices."
+          >
+            <form onSubmit={savePassword} className="flex flex-col gap-3.5">
+              <div>
+                <label htmlFor="currentPassword" className={LABEL}>
+                  Current password
+                </label>
+                <input
+                  id="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className={FIELD}
+                />
+              </div>
+              <div>
+                <label htmlFor="newPassword" className={LABEL}>
+                  New password
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className={FIELD}
+                />
+              </div>
+              {pwError && (
+                <p role="alert" className="text-sm text-danger-ink">
+                  {pwError}
+                </p>
+              )}
+              <div>
+                <Button type="submit" disabled={savingPw}>
+                  {savingPw ? 'Saving…' : 'Change password'}
+                </Button>
+              </div>
+            </form>
+          </Section>
+
+          <Section title="Play" lede="How AddiApp picks the next task when you press Play.">
+            <div>
+              <label htmlFor="selectionStrategy" className={LABEL}>
+                Selection
+              </label>
+              <select
+                id="selectionStrategy"
+                value={strategy}
+                disabled={savingStrategy}
+                onChange={(e) => void saveStrategy(e.target.value)}
+                className={FIELD}
+              >
+                {STRATEGIES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted">
+                “Focus on projects” stays a per-play choice on the Play screen — it isn’t a
+                stored default.
+              </p>
+            </div>
+          </Section>
+
+          <Section
+            title="Delete account"
+            lede="Removes your account, every task and project, and your whole points history. This can't be undone and nothing is recoverable afterwards."
+          >
+            <div>
+              <Button variant="danger" size="lg" onClick={() => setConfirmingDelete(true)}>
+                Delete my account
+              </Button>
+            </div>
+          </Section>
+        </div>
+      </div>
+
+      {confirmingDelete && (
+        <Modal titleId={DELETE_TITLE_ID} onClose={() => !deleting && setConfirmingDelete(false)}>
+          <h2 id={DELETE_TITLE_ID} className="mb-3 text-xl font-bold text-gray-800">
+            Delete your account?
+          </h2>
+          <div className="mb-4 rounded-lg bg-danger-tint px-3.5 py-3 text-[13px] leading-relaxed text-danger-ink">
+            Every task, project and point you’ve earned will be permanently deleted. We can’t
+            restore any of it.
           </div>
-          <div>
-            <label htmlFor="newPassword" className="mb-1 block text-sm font-medium text-gray-600">
-              New password
-            </label>
-            <input
-              id="newPassword"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={field}
-            />
-            <p className="mt-1 text-xs text-muted">
-              At least 8 characters. Signs out your other devices.
-            </p>
-          </div>
-          {pwError && (
-            <p role="alert" className="text-sm text-red-600">
-              {pwError}
-            </p>
-          )}
-          <button type="submit" disabled={savingPw} className={cta}>
-            {savingPw ? 'Saving…' : 'Change password'}
-          </button>
-        </form>
-      </FormCard>
+          <form onSubmit={confirmDelete} className="flex flex-col gap-3.5">
+            <div>
+              <label htmlFor="deleteConfirm" className={LABEL}>
+                Type “delete” to confirm
+              </label>
+              <input
+                id="deleteConfirm"
+                type="text"
+                autoComplete="off"
+                value={deleteText}
+                onChange={(e) => setDeleteText(e.target.value)}
+                placeholder="delete"
+                className={FIELD}
+              />
+            </div>
+            <div>
+              <label htmlFor="deletePassword" className={LABEL}>
+                Your password
+              </label>
+              <input
+                id="deletePassword"
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                className={FIELD}
+              />
+            </div>
+            {deleteError && (
+              <p role="alert" className="text-sm text-danger-ink">
+                {deleteError}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                disabled={deleting}
+                onClick={() => setConfirmingDelete(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="danger" disabled={!deleteArmed || deleting}>
+                {deleting ? 'Deleting…' : 'Delete my account'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </main>
   )
 }

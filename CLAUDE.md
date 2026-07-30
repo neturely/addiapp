@@ -139,8 +139,15 @@ controller.
   backlog candidates (time-filter-respecting), pick the project with the **least remaining
   effort** (Σ `PointsConfig::BASE_POINTS`, closest to done), tie-break **oldest project**
   (`created_at`, then id), then the **oldest task** within it. Same `{ task }` shape.
-- A future **per-user selection preference** is designed for (swap
-  `Selection::strategies()[$name]`) but **not built** — no settings page yet.
+- **Per-user selection preference — BUILT (#266, epic #256 E):**
+  `users.selection_strategy` (migration 015, default `weightedByAge`);
+  `Selection::pick($candidates, $strategy)` resolves via `strategies()` with a
+  fall-back so a stale name can never break selection; `GET /api/tasks/next`
+  reads the caller's stored strategy; `PATCH /api/account` accepts
+  `selectionStrategy` (validated against the seam) and the user payload carries
+  it. Settings has the picker. **Decided: `focusProject` stays a Play MODE, not
+  a strategy** — as a stored default it would silently override the win-type
+  choice; the Choice screen's third option is its home.
 
 ## What's built (maps to PROJECT_SPEC §5/§6) — LIVE at addiapp.com
 
@@ -163,11 +170,15 @@ to the old Node API.
   line breaks kept via `whitespace-pre-wrap`): a textarea in the shared `TaskForm`, shown on the
   TaskPresented **and InProgress** cards, and an **expandable chevron row** on the dashboard table (chevron only when a
   description exists — a sibling button beside the click-to-edit title, expanding a colSpan `<tr>`).
-  **Pagination (#100):** `GET /api/tasks` takes **opt-in** `limit` + `before` (keyset cursor on
-  `id DESC`) — **absent `limit` = the legacy unbounded list**, so `fetchTasks()` / InProgressProvider
-  are untouched; with `limit` it returns `{ tasks, nextCursor, counts? }` where `counts` (a per-status
-  `GROUP BY`) rides **only the first page**. Bad `limit`/`before` → 400. Cross-user access is **404,
-  not 403** (non-enumerating; locked by #129's test). Index `(user_id, status)` (migration 006) covers
+  **Pagination (#262 — offset, superseding #100's keyset `before` cursor):** `GET /api/tasks` takes
+  **opt-in** `limit` + 0-based `offset` — **absent `limit` = the legacy unbounded list**, so
+  `fetchTasks()` / InProgressProvider are untouched; with `limit` it returns `{ tasks, total, counts }`
+  (filtered `total` + global per-status `counts` on every page). Bad `limit`/`offset` → 400. The
+  paginated LIST also LEFT JOINs the project (#268) → `task.project = { name, color } | null`. Cross-user access is **404,
+  not 403** (non-enumerating; locked by #129's test). **`?projectId=` (#260, the backend half of
+  #245)** filters to one owned project's tasks (any status; foreign id → 404) — the rail's
+  per-project entries land on `/dashboard?project=ID` (banner + every status; the same param WITH
+  `tab=unassigned` stays the #236 assign ride-along). Index `(user_id, status)` (migration 006) covers
   the keyset query (InnoDB appends the PK → no filesort).
 - **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
   (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
@@ -205,34 +216,70 @@ to the old Node API.
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
+  **Colours (#268, GUI-refresh epic #256 F):** `projects.color` (migration 014, `TINYINT NOT NULL DEFAULT 0`)
+  is a **palette INDEX, not a hex** — the fixed 8-slot palette lives in `client/src/lib/projectColors.ts`
+  (`projectPole()` helper); the server only bounds it (`ProjectsController::PALETTE_SIZE` — bump BOTH when
+  adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
+  roving-tabindex swatch radiogroup; poles render in the rail, project cards, and the Dashboard project
+  banner. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
+  so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
+  project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
+  AND that signal (modal create/archive doesn't navigate).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
-- **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
-  to it — the standalone Home screen was retired in #191), Task `/play/task`,
-  In-progress `/play/progress/:id`, Completion, Empty state. A mid-flight task is
-  surfaced by a Resume banner on Choice **plus** the header timer chip.
-- **Dashboard (#36, #178, #218, #100)**: `/dashboard` — table + inline edit,
-  status filter tabs, sortable columns, per-row icon actions (Start/Resume=Play,
-  Edit=Pencil, Delete=Trash; Save=Check / Cancel=X while editing — all
-  `aria-label`led), undo-toast delete. **The `backlog` status DISPLAYS as "To do"**
-  (filter tab, status badge, edit select) — presentation-only; the enum value stays
-  `backlog`, so never string-match the label. Rows are a fixed `h-14` so inline-edit
-  doesn't change row height. **Edit (#218):** the Pencil opens a **desktop modal
-  over the list** (`EditTaskModal` on the `Modal` primitive, reusing `TaskForm`);
-  the full page `/tasks/:id/edit` still backs deep links / refresh / **mobile** —
-  the trigger is CSS-responsive (`<button>` opens the modal at `sm+`, `<a>` routes
-  to the page below `sm`; only one is in the a11y tree per breakpoint). Mobile modal
-  deferred pending #98. **Pagination (#100):** the list loads **25 at a time**
-  (`fetchTasksPage`, keyset "Load more"); **filtering is server-side** (a tab switch
-  is a fresh first-page query), the **tab counts + header total come from the server
-  `counts`** (not the loaded rows), and inline-edit/delete/undo mutate the loaded set
-  + adjust the cached counts client-side (a status change off the active filter drops
-  the row). Column sort applies over the **loaded** rows (default order == server
-  order, so exact until a non-default sort on a partially-loaded list).
-- **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
-- **Settings (#187, #200)**: `/settings` (gear nav) — account management. `AccountController`:
-  `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
-  empty→NULL, now also enforced on register) + `POST /api/account/password` (needs current
-  password, keeps this session and revokes the rest via `Sessions::deleteUserSessionsExcept`).
+- **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
+  (`/` redirects to it — the standalone Home screen was retired in #191), Task
+  `/play/task`, In-progress `/play/progress/:id`, Completion, Empty state. **#264
+  (epic #256 D):** Choice is now ONE prototype-style card (mascot half-out, three
+  full-width option rows, time chips inside — still not on `PlayCard`, still the
+  5-radio roving radiogroup); InProgress gained effort+estimate pills and its CTA
+  is **"Mark done"** on `success-deep` (e2e greps updated); the shell right column
+  carries a **running-task mirror** (`RunningMirror` in `RightColumn.tsx` — live
+  clock off `startedAt`, speed-bonus deadline, Open + **Mark done from the
+  column**, which toasts the points, refreshes `InProgressProvider` imperatively
+  and fires `PROJECTS_CHANGED_EVENT` for the rail). **No Pause** — deliberate
+  epic scope cut. A mid-flight task is surfaced by the Choice Resume banner, the
+  header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
+- **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
+  `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
+  name · effort tint pill · **title — description** (truncated) · estimate · base
+  points (from `GET /api/points`). **A row opens the task in place at `/tasks/:id`
+  (`pages/TaskView.tsx`) — THE one edit path**: the old inline row-swap edit, the
+  #218 `EditTaskModal`, and the `EditTask` page are **deleted** (`/tasks/:id/edit`
+  deep links land on the same view). The task view: back bar → borderless title
+  input → an **extensible field grid** (Project select / Estimate / Difficulty
+  roving-radiogroup / Status / Description — future fields like #250's recurring
+  rules slot in as more cells) → a served points-forecast panel (base + max speed
+  bonus + today's multiplier; `speedBonus` config now rides `GET /api/points`) →
+  Save · Delete (shared-`Modal` **confirm dialog** — the undo-toast delete is
+  retired) · Start now/Resume. **The `backlog` status DISPLAYS as "To do"** —
+  presentation-only; never string-match the label. **Pagination (#262 — supersedes
+  #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
+  returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
+  range; global `counts` on every page) — the toolbar shows **"N tasks ready to
+  do"** (`counts.backlog`) + range + prev/next pagers (top and foot), 25/page.
+  Filtering stays server-side; column sorting was dropped with the table. The
+  Unassigned tab keeps the #236 assign flow as a trailing row action
+  (`AssignControl`); assigns refetch the current page (server-authoritative).
+  e2e: `e2e/tasklist.mjs` + the rewritten task-view blocks in `e2e/a11y.mjs`.
+- **Add task (#35)**: `/tasks/new`. **Stats page (#38)**: `/stats` — since #260 the
+  **narrow-viewport stats surface** (header Stats icon when the right column isn't
+  rendered); the #37 PointsCard was retired into the shell's right column.
+- **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
+  (Profile / Email / Password / **Play** / **Delete account**, hairline dividers —
+  replaced the three FormCards). `AccountController`:
+  `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
+  `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
+  register) + `POST /api/account/password` (needs current password, keeps this
+  session and revokes the rest via `Sessions::deleteUserSessionsExcept`) +
+  **`POST /api/auth/logout-others`** (#266 — the avatar menu's "Sign out other
+  devices") + **`DELETE /api/account`** (#266 — permanent deletion: password
+  re-auth, rate-limited; one `DELETE FROM users` cascades every owned table
+  (all FKs are `ON DELETE CASCADE`), plus an explicit sweep of email-keyed
+  `rate_limits` buckets (`action:sha1(email)`, no FK there); best-effort Resend
+  goodbye notice AFTER the delete; cookie cleared. Client: danger section →
+  shared-`Modal` with **type-"delete"-to-confirm + password**, then a full
+  reload to `/login`. Locked by `tests/Db/AccountDeletionTest.php` + e2e
+  `e2e/settings.mjs`).
   **Email change (#200)** is a re-verification flow: a `pending_email` column (migration 004) + an
   `email_change` `EmailTokens` type (enum extended, migration 005); `POST /api/account/email` stores
   the pending address (non-enumerating, rate-limited) and Resends a confirm link to it; the
@@ -274,7 +321,6 @@ addiapp/
 │       └── Controllers/          #   Auth, Tasks, Points, Health
 ├── tests/                        # PHPUnit backend tests (Unit + Db; #124/#128/#129)
 ├── composer.json · phpunit.xml   # dev-only test tooling (vendor/ git-ignored, never rsynced)
-├── public/fonts/                 # Nunito web fonts (kept from original)
 ├── CLAUDE.md · PROJECT_SPEC.md · README.md
 ```
 
@@ -304,14 +350,41 @@ All Play-mode and dashboard screens are implemented and live (#29–#38, #69). T
 only screens not built are the marketing/landing homepage (#40) and user
 guide/help content (#41) — both unscoped.
 
-App shell (#92): authenticated routes render inside `AppLayout` (Header → Outlet
-→ Footer). The Header nav is icon-only **Play + Dashboard + Settings (gear, #187)** —
-the initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
-decision, not a missing nav item), and logout lives in the Footer. Add-task is a
-Header CTA button. A live **in-progress timer chip** (#135) sits left of the Play
-icon when a task is in progress — `InProgressProvider` (wrapping `AppLayout`)
-tracks the most-recently-started in-progress task (fetch on mount + route change,
-no polling); `TimerChip` ticks client-side off `startedAt` and links to
+**App shell (#260, GUI-refresh epic #256 — supersedes the #92 shell):** authed
+routes render inside `AppLayout` as a fixed-viewport frame — Header on top, then
+**rail | scrolling content | right column**, then a thin footer; the three middle
+panes scroll internally (`h-screen`, `min-h-0`). Pieces:
+- **Header** (`Header.tsx`): hamburger (rail toggle) + wordmark + **search field**
+  + icon nav (**Dashboard + Play + Settings**, `bg-primary-tint` active state) +
+  right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
+  Account settings + **Sign out**; logout moved here from the Footer). The old
+  header "Add task" CTA moved to the rail's Tasks plus. A **Stats icon appears
+  ONLY when the right column isn't rendered** (narrow viewport, toggled off, or
+  solo mode) — the epic acceptance that points are never invisible; the
+  **avatar-as-Stats #92 decision is reversed**.
+- **Rail** (`Rail.tsx`, `w-56`, collapsible, hidden `< sm` until G): Tasks section
+  (All / Unassigned / Completed → the Dashboard's `?tab=` filters, counts from the
+  server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
+  client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
+  inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
+- **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in
+  solo): idle Play card (mascot half-out) + **Today** panel (points, tasks, the
+  multiplier track — cap/`capTaskNumber` **served** on `GET /api/points/stats`, never
+  hardcoded) + **All-time** tint tiles. Refetches on route change + after in-column
+  completion, no polling. The Play card mirrors the running task (#264 — see Play
+  mode). **`PointsCard` is deleted** (the column replaced it on the Dashboard).
+- **Solo mode**: `/play*` hides rail + column + search — Play is the focus surface.
+- **Stats page survives** as the narrow-viewport surface at `/stats` (reached via
+  the conditional header icon); it is no longer in any desktop nav path.
+- Shell state lives in `client/src/shell/` (`ShellProvider`/`useShell`: search text,
+  rail/column toggles, `solo`, `wide`, `columnVisible`); `hooks/useMediaQuery.ts` is
+  the JS breakpoint seam. **e2e: `client/e2e/shell.mjs`** covers solo mode, toggles,
+  the Stats-icon rule, the avatar disclosure, and search.
+
+A live **in-progress timer chip** (#135) sits in the header right cluster when a
+task is in progress — `InProgressProvider` (wrapping `AppLayout`) tracks the
+most-recently-started in-progress task (fetch on mount + route change, no
+polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
 
 Shared **`PlayCard`** (`components/PlayCard.tsx`, #204 epic / #208 Phase 1 / #211
@@ -390,6 +463,29 @@ double duty:
 Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
 set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
 
+**#258 foundations (GUI-refresh epic #256)** added on top of v3 — all ratios measured,
+recorded in `index.css` comments:
+- `--color-{h}-deep` (+ `-deep-hover`) for primary/success/danger = solid **button** fills
+  where normal-size white clears AA 4.5:1 (5.11–8.60) — CTAs no longer need `text-xl` bold
+  for white to pass. The vivid `{h}` fills stay for non-text surfaces (meters, poles).
+- A full **`danger` hue** (`danger`/`-deep`/`-deep-hover`/`-ink`/`-tint`) for destructive
+  actions; no `on-danger` yet (nothing consumes it).
+- `--color-field #EFEBE4` + `--color-field-hover` = the neutral input/secondary-button tone
+  between page and surface.
+- **Shared button system** (`components/Button.tsx` + `components/buttonClasses.ts` —
+  `buttonClasses` for Link-as-button):
+  variants primary/secondary/ghost/success/danger × sizes md/lg on the deep fills. Use it
+  for ALL new buttons instead of hand-rolled classes; existing screens migrate as B–E touch
+  them (adopted so far: Settings, EmptyState). This supersedes the "primary CTAs are
+  `text-xl font-bold text-white` on vivid" standardization for migrated surfaces — the
+  text-on-vivid rule below still governs the not-yet-migrated ones.
+- **Radius scale**: 8px buttons/chips (`rounded-lg`) · 9px controls (`rounded-control`) ·
+  12px panels (`rounded-xl`) · 16px modals (`rounded-2xl`) · 20px hero cards (`rounded-card`).
+- **Inter** is the app font — self-hosted latin woff2 400/500/600/700 in
+  `client/public/fonts/` + `@font-face`/`--font-sans` in `index.css` (with `cv05`/`ss01`
+  features). Before #258 NO webfont was actually loaded (the repo-root Nunito files were
+  never wired to the client and are deleted). Never load fonts from an external host.
+
 **⚠ Flat-surface rule — STILL the rule, with one scoped exception and one open proposal.**
 The UI is deliberately **FLAT — no shadows/borders**, colour separation only (established
 across #91/#92/#94/#143; the palette leans on this). Two qualifications to track:
@@ -406,15 +502,17 @@ across #91/#92/#94/#143; the palette leans on this). Two qualifications to track
 `--color-warning` — only for large/bold text** (≥24px, or ≥19px bold — WCAG's 3:1
 large-text tier; white on `#FB5231` = 3.31, on `#1F9E3E` = 3.49, on `#C17F00` = 3.33).
 Those three fills were deepened (#143/#174/#176) specifically so white clears 3:1;
-**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the
-PointsCard/Stats large stat numbers, the dashboard banner (#174), the AddTask effort-tile
-labels (#176, `text-xl` bold), AND **all primary CTA buttons** — standardized to `text-xl`
+**`--color-accent` was NOT tuned — never put white on accent.** Applied to: the AddTask
+effort-tile labels (#176, `text-xl` bold) AND **all primary CTA buttons** — standardized
+to `text-xl`
 (20px) `font-bold text-white` so they legitimately clear 3:1 (energetic look; dark-on-primary
 read muddy). This includes the compact utility buttons — Header "Add task" and Dashboard
 inline "Save" ARE primary CTAs and follow the same standardization. Everything else stays
 dark on-fill: small labels/captions, badges, the filter/time pills, and the initials avatar
 (small on-fill text needs 4.5:1, which is why `text-on-{h}` was deepened for the tuned hues).
-Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
+Emphasis tiers: solid vivid + on-fill = high; tint + ink = low. **Stats tiles + the
+PointsCard banner moved to tint + ink in #254** (ink-on-tint measures 4.57–5.39:1, AA at
+any text size) — the vivid-fill-with-white-number stat treatment is retired.
 
 ## Coding standards
 
@@ -431,10 +529,10 @@ Emphasis tiers: solid vivid + on-fill = high; tint + ink = low.
   One toast at a time, colored icon badge (tone → badge fill), optional inline action, auto-dismiss
   (pauses on hover/focus), `role="status"`. It lives above the routes so a toast survives the
   navigation that raised it (e.g. AddTask fires one, then returns to the origin route). Prefer it
-  over a bespoke per-page toast. The Dashboard undo-delete toast predates it and stays bespoke for
-  now (its deferred-commit/undo semantics are page-specific) — a candidate for later migration.
+  over a bespoke per-page toast. (The old Dashboard undo-delete toast is gone — #262 replaced
+  deferred-delete with a confirm dialog in the task view; every toast now rides the provider.)
 - **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
-  loading indicators and the undo toast use `role="status"` (toast also
+  loading indicators and the shared toast use `role="status"` (toast also
   `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).
   Route changes move focus to `#main-content` via `RouteFocus` in `AppLayout` (which
   also hosts the skip link); an in-place screen (e.g. `Completion`) focuses its own
@@ -554,9 +652,10 @@ Genuinely still open:
 - [ ] Real mascot art — the **v3 "star character" is now LIVE (#210, superseding the v2 icon
   #96); the half-out PlayCard placement shipped (#211).** Still SVG icon art, so this is
   *advanced, not closed* — illustrated art remains a later pass.
-- [ ] Archived-projects visibility — **#248** (filed 2026-07-29): an "Archived" entry
-  point on both Dashboard views + Unarchive; archiving currently makes a project
-  invisible (deliberate v1 cut in #234, but it reads as data loss in live use).
+- [x] Archived-projects visibility — **#248, RESOLVED by #260**: the rail's Archived
+  entry → `?view=projects&archived=1` (ProjectsView archived grid + **Unarchive**);
+  `GET /api/projects?status=archived|all` (default still active-only); archived
+  projects' tasks browsable per-project via `?projectId=`.
 - [ ] Recurring tasks + "snooze until" — **#250** (spec agreed 2026-07-29, ready to
   build): clone-per-occurrence on completion + a nullable `available_from` date
   (excluded from Play selection), per-task rules (every-N-days/weeks or

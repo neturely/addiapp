@@ -31,7 +31,6 @@ addiapp/
 ├── tests/             # PHPUnit backend tests (Unit + Db suites)
 ├── scripts/           # db.sh (local DB helper), backup-db.sh (prod backups)
 ├── docs/DEPLOY.md     # deploy pipeline + server setup + backups
-├── public/fonts/      # Nunito web fonts (kept from the original project)
 ├── CLAUDE.md          # project context + decisions (authoritative)
 ├── PROJECT_SPEC.md    # design spec
 └── OLD_SPEC.md        # historical / superseded
