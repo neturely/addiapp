@@ -71,96 +71,91 @@ export function Choice() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 text-center">
-      <h1 className="text-2xl font-bold text-gray-800">{heading}</h1>
-
-      {/* Resume banner (#183 follow-up): a task mid-flight is surfaced here too,
-          not only in the header chip — the step towards Choice-as-home. */}
-      {activeTask && (
-        <Link
-          to={`/play/progress/${activeTask.id}`}
-          className="flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-accent-tint px-6 py-3 font-semibold text-accent-ink transition hover:opacity-90"
-        >
-          <Play className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={0} aria-hidden />
-          Resume: <span className="max-w-[16rem] truncate">{activeTask.title}</span>
-        </Link>
-      )}
-
-      {/* Two equal paths flanking the mascot on sm+ (small left / big right); on
-          narrow widths (app uses `sm`, not `md`) they stack full-width UNDER the
-          mascot. Each card is a compact horizontal row on mobile (badge left,
-          text right) and a centred column on sm+ (#183). Colour lives on the icon
-          badge; cards stay white/equal-weight; mascot keeps its real colour. */}
-      <div className="flex w-full max-w-2xl flex-col gap-3">
-        {/* Two win-type paths flank the mascot on sm+; below sm they stack. */}
-        <div className="flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:gap-5">
-          <button
-            type="button"
-            onClick={() => go('small')}
-            className="order-2 flex flex-1 cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-success-tint sm:order-1 sm:flex-col sm:justify-center sm:gap-2 sm:p-5 sm:text-center"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-success">
-              <Zap className="h-6 w-6 text-white" fill="currentColor" strokeWidth={0} aria-hidden />
-            </span>
-            <div>
-              <div className="text-lg font-bold text-success-ink">Get small tasks done</div>
-              <div className="text-sm text-muted">A quick, low-effort win</div>
-            </div>
-          </button>
-
-          <Mascot
-            expression="neutral"
-            className="order-1 h-20 w-20 shrink-0 self-center sm:order-2 sm:h-24 sm:w-24"
-          />
-
-          <button
-            type="button"
-            onClick={() => go('big')}
-            className="order-3 flex flex-1 cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-primary-tint sm:order-3 sm:flex-col sm:justify-center sm:gap-2 sm:p-5 sm:text-center"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary">
-              <Mountain className="h-6 w-6 text-white" strokeWidth={2.5} aria-hidden />
-            </span>
-            <div>
-              <div className="text-lg font-bold text-primary-ink">Take on bigger issues</div>
-              <div className="text-sm text-muted">Real progress worth more points</div>
-            </div>
-          </button>
+    // #264 (epic #256 D): one prototype-style choice card — mascot half-out on
+    // top, three full-width option rows, time chips inside the card. Solo mode
+    // (the shell hides rail/column/search), so the card is the whole stage.
+    <main className="flex min-h-screen flex-col items-center justify-center p-5 pt-14">
+      <div className="relative w-full max-w-lg rounded-card bg-surface px-5 pb-6 pt-14 sm:px-7">
+        <div className="pointer-events-none absolute -top-11 left-1/2 -translate-x-1/2">
+          <Mascot expression="neutral" halo className="h-[5.5rem] w-[5.5rem]" />
         </div>
 
-        {/* Third path (#238): a MODE, not a size — full-width, auto-picked, no
-            project picker. Win-type doesn't apply; only the time filter carries. */}
+        {/* Resume banner (#183 follow-up): a task mid-flight is surfaced here
+            too, not only in the header chip. */}
+        {activeTask && (
+          <Link
+            to={`/play/progress/${activeTask.id}`}
+            className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-tint px-5 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+          >
+            <Play className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={0} aria-hidden />
+            Resume: <span className="max-w-[14rem] truncate">{activeTask.title}</span>
+          </Link>
+        )}
+
+        <h1 className="mb-5 text-center text-xl font-bold tracking-tight text-gray-800">
+          {heading}
+        </h1>
+
+        <button
+          type="button"
+          onClick={() => go('small')}
+          className="mb-2 flex w-full cursor-pointer items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
+        >
+          <span className="flex w-9 shrink-0 justify-center">
+            <Zap className="h-7 w-7 text-success" fill="currentColor" strokeWidth={0} aria-hidden />
+          </span>
+          <span>
+            <span className="block text-[15px] font-semibold text-gray-800">
+              Get small tasks done
+            </span>
+            <span className="mt-0.5 block text-xs text-muted">A quick, low-effort win</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => go('big')}
+          className="mb-2 flex w-full cursor-pointer items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
+        >
+          <span className="flex w-9 shrink-0 justify-center">
+            <Mountain className="h-7 w-7 text-primary" strokeWidth={2.25} aria-hidden />
+          </span>
+          <span>
+            <span className="block text-[15px] font-semibold text-gray-800">
+              Take on bigger issues
+            </span>
+            <span className="mt-0.5 block text-xs text-muted">
+              Real progress, worth more points
+            </span>
+          </span>
+        </button>
+
+        {/* Third path (#238): a MODE, not a size — win-type is ignored, only the
+            time filter carries. */}
         <button
           type="button"
           onClick={goProjects}
-          className="flex cursor-pointer items-center gap-3 rounded-2xl bg-surface p-4 text-left transition hover:bg-accent-tint sm:p-5"
+          className="flex w-full cursor-pointer items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
         >
-          {/* Dark on-fill icon: --color-accent is NOT tuned for white (unlike the
-              success/primary badges) — white on accent fails contrast, so use
-              text-on-accent per the palette rule. */}
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent">
-            <Layers className="h-6 w-6 text-on-accent" strokeWidth={2.5} aria-hidden />
+          <span className="flex w-9 shrink-0 justify-center">
+            <Layers className="h-7 w-7 text-accent" strokeWidth={2.25} aria-hidden />
           </span>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-lg font-bold text-accent-ink">Focus on projects</span>
-              <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-semibold text-accent-ink ring-1 ring-inset ring-accent/40">
-                Auto-picked
-              </span>
-            </div>
-            <div className="text-sm text-muted">We’ll pick the project closest to done</div>
-          </div>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold text-gray-800">Focus on projects</span>
+            <span className="mt-0.5 block text-xs text-muted">The project closest to done</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-accent-tint px-2.5 py-0.5 text-[11px] font-semibold text-accent-ink">
+            Auto-picked
+          </span>
         </button>
-      </div>
 
-      <div className="w-full max-w-md">
-        <p id="time-label" className="mb-2 text-sm font-medium text-muted">
+        <p id="time-label" className="mb-2.5 mt-5 text-center text-xs text-muted">
           How much time do you have?
         </p>
         <div
           role="radiogroup"
           aria-labelledby="time-label"
-          className="flex flex-wrap justify-center gap-2"
+          className="flex flex-wrap justify-center gap-1.5"
         >
           {TIME_OPTIONS.map((opt, i) => {
             const active = minutes === opt.minutes
@@ -176,10 +171,10 @@ export function Choice() {
                 tabIndex={active ? 0 : -1}
                 onClick={() => setMinutes(opt.minutes)}
                 onKeyDown={(e) => onPillKeyDown(e, i)}
-                className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                className={`h-8 cursor-pointer rounded-lg px-3.5 text-[13px] transition ${
                   active
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-surface text-muted hover:bg-primary-tint'
+                    ? 'bg-primary-deep font-semibold text-white'
+                    : 'bg-page/70 text-gray-700 hover:bg-field'
                 }`}
               >
                 {opt.label}

@@ -1,0 +1,45 @@
+/**
+ * The fixed project-colour palette (#268). `projects.color` stores an INDEX into
+ * this array — re-tuning a colour is a client-only change; adding a slot means
+ * bumping the server bound too (`ProjectsController::PALETTE_SIZE`).
+ *
+ * Each slot: a human name (swatch aria-labels) + the pole classes; `darkCheck`
+ * flags slots too light for the picker's white check mark. Slot 0 is the default.
+ */
+export type ProjectColor = { name: string; pole: string; darkCheck?: boolean }
+
+export const PROJECT_COLORS: ProjectColor[] = [
+  // A sliding scale through the spectrum (#256 review): 17 hues in even 18°
+  // steps (HSL, lightness tuned per band so yellows/greens hold up as poles) —
+  // the near-duplicate Jade/Blue/Magenta steps were dropped to make room for
+  // the three neutrals at the end (still 20 slots; PALETTE_SIZE unchanged).
+  // Projects store INDICES — this reshuffle recolours existing slots ≥7; any
+  // future change must append or swap in place, never reshuffle.
+  { name: 'Red', pole: 'bg-[#d11a1a]' },
+  { name: 'Vermilion', pole: 'bg-[#d1511a]' },
+  { name: 'Orange', pole: 'bg-[#d1881a]' },
+  { name: 'Amber', pole: 'bg-[#bfae18]' },
+  { name: 'Chartreuse', pole: 'bg-[#9dbf18]' },
+  { name: 'Lime', pole: 'bg-[#66b616]' },
+  { name: 'Green', pole: 'bg-[#36b616]' },
+  { name: 'Emerald', pole: 'bg-[#16b656]' },
+  { name: 'Mint', pole: 'bg-[#18bf8d]' },
+  { name: 'Cyan', pole: 'bg-[#18bfbf]' },
+  { name: 'Azure', pole: 'bg-[#188dbf]' },
+  { name: 'Sky', pole: 'bg-[#1a63d1]' },
+  { name: 'Indigo', pole: 'bg-[#3e1ad1]' },
+  { name: 'Violet', pole: 'bg-[#751ad1]' },
+  { name: 'Purple', pole: 'bg-[#ac1ad1]' },
+  { name: 'Pink', pole: 'bg-[#d11a88]' },
+  { name: 'Rose', pole: 'bg-[#d11a51]' },
+  // Neutrals (#256 review). White carries an inset ring so the pole/swatch
+  // stays visible on the white surface and cream page.
+  { name: 'Black', pole: 'bg-[#23201c]' },
+  { name: 'Grey', pole: 'bg-[#8a8f98]' },
+  { name: 'White', pole: 'bg-white ring-1 ring-inset ring-gray-300', darkCheck: true },
+]
+
+/** Pole class for a palette index, tolerant of out-of-range values. */
+export function projectPole(color: number | undefined): string {
+  return (PROJECT_COLORS[color ?? 0] ?? PROJECT_COLORS[0]).pole
+}

@@ -39,7 +39,9 @@ final class TasksController
      */
     public function index(Request $req, array $params): void
     {
-        $conditions = ['user_id = ?'];
+        // Conditions are t.-prefixed: the list query LEFT JOINs projects (#268)
+        // for the row's project name + colour, and both tables share column names.
+        $conditions = ['t.user_id = ?'];
         $args = [$req->userId];
 
         $status = $req->query('status');
@@ -48,7 +50,7 @@ final class TasksController
                 Response::error('Invalid status filter', 400);
                 return;
             }
-            $conditions[] = 'status = ?';
+            $conditions[] = 't.status = ?';
             $args[] = $status;
         }
 
@@ -56,13 +58,40 @@ final class TasksController
         // different axis than the status tabs). Covered by the (user_id, project_id)
         // index from #234's migration 010.
         if ($req->query('unassigned') === '1') {
-            $conditions[] = 'project_id IS NULL';
+            $conditions[] = 't.project_id IS NULL';
         }
+
+        // Per-project filter (#260, the backend half of #245): all of one owned
+        // project's tasks, any status. Non-enumerating — a project that isn't the
+        // caller's own 404s just like the rest of the Projects API (#129). Same
+        // (user_id, project_id) index as the unassigned axis.
+        $projectParam = $req->query('projectId');
+        if ($projectParam !== null) {
+            $projectId = self::positiveInt($projectParam);
+            if ($projectId === null) {
+                Response::error('Invalid project filter', 400);
+                return;
+            }
+            if (ProjectsController::findOwnedProject(Db::pdo(), $projectId, (int) $req->userId) === null) {
+                Response::error('Project not found', 404);
+                return;
+            }
+            $conditions[] = 't.project_id = ?';
+            $args[] = $projectId;
+        }
+
+        // The list ships each row's project name + colour (#268) and, for done
+        // tasks, the points actually earned (#256 review — points_log join;
+        // UNIQUE(task_id) keeps it 1:1) — no N+1 either way.
+        $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color,
+                    pl.total_points AS earned_points
+             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+             LEFT JOIN points_log pl ON pl.task_id = t.id';
 
         $paginated = $req->query('limit') !== null;
         if (!$paginated) {
             $stmt = Db::pdo()->prepare(
-                'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions) . ' ORDER BY id DESC',
+                $select . ' WHERE ' . implode(' AND ', $conditions) . ' ORDER BY t.id DESC',
             );
             $stmt->execute($args);
             Response::json(['tasks' => array_map([self::class, 'mapTask'], $stmt->fetchAll())]);
@@ -75,40 +104,50 @@ final class TasksController
             return;
         }
 
-        $before = $req->query('before');
-        $firstPage = $before === null;
-        if (!$firstPage) {
-            $cursor = self::positiveInt($before);
-            if ($cursor === null) {
-                Response::error('Invalid cursor', 400);
+        // OFFSET pagination (#262 — supersedes #100's keyset `before` cursor):
+        // prev/next + an exact "X–Y of Z" need random access and a filtered
+        // total; at personal-app scale the keyset advantage was moot. `offset`
+        // is 0-based; absent = the first page.
+        $offset = 0;
+        if ($req->query('offset') !== null) {
+            $parsed = self::nonNegativeInt($req->query('offset'));
+            if ($parsed === null) {
+                Response::error('Invalid offset', 400);
                 return;
             }
-            $conditions[] = 'id < ?';
-            $args[] = $cursor;
+            $offset = $parsed;
         }
 
-        // Fetch one extra row to detect whether a further page exists.
-        $stmt = Db::pdo()->prepare(
-            'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions)
-            . ' ORDER BY id DESC LIMIT ' . ($limit + 1),
+        $pdo = Db::pdo();
+        $where = ' WHERE ' . implode(' AND ', $conditions);
+
+        // Filtered total for the range label ("X–Y of Z") + pager bounds.
+        $count = $pdo->prepare('SELECT COUNT(*) FROM tasks t' . $where);
+        $count->execute($args);
+        $total = (int) $count->fetchColumn();
+
+        // Paginated list order (#256 review): OLDEST FIRST by default (the queue
+        // reads front-to-back like Play's age weighting); `order=desc` flips to
+        // newest-first (the toolbar's sort toggle). The legacy unbounded list
+        // above keeps its id DESC.
+        $orderParam = $req->query('order');
+        if ($orderParam !== null && $orderParam !== 'asc' && $orderParam !== 'desc') {
+            Response::error('Invalid order', 400);
+            return;
+        }
+        $order = $orderParam === 'desc' ? 'DESC' : 'ASC';
+        $stmt = $pdo->prepare(
+            $select . $where . " ORDER BY t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
-        $rows = $stmt->fetchAll();
 
-        $nextCursor = null;
-        if (count($rows) > $limit) {
-            $rows = array_slice($rows, 0, $limit);
-            $nextCursor = (int) $rows[count($rows) - 1]['id'];
-        }
-
-        $payload = [
-            'tasks' => array_map([self::class, 'mapTask'], $rows),
-            'nextCursor' => $nextCursor,
-        ];
-        if ($firstPage) {
-            $payload['counts'] = self::statusCounts(Db::pdo(), $req->userId);
-        }
-        Response::json($payload);
+        Response::json([
+            'tasks' => array_map([self::class, 'mapTask'], $stmt->fetchAll()),
+            'total' => $total,
+            // Global per-status counts (tab pills + the "ready to do" figure) ride
+            // every paginated response — two small indexed queries.
+            'counts' => self::statusCounts($pdo, $req->userId),
+        ]);
     }
 
     /**
@@ -185,7 +224,16 @@ final class TasksController
         $stmt = Db::pdo()->prepare('SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions));
         $stmt->execute($args);
         $candidates = array_map([self::class, 'mapTask'], $stmt->fetchAll());
-        Response::json(['task' => Selection::pick($candidates)]);
+        Response::json(['task' => Selection::pick($candidates, self::userStrategy((int) $req->userId))]);
+    }
+
+    /** The user's stored Play selection strategy (#266); defaults server-side. */
+    private static function userStrategy(int $userId): string
+    {
+        $stmt = Db::pdo()->prepare('SELECT selection_strategy FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $v = $stmt->fetchColumn();
+        return is_string($v) && $v !== '' ? $v : 'weightedByAge';
     }
 
     /**
@@ -489,6 +537,19 @@ final class TasksController
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
             'createdAt' => Timestamps::iso($r['created_at']),
             'updatedAt' => Timestamps::iso($r['updated_at']),
+            // Joined project name + colour (#268) — present only on the list
+            // query (the LEFT JOIN); single-task responses omit the key.
+            ...(array_key_exists('project_name', $r)
+                ? [
+                    'project' => $r['project_name'] !== null
+                        ? ['name' => $r['project_name'], 'color' => (int) $r['project_color']]
+                        : null,
+                ]
+                : []),
+            // Points actually earned (#256 review) — list only, null until done.
+            ...(array_key_exists('earned_points', $r)
+                ? ['earnedPoints' => $r['earned_points'] !== null ? (int) $r['earned_points'] : null]
+                : []),
         ];
     }
 
@@ -504,6 +565,12 @@ final class TasksController
         }
         $n = (int) $raw;
         return $n > 0 ? $n : null;
+    }
+
+    /** A non-negative int query param (`offset`, #262); null = invalid. */
+    private static function nonNegativeInt(?string $raw): ?int
+    {
+        return $raw !== null && ctype_digit($raw) ? (int) $raw : null;
     }
 
     /** A positive int from a typed JSON body value (projectId); null otherwise. */

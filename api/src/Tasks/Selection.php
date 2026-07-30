@@ -135,9 +135,14 @@ final class Selection
         ];
     }
 
-    /** The active strategy (swap this to change selection app-wide). */
-    public static function pick(array $candidates): ?array
+    /**
+     * Pick with the given strategy (#266: the per-user preference, from
+     * `users.selection_strategy`). Unknown names fall back to the default —
+     * a stale stored value can never break selection.
+     */
+    public static function pick(array $candidates, string $strategy = 'weightedByAge'): ?array
     {
-        return self::weightedByAge($candidates);
+        $fn = self::strategies()[$strategy] ?? [self::class, 'weightedByAge'];
+        return $fn($candidates);
     }
 }

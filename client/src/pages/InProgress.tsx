@@ -13,8 +13,15 @@ import {
   type Task,
 } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
-import { formatClock } from '@/lib/time'
+import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
+
+/** Effort → tint pill classes (#264; the #178 palette, AA dark-on-tint). */
+const EFFORT_PILL = {
+  low: 'bg-[#bfe9cd] text-on-success',
+  medium: 'bg-[#ffe3a0] text-on-warning',
+  high: 'bg-[#ffcdb8] text-on-primary',
+} as const
 
 /** Rotating "in progress" labels (#181) — a random one is picked per mount. */
 const WORKING_LABELS = [
@@ -182,11 +189,24 @@ export function InProgress() {
       eyebrow={workingLabel}
       title={<h1 className="text-xl font-bold text-gray-800">{task.title}</h1>}
       body={
-        task.description ? (
-          <p className="mt-2 text-left text-sm whitespace-pre-wrap text-gray-600">
-            {task.description}
-          </p>
-        ) : undefined
+        <>
+          {/* Effort + estimate pills (#264, prototype play-meta). */}
+          <div className="mt-2 flex justify-center gap-1.5">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${EFFORT_PILL[task.complexity]}`}
+            >
+              {task.complexity[0].toUpperCase() + task.complexity.slice(1)}
+            </span>
+            <span className="rounded-full bg-field px-2.5 py-0.5 text-[11px] font-semibold text-gray-700">
+              {task.estimatedMinutes} min estimate
+            </span>
+          </div>
+          {task.description && (
+            <p className="mt-2 text-left text-sm whitespace-pre-wrap text-gray-600">
+              {task.description}
+            </p>
+          )}
+        </>
       }
       hero={
         <div className="font-mono text-5xl font-bold tabular-nums text-gray-900">
@@ -255,13 +275,56 @@ export function InProgress() {
             type="button"
             onClick={() => void onComplete()}
             disabled={completing}
-            className="w-full cursor-pointer rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400"
+            className="w-full cursor-pointer rounded-control bg-success-deep py-3 text-lg font-semibold text-white transition hover:bg-success-deep-hover disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400"
           >
-            {completing ? 'Completing…' : 'Complete'}
+            {completing ? 'Completing…' : 'Mark done'}
           </button>
         </>
       }
+      secondary={<AlsoRunning currentId={task.id} />}
       footer="You can leave any time — this task stays in progress until you complete it."
     />
+  )
+}
+
+/**
+ * Other parallel running tasks (#256 review), listed under the card's CTA —
+ * clicking one swaps it into this screen (a plain navigate: the route decides
+ * which task is the main card, so back/refresh keep working). Each row ticks
+ * its own clock off `startedAt`, same anchor as the main timer.
+ */
+function AlsoRunning({ currentId }: { currentId: number }) {
+  const { activeTasks } = useInProgress()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const others = activeTasks.filter((t) => t.id !== currentId)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (others.length === 0) return
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [others.length])
+  if (others.length === 0) return null
+  const qs = params.toString()
+  return (
+    <div className="border-t border-field pt-3 text-left">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        Also running
+      </div>
+      {others.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => navigate(`/play/progress/${t.id}${qs ? `?${qs}` : ''}`)}
+          aria-label={`Switch to ${t.title}`}
+          className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page"
+        >
+          <span className="min-w-0 truncate font-medium text-gray-800">{t.title}</span>
+          <span className="flex-none font-mono text-xs tabular-nums text-muted">
+            {formatClock(elapsedSecondsSince(t.startedAt, now))}
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }

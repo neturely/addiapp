@@ -1,13 +1,29 @@
 import { apiRequest } from './api'
 import type { AuthUser } from '@/auth/authContext'
 
-/** Update the display name (#187). Returns the refreshed public user. */
-export async function updateAccount(input: { displayName: string }): Promise<AuthUser> {
+/** Update the display name and/or Play selection strategy (#187, #266). */
+export async function updateAccount(input: {
+  displayName?: string
+  selectionStrategy?: string
+}): Promise<AuthUser> {
   const { user } = await apiRequest<{ user: AuthUser }>('/account', {
     method: 'PATCH',
     body: JSON.stringify(input),
   })
   return user
+}
+
+/** Revoke every OTHER session (#266) — the "Sign out other devices" action. */
+export async function logoutOtherDevices(): Promise<void> {
+  await apiRequest<void>('/auth/logout-others', { method: 'POST' })
+}
+
+/** Permanently delete the account (#266). Requires the current password. */
+export async function deleteAccount(password: string): Promise<void> {
+  await apiRequest<void>('/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ password }),
+  })
 }
 
 /** Change the password (#187) — requires the current one; keeps this session. */

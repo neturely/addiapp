@@ -1,4 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { Check } from 'lucide-react'
+import { Button } from '@/components/Button'
+import { PROJECT_COLORS } from '@/lib/projectColors'
 
 // Mirror the server's validation (#234) so we fail fast client-side.
 const MAX_NAME = 255
@@ -8,6 +11,8 @@ export type ProjectFormValues = {
   name: string
   /** '' means "no description" (normalized to NULL server-side). */
   description: string
+  /** Palette index (#268). */
+  color: number
 }
 
 type ProjectFormProps = {
@@ -33,8 +38,26 @@ export function ProjectForm({
 }: ProjectFormProps) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
+  const [color, setColor] = useState(initial?.color ?? 0)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Roving-tabindex radiogroup for the colour swatches (#268), matching the
+  // TaskForm effort-tile pattern (#197): only the checked swatch is tabbable;
+  // arrow keys move selection + focus together (WAI-ARIA radio pattern).
+  const swatchRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onSwatchKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = PROJECT_COLORS.length - 1
+    let next = index
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = last
+    else return
+    e.preventDefault()
+    setColor(next)
+    swatchRefs.current[next]?.focus()
+  }
 
   async function handle(e: FormEvent) {
     e.preventDefault()
@@ -48,7 +71,7 @@ export function ProjectForm({
 
     setSubmitting(true)
     try {
-      await onSubmit({ name: trimmed, description: description.trim() })
+      await onSubmit({ name: trimmed, description: description.trim(), color })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -91,29 +114,65 @@ export function ProjectForm({
         />
       </div>
 
+      <div>
+        <span id="project-color-label" className="mb-2 block text-sm font-medium text-gray-600">
+          Colour
+        </span>
+        {/* 20 swatches in two rows of 10 (#256 review). */}
+        <div
+          role="radiogroup"
+          aria-labelledby="project-color-label"
+          className="grid grid-cols-10 gap-2"
+        >
+          {PROJECT_COLORS.map((c, i) => {
+            const checked = color === i
+            return (
+              <button
+                key={c.name}
+                ref={(el) => {
+                  swatchRefs.current[i] = el
+                }}
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                aria-label={c.name}
+                tabIndex={checked ? 0 : -1}
+                onClick={() => setColor(i)}
+                onKeyDown={(e) => onSwatchKeyDown(e, i)}
+                className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ${c.pole} transition ${
+                  checked ? 'ring-2 ring-gray-800 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
+                }`}
+              >
+                {checked && (
+                  <Check
+                    className={`h-4 w-4 ${c.darkCheck ? 'text-gray-800' : 'text-white'}`}
+                    strokeWidth={3}
+                    aria-hidden
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {error && (
         <p role="alert" className="text-sm text-red-600">
           {error}
         </p>
       )}
 
+      {/* Standard button sizing (#256 review — the shared system's `lg`, the
+          same as the right column's Play CTA; no more oversized text-xl pair). */}
       <div className="flex gap-3">
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 cursor-pointer rounded-lg bg-gray-100 py-3 text-xl font-bold text-gray-700 transition hover:bg-gray-200"
-          >
+          <Button type="button" variant="secondary" size="lg" className="flex-1" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex-1 cursor-pointer rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
-        >
+        <Button type="submit" size="lg" className="flex-1" disabled={submitting}>
           {submitting ? submittingLabel : submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   )

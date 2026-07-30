@@ -7,6 +7,8 @@ export type AuthUser = {
   // MD5 of the normalized email, computed server-side (#174) for the Gravatar
   // avatar. Optional so a stale cached response degrades to the initials avatar.
   gravatarHash?: string
+  /** Play selection strategy (#266); optional for stale cached responses. */
+  selectionStrategy?: string
 }
 
 export type AuthContextValue = {

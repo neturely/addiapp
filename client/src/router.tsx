@@ -8,8 +8,7 @@ import { ConfirmEmailChange } from '@/pages/ConfirmEmailChange'
 import { Choice } from '@/pages/Choice'
 import { TaskPresented } from '@/pages/TaskPresented'
 import { InProgress } from '@/pages/InProgress'
-import { AddTask } from '@/pages/AddTask'
-import { EditTask } from '@/pages/EditTask'
+import { TaskView } from '@/pages/TaskView'
 import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
 import { Settings } from '@/pages/Settings'
@@ -38,8 +37,12 @@ export const router = createBrowserRouter([
           { path: '/play', element: <Choice /> },
           { path: '/play/task', element: <TaskPresented /> },
           { path: '/play/progress/:id', element: <InProgress /> },
-          { path: '/tasks/new', element: <AddTask /> },
-          { path: '/tasks/:id/edit', element: <EditTask /> },
+          // The open-in-place task view (#262) — the ONE task surface: create
+          // (/tasks/new, #256 review — the AddTask page is gone), edit, and the
+          // old /tasks/:id/edit deep links all land here.
+          { path: '/tasks/new', element: <TaskView /> },
+          { path: '/tasks/:id', element: <TaskView /> },
+          { path: '/tasks/:id/edit', element: <TaskView /> },
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/stats', element: <Stats /> },
           { path: '/settings', element: <Settings /> },

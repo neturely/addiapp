@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-30
+### Added
+- GUI refresh (epic [#256](https://github.com/neturely/addiapp/issues/256)) — a full app-shell redesign: header with search + icon nav, collapsible rail (task filters + per-project entries with live counts), right column with the Play card and Today/All-time stats ([#260](https://github.com/neturely/addiapp/issues/260))
+- Task view at `/tasks/:id` — the single task surface for viewing, editing, and creating (extensible field grid + a served points forecast), replacing the AddTask page, edit modal, and inline row editing ([#262](https://github.com/neturely/addiapp/issues/262))
+- Dashboard as a single-line row list — offset pagination with exact ranges, URL-driven filters/sort (newest first), combined time/points cell, one-click play on ready rows ([#262](https://github.com/neturely/addiapp/issues/262))
+- Parallel running tasks — every started task keeps its own timer: stacked mirrors in the right column with click-to-swap, a +N header-chip badge, live row timers, an "Also running" switcher on the progress screen, and an in-column completion celebration with confetti (#256 review rounds)
+- Project colours — a 20-slot palette (17-hue spectrum + black/grey/white) with colour poles in the rail, cards, and task rows ([#268](https://github.com/neturely/addiapp/issues/268))
+- Per-user Play selection-strategy preference, account deletion, and "Sign out other devices" on a consolidated single-surface Settings page ([#266](https://github.com/neturely/addiapp/issues/266))
+- Archived projects view with Unarchive, and per-project task browsing from the rail ([#248](https://github.com/neturely/addiapp/issues/248), [#245](https://github.com/neturely/addiapp/issues/245))
+### Changed
+- Play choice restyled as a single card; InProgress gains effort/estimate pills and a "Mark done" CTA ([#264](https://github.com/neturely/addiapp/issues/264))
+- Stats tiles moved to tint + ink for readability; Stats is a solo surface reached from the header when the right column is hidden ([#254](https://github.com/neturely/addiapp/issues/254))
+- Toasts stack (up to 5) with independent timers, bottom-right on desktop ([#256](https://github.com/neturely/addiapp/issues/256) review)
+- Self-hosted Inter as the app font; shared button system on AA-verified deep fills; a full danger hue ([#258](https://github.com/neturely/addiapp/issues/258))
+- The rail becomes an overlay drawer below 640px; touch targets ≥44px ([#270](https://github.com/neturely/addiapp/issues/270))
+- Docs sync — Projects epic into PROJECT_SPEC + README rewrite + CLAUDE.md currency ([#252](https://github.com/neturely/addiapp/issues/252))
+
 ## [1.9.0] - 2026-07-21
 ### Added
 - Projects — group tasks into projects, managed from a new Projects view on the Dashboard (create, edit, archive, and per-project progress) ([#234](https://github.com/neturely/addiapp/issues/234))
@@ -100,7 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/neturely/addiapp/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/neturely/addiapp/compare/v1.6.0...v1.7.0
