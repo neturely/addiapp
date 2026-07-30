@@ -5,7 +5,9 @@
 > #25–#70, and re-synced 2026-07-13 for the **PHP backend rewrite (#77)**, the
 > **deploy pipeline (#39)**, and **live production email (#65)**; currency pass
 > 2026-07-29 (post-1.9.0 — Projects follow-ups #245/#248 + the #250 recurring/snooze
-> spec filed). Most core
+> spec filed); GUI-refresh sync 2026-07-30 (**epic #256 complete** — shell/rail/right
+> column, TaskView, offset pagination, palette, parallel running tasks; #292 points
+> integrity + #295 mobile pass filed). Most core
 > decisions are settled; open items live in the Open decisions log. Where this
 > file and the code disagree, the code (on `develop`) wins — update this file.
 
@@ -219,11 +221,14 @@ to the old Node API.
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
   **Colours (#268, GUI-refresh epic #256 F):** `projects.color` (migration 014, `TINYINT NOT NULL DEFAULT 0`)
-  is a **palette INDEX, not a hex** — the fixed 8-slot palette lives in `client/src/lib/projectColors.ts`
-  (`projectPole()` helper); the server only bounds it (`ProjectsController::PALETTE_SIZE` — bump BOTH when
+  is a **palette INDEX, not a hex** — the fixed **20-slot** palette lives in `client/src/lib/projectColors.ts`
+  (`projectPole()` helper; #256 review rounds grew it 8→20 then re-cut it): a **17-hue spectrum slide**
+  (even 18° HSL steps, per-band lightness) + **Black/Grey/White neutrals** at slots 17–19. White's pole
+  class carries an inset ring (visible on white/cream) and a `darkCheck` flag (the picker's check goes
+  dark on it). Reordering recolours stored indices — append or swap in place only (noted in-file). The
+  server only bounds it (`ProjectsController::PALETTE_SIZE = 20` — bump BOTH when
   adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
-  roving-tabindex swatch radiogroup; poles render in the rail, project cards, and the Dashboard project
-  banner. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
+  roving-tabindex swatch radiogroup (two rows of 10); poles render in the rail, project cards, and task rows. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
   so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
@@ -237,14 +242,29 @@ to the old Node API.
   is **"Mark done"** on `success-deep` (e2e greps updated); the shell right column
   carries a **running-task mirror** (`RunningMirror` in `RightColumn.tsx` — live
   clock off `startedAt`, speed-bonus deadline, Open + **Mark done from the
-  column**, which toasts the points, refreshes `InProgressProvider` imperatively
-  and fires `PROJECTS_CHANGED_EVENT` for the rail). **No Pause** — deliberate
+  column**, which refreshes `InProgressProvider` imperatively and fires
+  `PROJECTS_CHANGED_EVENT` for the rail). **Parallel running tasks (#256 review
+  rounds): first-class.** `InProgressProvider` exposes **`activeTasks`** (ALL
+  in-progress, most-recent first; `activeTask` = head). The column card shows a
+  hero mirror + a **compact mirror per extra task** (own clock, one-tap done,
+  click-title-to-**swap into the hero slot**); the header `TimerChip` gains a
+  **+N pill** when others run; Dashboard Started rows tick a live `RowTimer`;
+  the InProgress screen lists the others under the CTA (**"Also running"** —
+  click navigates, swapping the main card). **In-column Mark done = a ~5s card
+  CELEBRATION** (shared `components/confetti.ts` accents + celebrating mascot +
+  a `role=status` "+N points" panel — NOT a toast; the still-running list stays
+  clickable under it). **No Pause** — deliberate
   epic scope cut. A mid-flight task is surfaced by the Choice Resume banner, the
   header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
-  name · effort tint pill · **title — description** (truncated) · estimate · base
-  points (from `GET /api/points`). **A row opens the task in place at `/tasks/:id`
+  name · effort tint pill · **title — description** (truncated) · ONE combined
+  **"10 min / 5 pts"** cell (#256 review — minutes muted, points **gold**
+  `text-warning-ink`, same size/weight; done rows show the EARNED "+N pts" in
+  gold via the list's `points_log` join; base from `GET /api/points`). Ready
+  rows: hovering (or focusing) swaps the pole for a **play button in the pole
+  cell** at `sm+` (start + jump to InProgress; a trailing always-visible button
+  serves below `sm`); Started rows tick a live **`RowTimer`**. **A row opens the task in place at `/tasks/:id`
   (`pages/TaskView.tsx`) — THE one edit path**: the old inline row-swap edit, the
   #218 `EditTaskModal`, and the `EditTask` page are **deleted** (`/tasks/:id/edit`
   deep links land on the same view). The task view: back bar → borderless title
@@ -546,11 +566,13 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   with `skipUnauthorizedHandler`).
 - **Toasts (#176)**: app-wide transient notices go through the `ToastProvider` (`client/src/toast/`,
   mounted once in `AppLayout`) via `useToast().showToast({ message, icon, tone, action, duration })`.
-  One toast at a time, colored icon badge (tone → badge fill), optional inline action, auto-dismiss
+  Toasts **STACK** (up to 5, mount-stable per-pill timers — #256 review; bottom-centre mobile,
+  bottom-right desktop), colored icon badge (tone → badge fill), optional inline action, auto-dismiss
   (pauses on hover/focus), `role="status"`. It lives above the routes so a toast survives the
   navigation that raised it (e.g. AddTask fires one, then returns to the origin route). Prefer it
   over a bespoke per-page toast. (The old Dashboard undo-delete toast is gone — #262 replaced
-  deferred-delete with a confirm dialog in the task view; every toast now rides the provider.)
+  deferred-delete with a confirm dialog in the task view. **In-column completion does NOT toast** —
+  the right-column card's confetti celebration is the reward there; error toasts stay.)
 - **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
   loading indicators and the shared toast use `role="status"` (toast also
   `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).
@@ -676,6 +698,16 @@ Genuinely still open:
   entry → `?view=projects&archived=1` (ProjectsView archived grid + **Unarchive**);
   `GET /api/projects?status=archived|all` (default still active-only); archived
   projects' tasks browsable per-project via `?projectId=`.
+- [ ] Points integrity / anti-cheat — **#292** (filed 2026-07-30): the scoring is
+  trivially gameable (fabricated tasks, inflated self-set estimates, timer
+  re-arming, volume/multiplier farming, throwaway-project #240 bonuses) —
+  acceptable while points are private, must be designed BEFORE any leaderboard.
+  Candidate levers in the issue; a separate regulated "competitive score" (personal
+  score stays generous) may be the cleanest. Blocks any future leaderboard issue.
+- [ ] Mobile phone-width pass — **#295** (filed 2026-07-30): #270 was a no-breakage
+  responsive pass; a real phone design pass (360px-class, row content choices,
+  touch running-task UX, dvh/safe-areas, real-device verification) is deferred
+  post-#256.
 - [ ] Recurring tasks + "snooze until" — **#250** (spec agreed 2026-07-29, ready to
   build): clone-per-occurrence on completion + a nullable `available_from` date
   (excluded from Play selection), per-task rules (every-N-days/weeks or
