@@ -167,7 +167,10 @@ to the old Node API.
   `id DESC`) — **absent `limit` = the legacy unbounded list**, so `fetchTasks()` / InProgressProvider
   are untouched; with `limit` it returns `{ tasks, nextCursor, counts? }` where `counts` (a per-status
   `GROUP BY`) rides **only the first page**. Bad `limit`/`before` → 400. Cross-user access is **404,
-  not 403** (non-enumerating; locked by #129's test). Index `(user_id, status)` (migration 006) covers
+  not 403** (non-enumerating; locked by #129's test). **`?projectId=` (#260, the backend half of
+  #245)** filters to one owned project's tasks (any status; foreign id → 404) — the rail's
+  per-project entries land on `/dashboard?project=ID` (banner + every status; the same param WITH
+  `tab=unassigned` stays the #236 assign ride-along). Index `(user_id, status)` (migration 006) covers
   the keyset query (InnoDB appends the PK → no filesort).
 - **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
   (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
@@ -228,7 +231,9 @@ to the old Node API.
   + adjust the cached counts client-side (a status change off the active filter drops
   the row). Column sort applies over the **loaded** rows (default order == server
   order, so exact until a non-default sort on a partially-loaded list).
-- **Add task (#35)**: `/tasks/new`. **Points card (#37)**. **Stats page (#38)**: `/stats`.
+- **Add task (#35)**: `/tasks/new`. **Stats page (#38)**: `/stats` — since #260 the
+  **narrow-viewport stats surface** (header Stats icon when the right column isn't
+  rendered); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200)**: `/settings` (gear nav) — account management. `AccountController`:
   `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
   empty→NULL, now also enforced on register) + `POST /api/account/password` (needs current
@@ -303,14 +308,41 @@ All Play-mode and dashboard screens are implemented and live (#29–#38, #69). T
 only screens not built are the marketing/landing homepage (#40) and user
 guide/help content (#41) — both unscoped.
 
-App shell (#92): authenticated routes render inside `AppLayout` (Header → Outlet
-→ Footer). The Header nav is icon-only **Play + Dashboard + Settings (gear, #187)** —
-the initials **avatar is the Stats link** (avatar-as-Stats is a deliberate #92
-decision, not a missing nav item), and logout lives in the Footer. Add-task is a
-Header CTA button. A live **in-progress timer chip** (#135) sits left of the Play
-icon when a task is in progress — `InProgressProvider` (wrapping `AppLayout`)
-tracks the most-recently-started in-progress task (fetch on mount + route change,
-no polling); `TimerChip` ticks client-side off `startedAt` and links to
+**App shell (#260, GUI-refresh epic #256 — supersedes the #92 shell):** authed
+routes render inside `AppLayout` as a fixed-viewport frame — Header on top, then
+**rail | scrolling content | right column**, then a thin footer; the three middle
+panes scroll internally (`h-screen`, `min-h-0`). Pieces:
+- **Header** (`Header.tsx`): hamburger (rail toggle) + wordmark + **search field**
+  + icon nav (**Dashboard + Play + Settings**, `bg-primary-tint` active state) +
+  right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
+  Account settings + **Sign out**; logout moved here from the Footer). The old
+  header "Add task" CTA moved to the rail's Tasks plus. A **Stats icon appears
+  ONLY when the right column isn't rendered** (narrow viewport, toggled off, or
+  solo mode) — the epic acceptance that points are never invisible; the
+  **avatar-as-Stats #92 decision is reversed**.
+- **Rail** (`Rail.tsx`, `w-56`, collapsible, hidden `< sm` until G): Tasks section
+  (All / Unassigned / Completed → the Dashboard's `?tab=` filters, counts from the
+  server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
+  client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
+  inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
+- **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in
+  solo): idle Play card (mascot half-out) + **Today** panel (points, tasks, the
+  multiplier track — cap/`capTaskNumber` **served** on `GET /api/points/stats`, never
+  hardcoded) + **All-time** tint tiles. Refetches on route change, no polling. The
+  running-task mirror lands in D (#264). **`PointsCard` is deleted** (the column
+  replaced it on the Dashboard).
+- **Solo mode**: `/play*` hides rail + column + search — Play is the focus surface.
+- **Stats page survives** as the narrow-viewport surface at `/stats` (reached via
+  the conditional header icon); it is no longer in any desktop nav path.
+- Shell state lives in `client/src/shell/` (`ShellProvider`/`useShell`: search text,
+  rail/column toggles, `solo`, `wide`, `columnVisible`); `hooks/useMediaQuery.ts` is
+  the JS breakpoint seam. **e2e: `client/e2e/shell.mjs`** covers solo mode, toggles,
+  the Stats-icon rule, the avatar disclosure, and search.
+
+A live **in-progress timer chip** (#135) sits in the header right cluster when a
+task is in progress — `InProgressProvider` (wrapping `AppLayout`) tracks the
+most-recently-started in-progress task (fetch on mount + route change, no
+polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
 
 Shared **`PlayCard`** (`components/PlayCard.tsx`, #204 epic / #208 Phase 1 / #211
@@ -578,9 +610,10 @@ Genuinely still open:
 - [ ] Real mascot art — the **v3 "star character" is now LIVE (#210, superseding the v2 icon
   #96); the half-out PlayCard placement shipped (#211).** Still SVG icon art, so this is
   *advanced, not closed* — illustrated art remains a later pass.
-- [ ] Archived-projects visibility — **#248** (filed 2026-07-29): an "Archived" entry
-  point on both Dashboard views + Unarchive; archiving currently makes a project
-  invisible (deliberate v1 cut in #234, but it reads as data loss in live use).
+- [x] Archived-projects visibility — **#248, RESOLVED by #260**: the rail's Archived
+  entry → `?view=projects&archived=1` (ProjectsView archived grid + **Unarchive**);
+  `GET /api/projects?status=archived|all` (default still active-only); archived
+  projects' tasks browsable per-project via `?projectId=`.
 - [ ] Recurring tasks + "snooze until" — **#250** (spec agreed 2026-07-29, ready to
   build): clone-per-occurrence on completion + a nullable `available_from` date
   (excluded from Play selection), per-task rules (every-N-days/weeks or

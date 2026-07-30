@@ -21,24 +21,39 @@ final class ProjectsController
     private const STATUS = ['active', 'archived'];
 
     /**
-     * GET /api/projects — the user's ACTIVE projects, each with remaining +
-     * total task counts for the "3 of 7 remaining" sub-label. total = every
-     * task in the project; remaining = status <> 'done'. One grouped query
-     * (LEFT JOIN so a project with no tasks still returns 0/0).
+     * GET /api/projects[?status=active|archived|all] — the user's projects, each
+     * with remaining + total task counts for the "3 of 7 remaining" sub-label.
+     * total = every task in the project; remaining = status <> 'done'. One
+     * grouped query (LEFT JOIN so a project with no tasks still returns 0/0).
+     * Default stays ACTIVE-only (pre-#260 callers unaffected); `archived`/`all`
+     * are the opt-in for the archived-browsing view (#248 → #260).
      */
     public function index(Request $req, array $params): void
     {
+        $filter = $req->query('status') ?? 'active';
+        if (!in_array($filter, ['active', 'archived', 'all'], true)) {
+            Response::error('Invalid status filter', 400);
+            return;
+        }
+
+        $conditions = ['p.user_id = ?'];
+        $args = [$req->userId];
+        if ($filter !== 'all') {
+            $conditions[] = 'p.status = ?';
+            $args[] = $filter;
+        }
+
         $stmt = Db::pdo()->prepare(
             'SELECT p.*,
                     COUNT(t.id) AS total_count,
                     SUM(CASE WHEN t.status <> \'done\' THEN 1 ELSE 0 END) AS remaining_count
              FROM projects p
              LEFT JOIN tasks t ON t.project_id = p.id AND t.user_id = p.user_id
-             WHERE p.user_id = ? AND p.status = \'active\'
+             WHERE ' . implode(' AND ', $conditions) . '
              GROUP BY p.id
              ORDER BY p.id DESC',
         );
-        $stmt->execute([$req->userId]);
+        $stmt->execute($args);
         Response::json(['projects' => array_map([self::class, 'mapProject'], $stmt->fetchAll())]);
     }
 

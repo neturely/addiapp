@@ -59,6 +59,25 @@ final class TasksController
             $conditions[] = 'project_id IS NULL';
         }
 
+        // Per-project filter (#260, the backend half of #245): all of one owned
+        // project's tasks, any status. Non-enumerating — a project that isn't the
+        // caller's own 404s just like the rest of the Projects API (#129). Same
+        // (user_id, project_id) index as the unassigned axis.
+        $projectParam = $req->query('projectId');
+        if ($projectParam !== null) {
+            $projectId = self::positiveInt($projectParam);
+            if ($projectId === null) {
+                Response::error('Invalid project filter', 400);
+                return;
+            }
+            if (ProjectsController::findOwnedProject(Db::pdo(), $projectId, (int) $req->userId) === null) {
+                Response::error('Project not found', 404);
+                return;
+            }
+            $conditions[] = 'project_id = ?';
+            $args[] = $projectId;
+        }
+
         $paginated = $req->query('limit') !== null;
         if (!$paginated) {
             $stmt = Db::pdo()->prepare(

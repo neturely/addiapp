@@ -29,6 +29,9 @@ export type UserStats = {
     currentMultiplier: number
   }
   streak: { currentDays: number }
+  /** Multiplier config (#260) — served from PointsConfig so the right-column
+   * progress track never hardcodes points numbers client-side. */
+  multiplier: { cap: number; capTaskNumber: number }
 }
 
 export async function fetchUserStats(): Promise<UserStats> {

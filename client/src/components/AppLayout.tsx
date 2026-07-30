@@ -2,7 +2,11 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from './Header'
 import { Footer } from './Footer'
+import { Rail } from './Rail'
+import { RightColumn } from './RightColumn'
 import { InProgressProvider } from '@/inprogress/InProgressProvider'
+import { ShellProvider } from '@/shell/ShellProvider'
+import { useShell } from '@/shell/useShell'
 import { ToastProvider } from '@/toast/ToastProvider'
 
 /**
@@ -24,42 +28,53 @@ function RouteFocus() {
 }
 
 /**
- * Persistent shell for every authed screen (visual refresh v2, #92): Header →
- * page → Footer on the cream page background. Inserted once at the ProtectedRoute
- * seam so all authed routes (incl. Play mode) gain it.
+ * Persistent shell for every authed screen (#260, superseding the #92 column):
+ * Header on top, then rail | content | right column, then a thin footer — a
+ * fixed-viewport (h-screen) frame where the three middle panes scroll
+ * internally. Play routes are solo mode (rail/column/search hidden — focus
+ * surface); the Header shows a Stats icon whenever the column isn't rendered so
+ * points stay reachable at every width.
  *
- * The shell is a full-height flex column (header + flex-1 content + footer) and
- * OWNS page height: the `.app-shell-content` rule in index.css neutralizes any
- * page-level `min-h-screen` so the footer sits at the viewport bottom on short
- * content and is pushed down (never overlapped) on long content — independent of
- * each page's internals (the per-screen `min-h-screen` cleanup is retrofit #94).
- *
- * A11Y (#126): a skip link jumps keyboard users past the Header nav to the
- * content region (`#main-content`, a `tabIndex=-1` focus target that also backs
- * RouteFocus). Each page keeps its own `<main>` landmark inside it.
+ * A11Y (#126): the skip link jumps past the chrome to `#main-content` (the
+ * scrolling content pane, also RouteFocus's target). Pages keep their own
+ * `<main>` landmark; `.app-shell-content` still neutralizes page-level
+ * `min-h-screen`.
  */
+function ShellFrame() {
+  const { solo, railOpen, columnVisible } = useShell()
+  return (
+    <div className="flex h-screen flex-col bg-page">
+      <RouteFocus />
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:font-semibold focus:text-on-primary"
+      >
+        Skip to main content
+      </a>
+      <Header />
+      <div className="flex min-h-0 flex-1">
+        {!solo && railOpen && <Rail />}
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className="app-shell-content flex min-w-0 flex-1 flex-col overflow-y-auto focus:outline-none"
+        >
+          <Outlet />
+        </div>
+        {columnVisible && <RightColumn />}
+      </div>
+      <Footer />
+    </div>
+  )
+}
+
 export function AppLayout() {
   return (
     <InProgressProvider>
       <ToastProvider>
-        <div className="flex min-h-screen flex-col bg-page">
-          <RouteFocus />
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:font-semibold focus:text-on-primary"
-          >
-            Skip to main content
-          </a>
-          <Header />
-          <div
-            id="main-content"
-            tabIndex={-1}
-            className="app-shell-content flex flex-1 flex-col focus:outline-none"
-          >
-            <Outlet />
-          </div>
-          <Footer />
-        </div>
+        <ShellProvider>
+          <ShellFrame />
+        </ShellProvider>
       </ToastProvider>
     </InProgressProvider>
   )
