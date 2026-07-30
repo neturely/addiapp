@@ -371,7 +371,7 @@ export function Dashboard() {
                         </button>
                       )}
                       <span
-                        className={`h-2 w-2 rounded-[3px] ${
+                        className={`pointer-events-none h-2 w-2 rounded-[3px] ${
                           task.project ? projectPole(task.project.color) : 'bg-gray-300'
                         } ${task.status === 'backlog' ? 'sm:peer-focus-visible:opacity-0 sm:group-hover:opacity-0' : ''}`}
                         aria-hidden
