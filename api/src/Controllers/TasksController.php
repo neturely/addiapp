@@ -123,11 +123,18 @@ final class TasksController
         $count->execute($args);
         $total = (int) $count->fetchColumn();
 
-        // Paginated list order is OLDEST FIRST (#256 review — the toolbar labels
-        // it, and the queue reads front-to-back like Play's age weighting). The
-        // legacy unbounded list above keeps its id DESC.
+        // Paginated list order (#256 review): OLDEST FIRST by default (the queue
+        // reads front-to-back like Play's age weighting); `order=desc` flips to
+        // newest-first (the toolbar's sort toggle). The legacy unbounded list
+        // above keeps its id DESC.
+        $orderParam = $req->query('order');
+        if ($orderParam !== null && $orderParam !== 'asc' && $orderParam !== 'desc') {
+            Response::error('Invalid order', 400);
+            return;
+        }
+        $order = $orderParam === 'desc' ? 'DESC' : 'ASC';
         $stmt = $pdo->prepare(
-            $select . $where . ' ORDER BY t.id ASC LIMIT ' . $limit . ' OFFSET ' . $offset,
+            $select . $where . " ORDER BY t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
 

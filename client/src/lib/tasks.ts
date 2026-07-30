@@ -126,6 +126,8 @@ export async function fetchTasksPage(opts: {
   projectId?: number
   limit: number
   offset?: number
+  /** Row order: 'asc' (oldest first, the default) or 'desc' (newest first). */
+  order?: 'asc' | 'desc'
 }): Promise<TaskPage> {
   const params = new URLSearchParams()
   if (opts.status) params.set('status', opts.status)
@@ -133,6 +135,7 @@ export async function fetchTasksPage(opts: {
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   params.set('limit', String(opts.limit))
   if (opts.offset) params.set('offset', String(opts.offset))
+  if (opts.order === 'desc') params.set('order', 'desc')
   return requestJson<TaskPage>(`/tasks?${params.toString()}`)
 }
 
