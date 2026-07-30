@@ -101,40 +101,40 @@ final class TasksController
             return;
         }
 
-        $before = $req->query('before');
-        $firstPage = $before === null;
-        if (!$firstPage) {
-            $cursor = self::positiveInt($before);
-            if ($cursor === null) {
-                Response::error('Invalid cursor', 400);
+        // OFFSET pagination (#262 — supersedes #100's keyset `before` cursor):
+        // prev/next + an exact "X–Y of Z" need random access and a filtered
+        // total; at personal-app scale the keyset advantage was moot. `offset`
+        // is 0-based; absent = the first page.
+        $offset = 0;
+        if ($req->query('offset') !== null) {
+            $parsed = self::nonNegativeInt($req->query('offset'));
+            if ($parsed === null) {
+                Response::error('Invalid offset', 400);
                 return;
             }
-            $conditions[] = 't.id < ?';
-            $args[] = $cursor;
+            $offset = $parsed;
         }
 
-        // Fetch one extra row to detect whether a further page exists.
-        $stmt = Db::pdo()->prepare(
-            $select . ' WHERE ' . implode(' AND ', $conditions)
-            . ' ORDER BY t.id DESC LIMIT ' . ($limit + 1),
+        $pdo = Db::pdo();
+        $where = ' WHERE ' . implode(' AND ', $conditions);
+
+        // Filtered total for the range label ("X–Y of Z") + pager bounds.
+        $count = $pdo->prepare('SELECT COUNT(*) FROM tasks t' . $where);
+        $count->execute($args);
+        $total = (int) $count->fetchColumn();
+
+        $stmt = $pdo->prepare(
+            $select . $where . ' ORDER BY t.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
-        $rows = $stmt->fetchAll();
 
-        $nextCursor = null;
-        if (count($rows) > $limit) {
-            $rows = array_slice($rows, 0, $limit);
-            $nextCursor = (int) $rows[count($rows) - 1]['id'];
-        }
-
-        $payload = [
-            'tasks' => array_map([self::class, 'mapTask'], $rows),
-            'nextCursor' => $nextCursor,
-        ];
-        if ($firstPage) {
-            $payload['counts'] = self::statusCounts(Db::pdo(), $req->userId);
-        }
-        Response::json($payload);
+        Response::json([
+            'tasks' => array_map([self::class, 'mapTask'], $stmt->fetchAll()),
+            'total' => $total,
+            // Global per-status counts (tab pills + the "ready to do" figure) ride
+            // every paginated response — two small indexed queries.
+            'counts' => self::statusCounts($pdo, $req->userId),
+        ]);
     }
 
     /**
@@ -539,6 +539,12 @@ final class TasksController
         }
         $n = (int) $raw;
         return $n > 0 ? $n : null;
+    }
+
+    /** A non-negative int query param (`offset`, #262); null = invalid. */
+    private static function nonNegativeInt(?string $raw): ?int
+    {
+        return $raw !== null && ctype_digit($raw) ? (int) $raw : null;
     }
 
     /** A positive int from a typed JSON body value (projectId); null otherwise. */

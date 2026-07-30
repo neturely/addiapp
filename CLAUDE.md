@@ -163,10 +163,11 @@ to the old Node API.
   line breaks kept via `whitespace-pre-wrap`): a textarea in the shared `TaskForm`, shown on the
   TaskPresented **and InProgress** cards, and an **expandable chevron row** on the dashboard table (chevron only when a
   description exists — a sibling button beside the click-to-edit title, expanding a colSpan `<tr>`).
-  **Pagination (#100):** `GET /api/tasks` takes **opt-in** `limit` + `before` (keyset cursor on
-  `id DESC`) — **absent `limit` = the legacy unbounded list**, so `fetchTasks()` / InProgressProvider
-  are untouched; with `limit` it returns `{ tasks, nextCursor, counts? }` where `counts` (a per-status
-  `GROUP BY`) rides **only the first page**. Bad `limit`/`before` → 400. Cross-user access is **404,
+  **Pagination (#262 — offset, superseding #100's keyset `before` cursor):** `GET /api/tasks` takes
+  **opt-in** `limit` + 0-based `offset` — **absent `limit` = the legacy unbounded list**, so
+  `fetchTasks()` / InProgressProvider are untouched; with `limit` it returns `{ tasks, total, counts }`
+  (filtered `total` + global per-status `counts` on every page). Bad `limit`/`offset` → 400. The
+  paginated LIST also LEFT JOINs the project (#268) → `task.project = { name, color } | null`. Cross-user access is **404,
   not 403** (non-enumerating; locked by #129's test). **`?projectId=` (#260, the backend half of
   #245)** filters to one owned project's tasks (any status; foreign id → 404) — the rail's
   per-project entries land on `/dashboard?project=ID` (banner + every status; the same param WITH
@@ -222,24 +223,28 @@ to the old Node API.
   to it — the standalone Home screen was retired in #191), Task `/play/task`,
   In-progress `/play/progress/:id`, Completion, Empty state. A mid-flight task is
   surfaced by a Resume banner on Choice **plus** the header timer chip.
-- **Dashboard (#36, #178, #218, #100)**: `/dashboard` — table + inline edit,
-  status filter tabs, sortable columns, per-row icon actions (Start/Resume=Play,
-  Edit=Pencil, Delete=Trash; Save=Check / Cancel=X while editing — all
-  `aria-label`led), undo-toast delete. **The `backlog` status DISPLAYS as "To do"**
-  (filter tab, status badge, edit select) — presentation-only; the enum value stays
-  `backlog`, so never string-match the label. Rows are a fixed `h-14` so inline-edit
-  doesn't change row height. **Edit (#218):** the Pencil opens a **desktop modal
-  over the list** (`EditTaskModal` on the `Modal` primitive, reusing `TaskForm`);
-  the full page `/tasks/:id/edit` still backs deep links / refresh / **mobile** —
-  the trigger is CSS-responsive (`<button>` opens the modal at `sm+`, `<a>` routes
-  to the page below `sm`; only one is in the a11y tree per breakpoint). Mobile modal
-  deferred pending #98. **Pagination (#100):** the list loads **25 at a time**
-  (`fetchTasksPage`, keyset "Load more"); **filtering is server-side** (a tab switch
-  is a fresh first-page query), the **tab counts + header total come from the server
-  `counts`** (not the loaded rows), and inline-edit/delete/undo mutate the loaded set
-  + adjust the cached counts client-side (a status change off the active filter drops
-  the row). Column sort applies over the **loaded** rows (default order == server
-  order, so exact until a non-default sort on a partially-loaded list).
+- **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
+  `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
+  name · effort tint pill · **title — description** (truncated) · estimate · base
+  points (from `GET /api/points`). **A row opens the task in place at `/tasks/:id`
+  (`pages/TaskView.tsx`) — THE one edit path**: the old inline row-swap edit, the
+  #218 `EditTaskModal`, and the `EditTask` page are **deleted** (`/tasks/:id/edit`
+  deep links land on the same view). The task view: back bar → borderless title
+  input → an **extensible field grid** (Project select / Estimate / Difficulty
+  roving-radiogroup / Status / Description — future fields like #250's recurring
+  rules slot in as more cells) → a served points-forecast panel (base + max speed
+  bonus + today's multiplier; `speedBonus` config now rides `GET /api/points`) →
+  Save · Delete (shared-`Modal` **confirm dialog** — the undo-toast delete is
+  retired) · Start now/Resume. **The `backlog` status DISPLAYS as "To do"** —
+  presentation-only; never string-match the label. **Pagination (#262 — supersedes
+  #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
+  returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
+  range; global `counts` on every page) — the toolbar shows **"N tasks ready to
+  do"** (`counts.backlog`) + range + prev/next pagers (top and foot), 25/page.
+  Filtering stays server-side; column sorting was dropped with the table. The
+  Unassigned tab keeps the #236 assign flow as a trailing row action
+  (`AssignControl`); assigns refetch the current page (server-authoritative).
+  e2e: `e2e/tasklist.mjs` + the rewritten task-view blocks in `e2e/a11y.mjs`.
 - **Add task (#35)**: `/tasks/new`. **Stats page (#38)**: `/stats` — since #260 the
   **narrow-viewport stats surface** (header Stats icon when the right column isn't
   rendered); the #37 PointsCard was retired into the shell's right column.
@@ -496,10 +501,10 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   One toast at a time, colored icon badge (tone → badge fill), optional inline action, auto-dismiss
   (pauses on hover/focus), `role="status"`. It lives above the routes so a toast survives the
   navigation that raised it (e.g. AddTask fires one, then returns to the origin route). Prefer it
-  over a bespoke per-page toast. The Dashboard undo-delete toast predates it and stays bespoke for
-  now (its deferred-commit/undo semantics are page-specific) — a candidate for later migration.
+  over a bespoke per-page toast. (The old Dashboard undo-delete toast is gone — #262 replaced
+  deferred-delete with a confirm dialog in the task view; every toast now rides the provider.)
 - **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
-  loading indicators and the undo toast use `role="status"` (toast also
+  loading indicators and the shared toast use `role="status"` (toast also
   `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).
   Route changes move focus to `#main-content` via `RouteFocus` in `AppLayout` (which
   also hosts the skip link); an in-place screen (e.g. `Completion`) focuses its own

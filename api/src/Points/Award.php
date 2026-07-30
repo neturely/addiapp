@@ -202,6 +202,13 @@ final class Award
                 'currentMultiplier' => Calculate::dailyMultiplier($tasksCompleted + 1),
             ],
             'basePoints' => PointsConfig::BASE_POINTS,
+            // Speed-bonus config (#262): the task view's points-forecast panel
+            // renders "up to +N inside M minutes" from these — served, never
+            // hardcoded client-side (PointsConfig is the single source).
+            'speedBonus' => [
+                'maxRatio' => PointsConfig::SPEED_BONUS_MAX_RATIO,
+                'saturation' => PointsConfig::SPEED_BONUS_SATURATION,
+            ],
         ];
     }
 

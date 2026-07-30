@@ -18,6 +18,8 @@ export type Task = {
   project?: { name: string; color: number } | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
+  /** ISO creation timestamp — the task view's "added N days ago" line (#262). */
+  createdAt?: string
 }
 
 /** Points breakdown returned when a task is completed (issue #28). */
@@ -101,19 +103,19 @@ export type TaskCounts = {
   unassigned: number
 }
 
-/** One page of the dashboard task list (#100). `counts` is present only on the
- * first page (no `before`). `nextCursor` is the id to pass as `before` for the
- * next page, or null when the list is exhausted. */
+/** One page of the dashboard task list (#262 — offset pagination, superseding
+ * #100's keyset cursor). `total` is the filtered total for the "X–Y of Z" range;
+ * `counts` are the global per-status figures and ride every page. */
 export type TaskPage = {
   tasks: Task[]
-  nextCursor: number | null
-  counts?: TaskCounts
+  total: number
+  counts: TaskCounts
 }
 
 /**
- * Fetch one keyset page of the dashboard task list (#100). `status` filters
- * server-side (required for correct paging); `before` is the id cursor from the
- * previous page's `nextCursor` (omit for the first page).
+ * Fetch one offset page of the dashboard task list (#262). Filters apply
+ * server-side (required for correct paging); `offset` is 0-based row offset
+ * (omit for the first page).
  */
 export async function fetchTasksPage(opts: {
   status?: TaskStatus
@@ -123,21 +125,25 @@ export async function fetchTasksPage(opts: {
    * tasks, any status. Non-enumerating — a foreign id 404s. */
   projectId?: number
   limit: number
-  before?: number | null
+  offset?: number
 }): Promise<TaskPage> {
   const params = new URLSearchParams()
   if (opts.status) params.set('status', opts.status)
   if (opts.unassigned) params.set('unassigned', '1')
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   params.set('limit', String(opts.limit))
-  if (opts.before != null) params.set('before', String(opts.before))
+  if (opts.offset) params.set('offset', String(opts.offset))
   return requestJson<TaskPage>(`/tasks?${params.toString()}`)
 }
 
-/** Patch a task's editable fields and/or status (issue #36 → #27 PATCH). */
+/** Patch a task's editable fields and/or status (issue #36 → #27 PATCH).
+ * `projectId: null` unassigns (#236 semantics). */
 export async function updateTask(
   id: number,
-  patch: Partial<NewTaskInput> & { status?: TaskStatus },
+  patch: Partial<Omit<NewTaskInput, 'projectId'>> & {
+    status?: TaskStatus
+    projectId?: number | null
+  },
 ): Promise<Task> {
   const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
     method: 'PATCH',
