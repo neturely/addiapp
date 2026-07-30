@@ -31,8 +31,8 @@ function initialsFor(user: AuthUser): string {
 
 /** Icon-only nav; a section stays active across its sub-routes. */
 const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => boolean }[] = [
-  { to: '/dashboard', label: 'Dashboard', Icon: LayoutGrid, match: (p) => p.startsWith('/dashboard') },
   { to: '/play', label: 'Play', Icon: Play, match: (p) => p === '/' || p.startsWith('/play') },
+  { to: '/dashboard', label: 'Dashboard', Icon: LayoutGrid, match: (p) => p.startsWith('/dashboard') },
   { to: '/settings', label: 'Settings', Icon: Settings, match: (p) => p.startsWith('/settings') },
 ]
 

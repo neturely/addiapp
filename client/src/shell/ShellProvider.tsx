@@ -11,7 +11,9 @@ import { ShellContext } from './shellContext'
  */
 export function ShellProvider({ children }: { children: ReactNode }) {
   const { pathname, key: locationKey } = useLocation()
-  const solo = pathname === '/' || pathname.startsWith('/play')
+  // Solo = focus surfaces with no rail/column/search: Play, and (#256 review)
+  // Stats — a centred read-only page like Play, not an admin view.
+  const solo = pathname === '/' || pathname.startsWith('/play') || pathname.startsWith('/stats')
   const wide = useMediaQuery('(min-width: 1240px)')
   // Below Tailwind's `sm` the rail becomes an overlay drawer (#270).
   const narrow = !useMediaQuery('(min-width: 640px)')

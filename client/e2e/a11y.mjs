@@ -86,7 +86,8 @@ ok(arrow.checked === 1 && arrow.focused === 1, 'A11Y-5: ArrowRight moves checked
 await page.keyboard.press('ArrowLeft')
 ok((await page.evaluate(() => [...document.querySelectorAll('[role=radio]')].findIndex((r) => r.getAttribute('aria-checked') === 'true'))) === 0, 'A11Y-5: ArrowLeft moves selection back')
 
-// ── A11Y-5: AddTask effort-picker radiogroup (#197) ──────────────────────────
+// ── A11Y-5: task-create effort radiogroup (#197; /tasks/new = TaskView since
+// the #256 review round removed the AddTask page) ────────────────────────────
 await page.goto(`${BASE}/tasks/new`, { waitUntil: 'networkidle0' })
 const eg = await page.evaluate(() => {
   const group = document.querySelector('[role=radiogroup]')
@@ -100,7 +101,7 @@ const eg = await page.evaluate(() => {
   }
 })
 ok(eg.hasGroup && eg.count === 3, `A11Y-5: effort radiogroup with ${eg.count} radios`)
-ok(eg.labelled === 'effort-label', 'A11Y-5: effort radiogroup aria-labelledby the question')
+ok(eg.labelled === 'task-difficulty-label', 'A11Y-5: effort radiogroup aria-labelledby the question')
 ok(eg.checked === 1, 'A11Y-5: effort — exactly one radio aria-checked')
 ok(eg.tabbable === 1, 'A11Y-5: effort — roving tabindex (only checked is tabbable)')
 // default selection is Medium (index 1); ArrowRight → High (index 2)

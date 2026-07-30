@@ -81,7 +81,8 @@ export function Stats() {
   const { total, lifetime, today, streak } = stats
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl p-4 sm:p-8">
+    // Solo surface (#256 review): centred like Play — the shell hides rail/column.
+    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col justify-center p-4 sm:p-8">
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
         <Mascot expression="neutral" />
         <h1 className="text-2xl font-bold text-gray-800">Your stats</h1>
