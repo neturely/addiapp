@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Archive, ArchiveRestore, MoreVertical, Pencil, Plus } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Pencil,
+  Plus,
+} from 'lucide-react'
 import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { useShell } from '@/shell/useShell'
@@ -105,13 +113,74 @@ export function ProjectsView() {
     }
   }
 
+  // Toolbar state (#256 review — mirrors the task list): newest-first default
+  // with a `?sort=oldest` toggle, plus client-side paging (the projects
+  // endpoint is unpaginated; a page of 24 divides the 2/3-column grid evenly).
+  const newestFirst = searchParams.get('sort') !== 'oldest'
+  function toggleSort() {
+    const params = new URLSearchParams(searchParams)
+    if (newestFirst) params.set('sort', 'oldest')
+    else params.delete('sort')
+    setSearchParams(params)
+  }
+  const PAGE_SIZE = 24
+  const [offset, setOffset] = useState(0)
+  useEffect(() => setOffset(0), [archived, newestFirst])
+
   const q = search.trim().toLowerCase()
-  const visible = q === '' ? projects : projects.filter((p) => p.name.toLowerCase().includes(q))
+  const matched = q === '' ? projects : projects.filter((p) => p.name.toLowerCase().includes(q))
+  const sorted = newestFirst ? matched : [...matched].reverse() // server order is id DESC
+  const total = sorted.length
+  const visible = sorted.slice(offset, offset + PAGE_SIZE)
+  const first = total === 0 ? 0 : offset + 1
+  const last = Math.min(offset + PAGE_SIZE, total)
+  const countLabel = archived
+    ? `${total} archived ${total === 1 ? 'project' : 'projects'}`
+    : `${total} ${total === 1 ? 'project' : 'projects'} ready to work on`
 
   return (
     <section>
-      {/* No in-page chrome (#256 review): the Active/Archived pools and the
-          New-project plus live in the rail's Projects section. */}
+      {/* Toolbar (#256 review — the task list's layout): pool · sort toggle ·
+          count, with the range + pager top right. The Active/Archived pools and
+          the New-project plus live in the rail's Projects section. */}
+      <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
+        <span className="flex items-center gap-1">
+          {archived ? 'Archived' : 'Active'} ·{' '}
+          <button
+            type="button"
+            onClick={toggleSort}
+            aria-label={`Sorted ${newestFirst ? 'newest' : 'oldest'} first — switch to ${newestFirst ? 'oldest' : 'newest'} first`}
+            className="cursor-pointer transition hover:text-primary-ink"
+          >
+            {newestFirst ? 'newest first' : 'oldest first'}
+          </button>
+        </span>
+        <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
+        <span className="font-medium text-gray-700 tabular-nums">{countLabel}</span>
+        <span className="flex-1" aria-hidden />
+        <span className="tabular-nums">{`${first}–${last} of ${total}`}</span>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+            disabled={offset === 0}
+            aria-label="Previous page"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOffset((o) => (o + PAGE_SIZE < total ? o + PAGE_SIZE : o))}
+            disabled={last >= total}
+            aria-label="Next page"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      </div>
+
       {error && (
         <p role="alert" className="mb-3 text-sm text-red-600">
           {error}
@@ -127,9 +196,10 @@ export function ProjectsView() {
           {q !== '' ? 'Nothing matches your search.' : 'No archived projects.'}
         </p>
       ) : (
-        // Three-up on wide viewports (#256 review; 1240 is the app's wide
-        // breakpoint), two-up from sm.
-        <div className="grid gap-4 sm:grid-cols-2 min-[1240px]:grid-cols-3">
+        // Three-up on wide viewports (#256 review; 77.5rem = the app's 1240px
+        // breakpoint — in REM because Tailwind v4 sorts px-unit media queries
+        // BEFORE the rem-based `sm`, which made sm:grid-cols-2 win everywhere).
+        <div className="grid gap-4 sm:grid-cols-2 min-[77.5rem]:grid-cols-3">
           {visible.map((project) =>
             archived ? (
               <ArchivedProjectCard
@@ -259,15 +329,10 @@ function ProjectCard({
           : `${project.remainingCount} of ${project.totalCount} remaining`}
       </Link>
 
-      <div className="mt-4 flex gap-2">
-        <Link
-          to={`/tasks/new?project=${project.id}`}
-          state={{ from: '/dashboard?view=projects' }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-tint px-3 py-1.5 text-sm font-semibold text-primary-ink transition hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-          Add task
-        </Link>
+      {/* mt-auto anchors the footer to the card's bottom edge (#256 review —
+          cards without a description left the buttons floating); Assign left,
+          Add task right. */}
+      <div className="mt-auto flex items-center justify-between gap-2 pt-4">
         {/* Assign existing tasks — deep-links into the Tasks view's Unassigned tab
             with this project as the ride-along target (#236). */}
         <Link
@@ -275,6 +340,14 @@ function ProjectCard({
           className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
         >
           Assign task
+        </Link>
+        <Link
+          to={`/tasks/new?project=${project.id}`}
+          state={{ from: '/dashboard?view=projects' }}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-tint px-3 py-1.5 text-sm font-semibold text-primary-ink transition hover:opacity-90"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+          Add task
         </Link>
       </div>
     </div>
@@ -311,7 +384,7 @@ function ArchivedProjectCard({
           ? 'No tasks'
           : `${project.remainingCount} of ${project.totalCount} remaining`}
       </p>
-      <div className="mt-4">
+      <div className="mt-auto pt-4">
         <button
           type="button"
           onClick={onUnarchive}

@@ -132,13 +132,6 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Active"
         count={activeProjects.length}
       />
-      <RailLink
-        to="/dashboard?view=projects&archived=1"
-        active={isArchived}
-        pole="bg-gray-400"
-        label="Archived"
-        count={archivedCount}
-      />
       {activeProjects.map((p) => (
         <RailLink
           key={p.id}
@@ -149,6 +142,14 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
           count={p.remainingCount}
         />
       ))}
+      {/* Archived always sits at the bottom of the section (#256 review). */}
+      <RailLink
+        to="/dashboard?view=projects&archived=1"
+        active={isArchived}
+        pole="bg-gray-400"
+        label="Archived"
+        count={archivedCount}
+      />
     </nav>
   )
 }
