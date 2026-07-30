@@ -44,7 +44,12 @@ export function RightColumn() {
   const fillPct = Math.min(((mult - 1) / (cap - 1)) * 100, 100)
 
   return (
-    <aside aria-label="Play and today" className="w-72 flex-none overflow-y-auto px-3 pb-4 pt-14">
+    // pl-0 + pr-6 (#256 review): the gap to the table is the content pane's own
+    // pr-6, and the right page margin matches it — even 24px on both sides.
+    <aside
+      aria-label="Play and today"
+      className="w-[19.5rem] flex-none overflow-y-auto pb-4 pl-0 pr-6 pt-14"
+    >
       <PlayColumnCard onCompleted={() => setStatsRefresh((n) => n + 1)} />
 
       <section className="mb-3 rounded-xl bg-surface p-4">

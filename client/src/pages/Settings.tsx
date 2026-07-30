@@ -164,7 +164,8 @@ export function Settings() {
   return (
     <main className="flex min-h-screen flex-col p-4 sm:p-6">
       <div className="flex-1 rounded-xl bg-surface">
-        <div className="max-w-2xl px-6 py-8 sm:px-9">
+        {/* Centred like the task view (#256 review) — symmetric whitespace. */}
+        <div className="mx-auto max-w-2xl px-6 py-8 sm:px-9">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Account settings</h1>
           <p className="mb-2 mt-1 text-[13px] text-muted">
             Your profile, sign-in details and how AddiApp behaves.
