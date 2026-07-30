@@ -34,9 +34,14 @@ function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, init)
 }
 
-/** List the user's ACTIVE projects with task counts (#234 Projects grid). */
-export async function fetchProjects(): Promise<Project[]> {
-  const { projects } = await requestJson<{ projects: Project[] }>('/projects')
+/**
+ * List the user's projects with task counts (#234 Projects grid). Defaults to
+ * ACTIVE only (the pre-#260 behaviour); pass `'archived'` or `'all'` for the
+ * archived-browsing view (#248 → #260).
+ */
+export async function fetchProjects(status?: ProjectStatus | 'all'): Promise<Project[]> {
+  const qs = status && status !== 'active' ? `?status=${status}` : ''
+  const { projects } = await requestJson<{ projects: Project[] }>(`/projects${qs}`)
   return projects
 }
 
