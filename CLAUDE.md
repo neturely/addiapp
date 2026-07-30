@@ -190,8 +190,10 @@ to the old Node API.
   `POST` creates, `PATCH` edits name/description and/or status (Archive). User-scoped +
   **404-not-403** (non-enumerating, #129). `POST /api/tasks` gained an optional **`projectId`**
   (must be an **active** project the caller owns, else 400); `projectId` is on `mapTask`.
-  Client: `lib/projects.ts`; the **Dashboard has a top-level `Tasks | Projects` toggle**
-  (`?view=projects`, linkable) — Projects is a **self-contained `ProjectsView`** grid (cards
+  Client: `lib/projects.ts`; the Dashboard's Tasks-vs-Projects view is **`?view=projects`
+  (linkable), navigated from the rail's clickable Tasks/Projects section headings** —
+  the old in-page pill toggle and the "Dashboard" page heading were removed on #256
+  review feedback (an sr-only h1 remains) — Projects is a **self-contained `ProjectsView`** grid (cards
   with the count, a kebab Edit/Archive **disclosure** — NOT a `role=menu` widget — and Add
   task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
   `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
