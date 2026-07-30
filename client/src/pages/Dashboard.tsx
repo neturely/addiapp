@@ -79,19 +79,29 @@ export function Dashboard() {
   // The filter is purely URL-derived (#256 review): the rail's Tasks entries set
   // `?tab=` — there is no in-page filter UI any more.
   const filter = filterFromTab(tabParam)
+  // Sort toggle (#256 review): `?sort=newest` flips the default oldest-first;
+  // URL-driven so the choice is shareable and survives refresh.
+  const newestFirst = searchParams.get('sort') === 'newest'
+  function toggleSort() {
+    const params = new URLSearchParams(searchParams)
+    if (newestFirst) params.delete('sort')
+    else params.set('sort', 'newest')
+    setSearchParams(params)
+  }
 
-  // A filter change is a fresh first page.
-  useEffect(() => setOffset(0), [filter, projectFilterId])
+  // A filter or sort change is a fresh first page.
+  useEffect(() => setOffset(0), [filter, projectFilterId, newestFirst])
 
   const loadPage = useCallback(() => {
+    const order = newestFirst ? ('desc' as const) : undefined
     const query =
       projectFilterId !== null
-        ? { projectId: projectFilterId, limit: PAGE_SIZE, offset }
+        ? { projectId: projectFilterId, limit: PAGE_SIZE, offset, order }
         : filter === 'unassigned'
-          ? { unassigned: true, limit: PAGE_SIZE, offset }
-          : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset }
+          ? { unassigned: true, limit: PAGE_SIZE, offset, order }
+          : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
     return fetchTasksPage(query)
-  }, [filter, projectFilterId, offset])
+  }, [filter, projectFilterId, offset, newestFirst])
 
   useEffect(() => {
     let cancelled = false
@@ -271,7 +281,17 @@ export function Dashboard() {
           {/* Toolbar (#262; #256 review layout): "{selection} · oldest first" —
               dynamic from the rail — then the ready count; range + pager right. */}
           <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
-            <span>{selectionLabel} · oldest first</span>
+            <span className="flex items-center gap-1">
+              {selectionLabel} ·{' '}
+              <button
+                type="button"
+                onClick={toggleSort}
+                aria-label={`Sorted ${newestFirst ? 'newest' : 'oldest'} first — switch to ${newestFirst ? 'oldest' : 'newest'} first`}
+                className="cursor-pointer underline-offset-2 transition hover:text-primary-ink hover:underline"
+              >
+                {newestFirst ? 'newest first' : 'oldest first'}
+              </button>
+            </span>
             <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
             <span className="font-medium text-gray-700 tabular-nums">
               {ready} {ready === 1 ? 'task' : 'tasks'} ready to do
