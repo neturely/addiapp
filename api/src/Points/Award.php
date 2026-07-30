@@ -202,6 +202,13 @@ final class Award
                 'currentMultiplier' => Calculate::dailyMultiplier($tasksCompleted + 1),
             ],
             'basePoints' => PointsConfig::BASE_POINTS,
+            // Speed-bonus config (#262): the task view's points-forecast panel
+            // renders "up to +N inside M minutes" from these — served, never
+            // hardcoded client-side (PointsConfig is the single source).
+            'speedBonus' => [
+                'maxRatio' => PointsConfig::SPEED_BONUS_MAX_RATIO,
+                'saturation' => PointsConfig::SPEED_BONUS_SATURATION,
+            ],
         ];
     }
 
@@ -249,6 +256,21 @@ final class Award
                 'currentMultiplier' => Calculate::dailyMultiplier($tasksToday + 1),
             ],
             'streak' => ['currentDays' => $streak],
+            // Multiplier config (#260): the right-column Today panel renders the
+            // "×CAP at task N" progress track from these — served, never
+            // hardcoded client-side (PointsConfig is the single source).
+            'multiplier' => [
+                'cap' => PointsConfig::DAILY_MULTIPLIER_CAP,
+                'capTaskNumber' => self::multiplierCapTaskNumber(),
+            ],
         ];
+    }
+
+    /** The n-th completion of the day at which the daily multiplier hits its cap. */
+    private static function multiplierCapTaskNumber(): int
+    {
+        return (int) ceil(
+            (PointsConfig::DAILY_MULTIPLIER_CAP - 1) / PointsConfig::DAILY_MULTIPLIER_GROWTH,
+        ) + 1;
     }
 }

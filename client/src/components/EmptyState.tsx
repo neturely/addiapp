@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Plus, RotateCw } from 'lucide-react'
+import { buttonClasses } from './buttonClasses'
 import { Mascot } from './Mascot'
 import { PlayCard } from './PlayCard'
 
@@ -26,7 +27,7 @@ export function EmptyState({ filtered = false }: { filtered?: boolean }) {
         <Link
           to="/tasks/new"
           state={{ from: '/play' }}
-          className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90"
+          className={buttonClasses('primary', 'lg', 'w-full')}
         >
           <Plus className="h-5 w-5" strokeWidth={2.5} aria-hidden />
           Add a task

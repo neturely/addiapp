@@ -1,33 +1,19 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ChevronsUpDown,
-  ChevronUp,
-  FolderPlus,
-  Pencil,
-  Play,
-  Plus,
-  Trash2,
-  X,
-} from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, FolderPlus, Plus, X } from 'lucide-react'
 import {
   assignTaskToProject,
-  deleteTask,
   fetchTasksPage,
-  startTask,
-  updateTask,
   type Task,
   type TaskComplexity,
   type TaskCounts,
   type TaskStatus,
 } from '@/lib/tasks'
+import { fetchPoints } from '@/lib/points'
+import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
-import { PointsCard } from '@/components/PointsCard'
-import { EditTaskModal } from '@/components/EditTaskModal'
 import { ProjectsView } from '@/components/ProjectsView'
+import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
 type Filter = 'all' | TaskStatus | 'unassigned'
@@ -40,82 +26,37 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'done', label: 'Done' },
 ]
 
-// Brighter, more-saturated badge tints (#178) — dark on-fill text keeps them AA
-// (the pale `-ink`-on-`-tint` pairing couldn't go brighter without dropping below
-// 4.5:1). Colored, but deliberately NOT solid-vivid (reserved for singular
-// emphasis) so a dense table stays scannable.
+// Tint pills (#178 palette): dark on-fill text keeps them AA in a dense list.
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
   low: { label: 'Low', className: 'bg-[#bfe9cd] text-on-success' },
   medium: { label: 'Medium', className: 'bg-[#ffe3a0] text-on-warning' },
   high: { label: 'High', className: 'bg-[#ffcdb8] text-on-primary' },
 }
 
-// `backlog` shows as "To do" with its own violet/accent identity (was muted grey).
-const STATUS_BADGE: Record<TaskStatus, { label: string; className: string }> = {
-  backlog: { label: 'To do', className: 'bg-[#ddd0fa] text-on-accent' },
-  in_progress: { label: 'In progress', className: 'bg-[#ffe3a0] text-on-warning' },
-  done: { label: 'Done', className: 'bg-[#bfe9cd] text-on-success' },
-}
+const PAGE_SIZE = 25 // offset page size (#262)
 
-// Sortable columns (#178). Default: most-recently-created first (id desc).
-type SortKey = 'created' | 'title' | 'effort' | 'est' | 'status'
-const EFFORT_ORDER: Record<TaskComplexity, number> = { low: 0, medium: 1, high: 2 }
-const STATUS_ORDER: Record<TaskStatus, number> = { backlog: 0, in_progress: 1, done: 2 }
-
-function compareBy(a: Task, b: Task, key: SortKey): number {
-  switch (key) {
-    case 'title':
-      return a.title.localeCompare(b.title)
-    case 'effort':
-      return EFFORT_ORDER[a.complexity] - EFFORT_ORDER[b.complexity]
-    case 'est':
-      return a.estimatedMinutes - b.estimatedMinutes
-    case 'status':
-      return STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
-    case 'created':
-    default:
-      return a.id - b.id
-  }
-}
-
-const MAX_TITLE = 255
-const MAX_MINUTES = 100_000
-const UNDO_MS = 5000
-const PAGE_SIZE = 25 // dashboard keyset page size (#100)
-
-const byIdDesc = (a: Task, b: Task) => b.id - a.id
-
-// Does a task belong in the given tab's server-filtered view? Status tabs match on
-// status; Unassigned (#236) matches on having no project (a different axis).
-function belongsToFilter(task: Task, f: Filter): boolean {
-  if (f === 'all') return true
-  if (f === 'unassigned') return task.projectId == null
-  return task.status === f
-}
-
-type EditValues = {
-  title: string
-  complexity: TaskComplexity
-  estimatedMinutes: string
-  status: TaskStatus
+// Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
+function filterFromTab(tab: string | null): Filter {
+  return tab === 'unassigned' || tab === 'backlog' || tab === 'in_progress' || tab === 'done'
+    ? tab
+    : 'all'
 }
 
 /**
- * Dashboard (issue #36) — the Todoist/Linear-style admin surface. Lists the
- * user's tasks with status filter tabs; the four column fields are editable
- * inline; a per-row Edit action opens the full edit page (#36) for future
- * fields. Start (backlog) / Resume (in-progress) are the manual selection entry
- * into the guided in-progress screen (#33). Delete uses an undo toast — no
- * blocking dialog to interrupt inline editing; the API delete is deferred until
- * the undo window closes.
+ * Dashboard (#262, superseding the #36/#178 table) — the admin surface as a
+ * single-line row list: pole + project · effort pill · title — description ·
+ * estimate · points. A row opens the task in place (`/tasks/:id`, the ONE edit
+ * path — inline edit and the #218 modal are gone). Offset prev/next pagination
+ * with an exact "X–Y of Z" range (supersedes #100's keyset cursor) and a
+ * "ready to do" figure off the server counts. The Unassigned tab keeps the #236
+ * assign flow as a trailing row action.
  */
 export function Dashboard() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { search } = useShell()
 
-  // Top-level Tasks | Projects toggle (#234). Driven by `?view=` so it's linkable
-  // (e.g. a project card's "Assign task" deep-links back into the Tasks view) and
-  // survives the back button; absent = the default Tasks view.
+  // Top-level Tasks | Projects toggle (#234), URL-driven (`?view=`).
   const [searchParams, setSearchParams] = useSearchParams()
   const view: View = searchParams.get('view') === 'projects' ? 'projects' : 'tasks'
   function setView(next: View) {
@@ -125,372 +66,149 @@ export function Dashboard() {
     setSearchParams(params)
   }
 
-  // Ride-along assign context (#236): a project card's "Assign task" deep-links to
-  // `?tab=unassigned&project=ID`. `tabParam` picks the initial tab; `projectParam`
-  // is the assign target, resolved to a real active project below.
+  // `?project=ID`: with `tab=unassigned` it's the #236 assign ride-along target;
+  // without it's the #260 rail per-project filter (every status).
   const tabParam = searchParams.get('tab')
   const projectParam = Number(searchParams.get('project'))
   const rideAlongId = Number.isInteger(projectParam) && projectParam > 0 ? projectParam : null
+  const projectFilterId = tabParam !== 'unassigned' && view === 'tasks' ? rideAlongId : null
 
   const [tasks, setTasks] = useState<Task[]>([])
+  const [total, setTotal] = useState(0)
+  const [counts, setCounts] = useState<TaskCounts | null>(null)
+  const [offset, setOffset] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<Filter>(tabParam === 'unassigned' ? 'unassigned' : 'all')
-  // Latest filter for the deferred delete/undo paths (#100): those fire from a
-  // timer or after a tab switch, so they must read the CURRENT filter, not the one
-  // captured when the timer was armed.
-  const filterRef = useRef<Filter>(filter)
-  filterRef.current = filter
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
-    key: 'created',
-    dir: 'desc',
-  })
-  const [pointsRefresh, setPointsRefresh] = useState(0)
+  const [filter, setFilter] = useState<Filter>(filterFromTab(tabParam))
+  const [basePoints, setBasePoints] = useState<Record<TaskComplexity, number> | null>(null)
 
-  // Keyset pagination state (#100): `tasks` holds the loaded rows for the current
-  // filter (server-side), `counts` the per-status totals for the tab bar, and
-  // `nextCursor` the id to page from (null = fully loaded).
-  const [counts, setCounts] = useState<TaskCounts | null>(null)
-  const [nextCursor, setNextCursor] = useState<number | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
-
-  const [expandedId, setExpandedId] = useState<number | null>(null) // description row (#184)
-  const [editModalTask, setEditModalTask] = useState<Task | null>(null) // desktop edit modal (#218)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editValues, setEditValues] = useState<EditValues | null>(null)
-  const [rowError, setRowError] = useState<string | null>(null)
-  const [savingId, setSavingId] = useState<number | null>(null)
-
-  const [pendingTask, setPendingTask] = useState<Task | null>(null)
-  const pendingRef = useRef<{ task: Task; timer: number } | null>(null)
-
-  // Active projects for the Unassigned tab (#236): the assign picker's options and
-  // the ride-along target resolution. Fetched lazily when that tab is active.
-  const [projects, setProjects] = useState<Project[]>([])
+  // Follow tab deep-links arriving after mount (#236 ride-along, #260 rail);
+  // an absent tab (rail "All tasks") resets to the default view.
   useEffect(() => {
-    if (filter !== 'unassigned') return
-    let cancelled = false
-    fetchProjects()
-      .then((p) => !cancelled && setProjects(p))
-      .catch(() => undefined) // picker still degrades to "no projects"; assign errors surface on PATCH
-    return () => {
-      cancelled = true
-    }
-  }, [filter])
-
-  // Follow a ride-along deep-link that arrives after mount (the Dashboard is already
-  // mounted when a project card navigates to `?tab=unassigned&project=ID`).
-  useEffect(() => {
-    if (tabParam === 'unassigned') setFilter('unassigned')
+    setFilter(filterFromTab(tabParam))
   }, [tabParam])
 
-  // Resolve the ride-along target; a stale/archived/foreign id simply doesn't
-  // resolve → fall back to the plain picker (a notice is shown below).
-  const rideAlongProject =
-    rideAlongId !== null ? (projects.find((p) => p.id === rideAlongId) ?? null) : null
+  // A filter change is a fresh first page.
+  useEffect(() => setOffset(0), [filter, projectFilterId])
 
-  // Load (or reload) the first page whenever the filter changes (#100). Server-side
-  // filtering means a tab switch is a fresh first-page query — its own cursor +
-  // counts. The `cancelled` guard drops a stale response if the user switches tabs
-  // again before the request lands.
-  // Map the active filter to the #100/#236 query params. Unassigned is its own
-  // axis (`unassigned=1`, any status); the rest are status filters.
-  function pageQuery(f: Filter, before?: number | null) {
-    if (f === 'unassigned') return { unassigned: true, limit: PAGE_SIZE, before }
-    return { status: f === 'all' ? undefined : f, limit: PAGE_SIZE, before }
-  }
+  const loadPage = useCallback(() => {
+    const query =
+      projectFilterId !== null
+        ? { projectId: projectFilterId, limit: PAGE_SIZE, offset }
+        : filter === 'unassigned'
+          ? { unassigned: true, limit: PAGE_SIZE, offset }
+          : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset }
+    return fetchTasksPage(query)
+  }, [filter, projectFilterId, offset])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchTasksPage(pageQuery(filter))
+    loadPage()
       .then((page) => {
         if (cancelled) return
-        setTasks(page.tasks) // already id DESC from the server
-        setNextCursor(page.nextCursor)
-        if (page.counts) setCounts(page.counts)
+        setTasks(page.tasks)
+        setTotal(page.total)
+        setCounts(page.counts)
       })
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load tasks'))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
     }
-  }, [filter])
+  }, [loadPage])
 
-  async function loadMore() {
-    if (nextCursor == null || loadingMore) return
-    setLoadingMore(true)
-    setError(null)
-    try {
-      const page = await fetchTasksPage(pageQuery(filter, nextCursor))
-      setTasks((prev) => [...prev, ...page.tasks])
-      setNextCursor(page.nextCursor)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load more tasks')
-    } finally {
-      setLoadingMore(false)
+  useEffect(() => {
+    fetchPoints()
+      .then((p) => setBasePoints(p.basePoints))
+      .catch(() => undefined) // rows degrade to no points column
+  }, [])
+
+  // Active projects: the Unassigned tab's assign picker + ride-along resolution
+  // (#236) and the project-filter banner's name/pole (#260).
+  const [projects, setProjects] = useState<Project[]>([])
+  useEffect(() => {
+    if (filter !== 'unassigned' && projectFilterId === null) return
+    let cancelled = false
+    fetchProjects()
+      .then((p) => !cancelled && setProjects(p))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
     }
-  }
+  }, [filter, projectFilterId])
 
-  // Keep the cached tab counts (#100) in sync with client-side mutations so they
-  // don't drift until the next tab switch.
-  function adjustCounts(status: TaskStatus, delta: number) {
-    setCounts((c) => (c ? { ...c, all: c.all + delta, [status]: c[status] + delta } : c))
-  }
-  // Unassigned is its own axis (#236): assigning a task decrements it without
-  // touching the status/all counts (the task still exists with the same status).
-  function adjustUnassigned(delta: number) {
-    setCounts((c) => (c ? { ...c, unassigned: c.unassigned + delta } : c))
-  }
+  const rideAlongProject =
+    rideAlongId !== null ? (projects.find((p) => p.id === rideAlongId) ?? null) : null
 
-  // Assign a task (Unassigned tab, #236) to `projectId`. Optimistic: the row leaves
-  // the Unassigned view immediately; restored on failure. Only reachable from the
-  // Unassigned tab, so a failed restore always belongs back in the current view.
-  async function assign(task: Task, project: Project) {
-    setTasks((prev) => prev.filter((t) => t.id !== task.id))
-    adjustUnassigned(-1)
-    try {
-      await assignTaskToProject(task.id, project.id)
-      showToast({ message: `Assigned to ${project.name}`, icon: FolderPlus, tone: 'success' })
-    } catch (e) {
-      setTasks((prev) => [...prev, task].sort(byIdDesc))
-      adjustUnassigned(1)
-      setError(e instanceof Error ? e.message : 'Could not assign that task.')
-    }
-  }
-
-  // Clear the ride-along assign context (the banner's dismiss) — drops `project`
-  // from the URL but stays on the Unassigned tab.
   function clearRideAlong() {
     const params = new URLSearchParams(searchParams)
     params.delete('project')
     setSearchParams(params)
   }
 
-  // Re-insert an undone / restore-on-failure row ONLY if it belongs in the current
-  // filter view (#100). `tasks` is server-filtered per tab, so appending a row
-  // whose status doesn't match the active tab would mix statuses in. Counts are
-  // restored separately (they're global); a later switch to a matching tab
-  // re-fetches the row from the server.
-  function restoreRow(task: Task) {
-    if (belongsToFilter(task, filterRef.current)) {
-      setTasks((prev) => [...prev, task].sort(byIdDesc))
-    }
-  }
-
-  // Commit any deferred delete to the server; restore the row if it fails.
-  function commitPending() {
-    const p = pendingRef.current
-    if (!p) return
-    clearTimeout(p.timer)
-    pendingRef.current = null
-    setPendingTask(null)
-    deleteTask(p.task.id).catch(() => {
-      restoreRow(p.task)
-      adjustCounts(p.task.status, 1) // undo the optimistic decrement
-      setError('Could not delete that task — it has been restored.')
-    })
-  }
-
-  // Finalize a still-pending delete on unmount (#112). The user chose delete and
-  // didn't undo within the window, so honour it rather than dropping it — the
-  // old code only cleared the timer, leaving the task alive though the UI already
-  // showed it gone. Fire-and-forget: the component is unmounting, so there's no
-  // row to restore on failure. Nulling the ref + clearing the timer prevents any
-  // double-delete from the scheduled commit.
-  useEffect(() => {
-    return () => {
-      const p = pendingRef.current
-      if (!p) return
-      clearTimeout(p.timer)
-      pendingRef.current = null
-      deleteTask(p.task.id).catch(() => {})
-    }
-  }, [])
-
-  // Pause the undo auto-dismiss while the toast is hovered or focused, so
-  // keyboard/screen-reader users can reach Undo before it commits (A11Y-1, #126).
-  // Resuming starts a fresh full window — generous, but the point is only that it
-  // can't vanish mid-interaction.
-  function pauseUndo() {
-    const p = pendingRef.current
-    if (p) clearTimeout(p.timer)
-  }
-  function resumeUndo() {
-    const p = pendingRef.current
-    if (!p) return
-    clearTimeout(p.timer)
-    p.timer = window.setTimeout(commitPending, UNDO_MS)
-  }
-
-  function onDelete(task: Task) {
-    commitPending() // flush any earlier pending delete first
-    setTasks((prev) => prev.filter((t) => t.id !== task.id))
-    adjustCounts(task.status, -1) // optimistic; restored on undo or commit failure
-    if (editingId === task.id) setEditingId(null)
-    const timer = window.setTimeout(commitPending, UNDO_MS)
-    pendingRef.current = { task, timer }
-    setPendingTask(task)
-  }
-
-  function undoDelete() {
-    const p = pendingRef.current
-    if (!p) return
-    clearTimeout(p.timer)
-    pendingRef.current = null
-    setPendingTask(null)
-    restoreRow(p.task)
-    adjustCounts(p.task.status, 1)
-  }
-
-  function startEdit(task: Task) {
-    setRowError(null)
-    setEditingId(task.id)
-    setEditValues({
-      title: task.title,
-      complexity: task.complexity,
-      estimatedMinutes: String(task.estimatedMinutes),
-      status: task.status,
-    })
-  }
-
-  async function saveEdit(task: Task) {
-    if (!editValues) return
-    const title = editValues.title.trim()
-    if (title.length < 1 || title.length > MAX_TITLE) {
-      setRowError('Title is required (up to 255 characters).')
-      return
-    }
-    const mins = Number(editValues.estimatedMinutes)
-    if (!Number.isInteger(mins) || mins < 1 || mins > MAX_MINUTES) {
-      setRowError('Estimated minutes must be a whole number ≥ 1.')
-      return
-    }
-
-    // Only send changed fields — avoids re-triggering status-transition side effects.
-    const patch: Parameters<typeof updateTask>[1] = {}
-    if (title !== task.title) patch.title = title
-    if (editValues.complexity !== task.complexity) patch.complexity = editValues.complexity
-    if (mins !== task.estimatedMinutes) patch.estimatedMinutes = mins
-    if (editValues.status !== task.status) patch.status = editValues.status
-
-    if (Object.keys(patch).length === 0) {
-      setEditingId(null)
-      return
-    }
-
-    setSavingId(task.id)
-    setRowError(null)
+  // Assign a task (Unassigned tab, #236). The server is authoritative — refetch
+  // the current page after success (offset pagination makes splicing fragile).
+  async function assign(task: Task, project: Project) {
     try {
-      const updated = await updateTask(task.id, patch)
-      if (patch.status) {
-        // Status changed: keep the cached tab counts in sync, and drop the row
-        // from the current view if it no longer matches the active filter (#100 —
-        // replicates what client-side re-filtering used to do for free).
-        adjustCounts(task.status, -1)
-        adjustCounts(updated.status, 1)
-      }
-      if (!belongsToFilter(updated, filter)) {
-        // No longer matches the active tab (e.g. a status change on a status tab) —
-        // drop it. On Unassigned, membership is project-based, so a status edit keeps it.
-        setTasks((prev) => prev.filter((t) => t.id !== task.id))
-      } else {
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)).sort(byIdDesc))
-      }
-      setEditingId(null)
-      // A status change may have awarded points — refresh the summary card.
-      if (patch.status) setPointsRefresh((n) => n + 1)
+      await assignTaskToProject(task.id, project.id)
+      showToast({ message: `Assigned to ${project.name}`, icon: FolderPlus, tone: 'success' })
+      const page = await loadPage()
+      setTasks(page.tasks)
+      setTotal(page.total)
+      setCounts(page.counts)
     } catch (e) {
-      setRowError(e instanceof Error ? e.message : 'Could not save changes.')
-    } finally {
-      setSavingId(null)
+      setError(e instanceof Error ? e.message : 'Could not assign that task.')
     }
   }
 
-  async function onStart(task: Task) {
-    try {
-      await startTask(task.id)
-      navigate(`/play/progress/${task.id}`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start the task')
-    }
-  }
+  // Header search (#260): a view-local narrowing of the loaded page.
+  const q = search.trim().toLowerCase()
+  const visible = tasks.filter(
+    (t) =>
+      q === '' ||
+      t.title.toLowerCase().includes(q) ||
+      (t.description ?? '').toLowerCase().includes(q),
+  )
 
-  // `tasks` is already the server-filtered set for the active tab (#100). Sorting
-  // is client-side over the LOADED rows; the default `created`/id-desc matches the
-  // server order, so it's exact until a non-default sort is applied to a list with
-  // more pages still to load (acceptable — "Load more" makes the partial set clear).
-  const visible = [...tasks].sort((a, b) => {
-    const c = compareBy(a, b, sort.key)
-    return sort.dir === 'asc' ? c : -c
-  })
+  const first = total === 0 ? 0 : offset + 1
+  const last = Math.min(offset + PAGE_SIZE, total)
+  const canPrev = offset > 0
+  const canNext = last < total
 
-  // Click a header to sort by it; same column toggles direction. New columns
-  // start ascending, except "created" (newest-first is the useful default).
-  function toggleSort(key: SortKey) {
-    setSort((s) =>
-      s.key === key
-        ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: key === 'created' ? 'desc' : 'asc' },
-    )
-  }
-
-  function SortTh({
-    colKey,
-    label,
-    className = '',
-  }: {
-    colKey: SortKey
-    label: string
-    className?: string
-  }) {
-    const active = sort.key === colKey
+  function Pager() {
     return (
-      <th
-        scope="col"
-        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-        className={`px-4 py-3 font-medium ${className}`}
-      >
+      <div className="flex items-center gap-0.5">
         <button
           type="button"
-          onClick={() => toggleSort(colKey)}
-          className="inline-flex cursor-pointer items-center gap-1 uppercase tracking-wide hover:text-gray-700"
+          onClick={() => canPrev && setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+          disabled={!canPrev}
+          aria-label="Previous page"
+          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent"
         >
-          {label}
-          {/* Active column shows its direction; the rest show a faint up/down
-              hint so it's clear every column is sortable (#178 follow-up). */}
-          {active ? (
-            sort.dir === 'asc' ? (
-              <ChevronUp className="h-3 w-3" aria-hidden />
-            ) : (
-              <ChevronDown className="h-3 w-3" aria-hidden />
-            )
-          ) : (
-            <ChevronsUpDown className="h-3 w-3 opacity-40" aria-hidden />
-          )}
+          <ChevronLeft className="h-4 w-4" aria-hidden />
         </button>
-      </th>
+        <button
+          type="button"
+          onClick={() => canNext && setOffset((o) => o + PAGE_SIZE)}
+          disabled={!canNext}
+          aria-label="Next page"
+          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </button>
+      </div>
     )
   }
 
+  const rangeLabel = `${first}–${last} of ${total}`
+  const ready = counts?.backlog ?? 0
+
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl p-4 sm:p-8">
-      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          {/* Total across every status (#174) — server counts (#100), not the loaded
-              page, so it stays accurate when paginated. Tasks view only. */}
-          {view === 'tasks' && (
-            <span className="text-lg font-bold text-muted">
-              {counts?.all ?? tasks.length} total{' '}
-              {(counts?.all ?? tasks.length) === 1 ? 'thing' : 'things'} to do
-            </span>
-          )}
-        </div>
-        {/* Tasks | Projects toggle (#234) — sits where the total used to. Plain
-            toggle buttons (aria-pressed), not a tablist, since there's no roving
-            tabindex / tabpanel wiring. */}
+    <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
+      <header className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
         <div className="flex gap-2">
           {(
             [
@@ -522,52 +240,72 @@ export function Dashboard() {
         <ProjectsView />
       ) : (
         <>
-          <PointsCard refreshSignal={pointsRefresh} />
+          {projectFilterId !== null ? (
+            /* Project-filter banner (#260/#245): one project's tasks, every status. */
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent-tint px-4 py-2.5 text-sm">
+              <span className="flex items-center gap-2 text-accent-ink">
+                <span
+                  className={`h-2.5 w-2.5 flex-none rounded-[3px] ${projectPole(projects.find((p) => p.id === projectFilterId)?.color)}`}
+                  aria-hidden
+                />
+                Project:{' '}
+                <span className="font-semibold">
+                  {projects.find((p) => p.id === projectFilterId)?.name ?? '…'}
+                </span>{' '}
+                — every status
+              </span>
+              <Link
+                to="/dashboard"
+                className="shrink-0 cursor-pointer rounded-md p-1 text-accent-ink transition hover:bg-white/50"
+                aria-label="Back to all tasks"
+              >
+                <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+              </Link>
+            </div>
+          ) : (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              {FILTERS.map((f) => {
+                const active = filter === f.key
+                const count = counts ? counts[f.key] : null
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
+                      active
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-surface text-muted hover:bg-primary-tint'
+                    }`}
+                  >
+                    {f.label}
+                    {count !== null && (
+                      <span className={active ? ' text-on-primary' : ' text-muted'}> {count}</span>
+                    )}
+                  </button>
+                )
+              })}
+              {/* Unassigned (#236) filters by project, not status — set apart. */}
+              <span className="mx-1 h-5 w-px self-center bg-gray-200" aria-hidden />
+              <button
+                onClick={() => setFilter('unassigned')}
+                className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
+                  filter === 'unassigned'
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface text-muted hover:bg-primary-tint'
+                }`}
+              >
+                Unassigned
+                {counts && (
+                  <span className={filter === 'unassigned' ? ' text-on-primary' : ' text-muted'}>
+                    {' '}
+                    {counts.unassigned}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
 
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            {FILTERS.map((f) => {
-              const active = filter === f.key
-              const count = counts ? counts[f.key] : null // server counts (#100)
-              return (
-                <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
-                    active
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-surface text-muted hover:bg-primary-tint'
-                  }`}
-                >
-                  {f.label}
-                  {count !== null && (
-                    <span className={active ? ' text-on-primary' : ' text-muted'}> {count}</span>
-                  )}
-                </button>
-              )
-            })}
-            {/* Unassigned (#236) filters by project, not status — a different axis,
-                so it's set apart with a divider. */}
-            <span className="mx-1 h-5 w-px self-center bg-gray-200" aria-hidden />
-            <button
-              onClick={() => setFilter('unassigned')}
-              className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
-                filter === 'unassigned'
-                  ? 'bg-primary text-on-primary'
-                  : 'bg-surface text-muted hover:bg-primary-tint'
-              }`}
-            >
-              Unassigned
-              {counts && (
-                <span className={filter === 'unassigned' ? ' text-on-primary' : ' text-muted'}>
-                  {' '}
-                  {counts.unassigned}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Ride-along assign banner (#236): a project card's "Assign task" landed
-              here with a target — the row + buttons assign to it in one click. */}
+          {/* Ride-along assign banner (#236). */}
           {filter === 'unassigned' && rideAlongProject && (
             <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent-tint px-4 py-2.5 text-sm">
               <span className="text-accent-ink">
@@ -584,7 +322,6 @@ export function Dashboard() {
               </button>
             </div>
           )}
-          {/* Ride-along id that didn't resolve (archived/foreign) — plain picker + notice. */}
           {filter === 'unassigned' &&
             rideAlongId !== null &&
             !rideAlongProject &&
@@ -594,8 +331,18 @@ export function Dashboard() {
               </p>
             )}
 
+          {/* Toolbar (#262): ready count · range · pager. */}
+          <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
+            <span className="font-medium text-gray-700 tabular-nums">
+              {ready} {ready === 1 ? 'task' : 'tasks'} ready to do
+            </span>
+            <span className="flex-1" aria-hidden />
+            <span className="tabular-nums">{rangeLabel}</span>
+            <Pager />
+          </div>
+
           {error && (
-            <p role="alert" className="mb-3 text-sm text-red-600">
+            <p role="alert" className="mb-3 text-sm text-danger-ink">
               {error}
             </p>
           )}
@@ -605,350 +352,101 @@ export function Dashboard() {
               Loading…
             </p>
           ) : visible.length === 0 ? (
-            <div className="rounded-2xl bg-surface p-10 text-center">
+            <div className="rounded-xl bg-surface p-10 text-center">
               <p className="text-muted">
-                {(counts?.all ?? 0) === 0
-                  ? 'No tasks yet.'
-                  : filter === 'unassigned'
-                    ? 'No unassigned tasks — every task is in a project.'
-                    : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
+                {q !== ''
+                  ? 'Nothing matches your search.'
+                  : projectFilterId !== null
+                    ? 'No tasks in this project yet.'
+                    : (counts?.all ?? 0) === 0
+                      ? 'No tasks yet.'
+                      : filter === 'unassigned'
+                        ? 'No unassigned tasks — every task is in a project.'
+                        : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
               </p>
               <Link
                 to="/tasks/new"
                 state={{ from: '/dashboard' }}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xl font-bold text-white transition hover:opacity-90"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-primary-deep px-4 py-2 font-semibold text-white transition hover:bg-primary-deep-hover"
               >
                 <Plus className="h-5 w-5" strokeWidth={2.5} />
                 Add a task
               </Link>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl bg-surface">
-              {/* table-fixed so column widths stay put when a row enters edit mode
-              (its inputs are wider than the display badges) — no jump (#178). */}
-              <table className="w-full min-w-[640px] table-fixed text-left text-sm">
-                <caption className="sr-only">Your tasks</caption>
-                <thead className="bg-gray-50 text-xs uppercase tracking-wide text-muted">
-                  <tr>
-                    <SortTh colKey="title" label="Title" />
-                    <SortTh colKey="effort" label="Effort" className="w-32" />
-                    <SortTh colKey="est" label="Est." className="w-24" />
-                    <SortTh colKey="status" label="Status" className="w-40" />
-                    <th scope="col" className="w-36 px-4 py-3 text-right font-medium">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visible.map((task, i) => {
-                    const editing = editingId === task.id && editValues
-                    if (editing) {
-                      // Fixed row height (h-14) matches the display row so entering
-                      // edit mode doesn't jump (#178); a one-line error fits inside it.
-                      return (
-                        <tr
-                          key={task.id}
-                          className="bg-primary-tint"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') {
-                              setEditingId(null)
-                              setRowError(null)
-                            }
-                          }}
+            <>
+              <ul aria-label="Tasks" className="flex flex-col gap-px">
+                {visible.map((task, i) => (
+                  <li
+                    key={task.id}
+                    className={`flex h-12 items-center bg-surface transition hover:bg-page/60 ${
+                      i === 0 ? 'rounded-t-xl' : ''
+                    } ${i === visible.length - 1 ? 'rounded-b-xl' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/tasks/${task.id}`)}
+                      aria-label={`Open ${task.title}`}
+                      className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3.5 px-5 text-left"
+                    >
+                      <span
+                        className={`h-2 w-2 flex-none rounded-[3px] ${
+                          task.project ? projectPole(task.project.color) : 'bg-gray-300'
+                        }`}
+                        aria-hidden
+                      />
+                      <span
+                        className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
+                          task.project ? 'font-medium text-gray-700' : 'text-muted'
+                        }`}
+                      >
+                        {task.project?.name ?? 'No project'}
+                      </span>
+                      <span
+                        className={`flex-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${COMPLEXITY_TAG[task.complexity].className}`}
+                      >
+                        {COMPLEXITY_TAG[task.complexity].label}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        <span
+                          className={
+                            task.status === 'done'
+                              ? 'font-semibold text-muted line-through'
+                              : 'font-semibold text-gray-800'
+                          }
                         >
-                          <td className="h-14 px-4 align-middle">
-                            <input
-                              autoFocus
-                              aria-label="Title"
-                              value={editValues.title}
-                              maxLength={MAX_TITLE}
-                              onChange={(e) =>
-                                setEditValues({ ...editValues, title: e.target.value })
-                              }
-                              className="w-full rounded bg-gray-100 p-1.5"
-                            />
-                            {rowError && (
-                              <p role="alert" className="mt-1 text-xs text-red-600">
-                                {rowError}
-                              </p>
-                            )}
-                          </td>
-                          <td className="h-14 px-4 align-middle">
-                            <select
-                              aria-label="Effort"
-                              value={editValues.complexity}
-                              onChange={(e) =>
-                                setEditValues({
-                                  ...editValues,
-                                  complexity: e.target.value as TaskComplexity,
-                                })
-                              }
-                              className="w-full rounded bg-gray-100 p-1.5"
-                            >
-                              <option value="low">Low</option>
-                              <option value="medium">Medium</option>
-                              <option value="high">High</option>
-                            </select>
-                          </td>
-                          <td className="h-14 px-4 align-middle">
-                            <input
-                              type="number"
-                              aria-label="Estimated minutes"
-                              min={1}
-                              max={MAX_MINUTES}
-                              value={editValues.estimatedMinutes}
-                              onChange={(e) =>
-                                setEditValues({ ...editValues, estimatedMinutes: e.target.value })
-                              }
-                              className="w-full rounded bg-gray-100 p-1.5"
-                            />
-                          </td>
-                          <td className="h-14 px-4 align-middle">
-                            <select
-                              aria-label="Status"
-                              value={editValues.status}
-                              onChange={(e) =>
-                                setEditValues({
-                                  ...editValues,
-                                  status: e.target.value as TaskStatus,
-                                })
-                              }
-                              className="w-full rounded bg-gray-100 p-1.5"
-                            >
-                              <option value="backlog">To do</option>
-                              <option value="in_progress">In progress</option>
-                              <option value="done">Done</option>
-                            </select>
-                          </td>
-                          <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => void saveEdit(task)}
-                                disabled={savingId === task.id}
-                                aria-label="Save changes"
-                                className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-success-ink transition hover:bg-success-tint disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <Check className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setEditingId(null)
-                                  setRowError(null)
-                                }}
-                                aria-label="Cancel editing"
-                                className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
-                              >
-                                <X className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    }
-
-                    const tag = COMPLEXITY_TAG[task.complexity]
-                    const badge = STATUS_BADGE[task.status]
-                    const stripe = i % 2 ? 'bg-gray-50' : ''
-                    const expanded = expandedId === task.id
-                    return (
-                      <Fragment key={task.id}>
-                        <tr className={`${stripe} hover:bg-primary-tint`}>
-                          <td className="h-14 px-4 align-middle">
-                            <div className="flex items-center gap-1.5">
-                              {task.description && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedId((cur) => (cur === task.id ? null : task.id))
-                                  }
-                                  aria-expanded={expanded}
-                                  aria-label={`${expanded ? 'Hide' : 'Show'} description for ${task.title}`}
-                                  className="shrink-0 cursor-pointer rounded p-0.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
-                                >
-                                  <ChevronRight
-                                    className={`h-4 w-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                                    aria-hidden
-                                  />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => startEdit(task)}
-                                aria-label={`Edit ${task.title}`}
-                                className="block min-w-0 flex-1 cursor-pointer truncate text-left font-medium text-gray-800"
-                              >
-                                {task.title}
-                              </button>
-                            </div>
-                          </td>
-                          <td
-                            onClick={() => startEdit(task)}
-                            className="h-14 cursor-pointer px-4 align-middle"
-                          >
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${tag.className}`}
-                            >
-                              {tag.label}
-                            </span>
-                          </td>
-                          <td
-                            onClick={() => startEdit(task)}
-                            className="h-14 cursor-pointer px-4 align-middle text-muted"
-                          >
-                            {task.estimatedMinutes}m
-                          </td>
-                          <td
-                            onClick={() => startEdit(task)}
-                            className="h-14 cursor-pointer px-4 align-middle"
-                          >
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}
-                            >
-                              {badge.label}
-                            </span>
-                          </td>
-                          <td className="h-14 px-4 text-right align-middle whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1">
-                              {/* Assign (#236) — Unassigned tab only: one-click to the
-                                  ride-along target, else a small project picker. */}
-                              {filter === 'unassigned' && (
-                                <AssignControl
-                                  task={task}
-                                  rideAlong={rideAlongProject}
-                                  projects={projects}
-                                  onAssign={assign}
-                                />
-                              )}
-                              {task.status === 'backlog' && (
-                                <button
-                                  onClick={() => void onStart(task)}
-                                  aria-label={`Start ${task.title}`}
-                                  className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
-                                >
-                                  <Play
-                                    className="h-5 w-5"
-                                    fill="currentColor"
-                                    strokeWidth={0}
-                                    aria-hidden
-                                  />
-                                </button>
-                              )}
-                              {task.status === 'in_progress' && (
-                                <Link
-                                  to={`/play/progress/${task.id}`}
-                                  aria-label={`Resume ${task.title}`}
-                                  className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-primary-ink transition hover:bg-primary-tint"
-                                >
-                                  <Play
-                                    className="h-5 w-5"
-                                    fill="currentColor"
-                                    strokeWidth={0}
-                                    aria-hidden
-                                  />
-                                </Link>
-                              )}
-                              {/* Edit (#218): desktop opens a modal over the list (kept
-                              in context); mobile (< sm) keeps the full-page route,
-                              which also still backs deep links + refresh everywhere.
-                              Only one is in the a11y tree per breakpoint (the other
-                              is display:none). */}
-                              <button
-                                type="button"
-                                onClick={() => setEditModalTask(task)}
-                                aria-label={`Edit details for ${task.title}`}
-                                className="hidden cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800 sm:inline-flex"
-                              >
-                                <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
-                              </button>
-                              <Link
-                                to={`/tasks/${task.id}/edit`}
-                                aria-label={`Edit details for ${task.title}`}
-                                className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800 sm:hidden"
-                              >
-                                <Pencil className="h-4 w-4" strokeWidth={2} aria-hidden />
-                              </Link>
-                              <button
-                                onClick={() => onDelete(task)}
-                                aria-label={`Delete ${task.title}`}
-                                className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-red-500 transition hover:bg-red-50 hover:text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" strokeWidth={2} aria-hidden />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {expanded && task.description && (
-                          <tr className={stripe}>
-                            <td
-                              colSpan={5}
-                              className="px-4 pb-3 text-sm whitespace-pre-wrap text-gray-600"
-                            >
-                              {task.description}
-                            </td>
-                          </tr>
+                          {task.title}
+                        </span>
+                        {task.description && (
+                          <span className="text-muted"> — {task.description}</span>
                         )}
-                      </Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                      </span>
+                      <span className="hidden flex-none text-xs text-muted tabular-nums sm:block">
+                        {task.estimatedMinutes} min
+                      </span>
+                      {basePoints && (
+                        <span className="w-12 flex-none text-right text-sm font-semibold text-gray-700 tabular-nums">
+                          {basePoints[task.complexity]} pts
+                        </span>
+                      )}
+                    </button>
+                    {filter === 'unassigned' && (
+                      <AssignControl
+                        task={task}
+                        projects={projects}
+                        target={rideAlongProject}
+                        onAssign={(project) => void assign(task, project)}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
 
-          {/* Keyset "Load more" (#100) — only Done/All ever grow past one page. */}
-          {!loading && nextCursor != null && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={() => void loadMore()}
-                disabled={loadingMore}
-                className="cursor-pointer rounded-lg bg-surface px-5 py-2 text-sm font-semibold text-primary-ink transition hover:bg-primary-tint disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loadingMore ? 'Loading…' : 'Load more'}
-              </button>
-            </div>
-          )}
-
-          {pendingTask && (
-            <div
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              onMouseEnter={pauseUndo}
-              onMouseLeave={resumeUndo}
-              onFocus={pauseUndo}
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget)) resumeUndo()
-              }}
-              className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white"
-            >
-              <span>
-                Deleted “
-                {pendingTask.title.length > 32
-                  ? pendingTask.title.slice(0, 32) + '…'
-                  : pendingTask.title}
-                ”
-              </span>
-              <button
-                onClick={undoDelete}
-                className="font-semibold text-warning-ink hover:underline"
-              >
-                Undo
-              </button>
-            </div>
-          )}
-
-          {editModalTask && (
-            <EditTaskModal
-              task={editModalTask}
-              onClose={() => setEditModalTask(null)}
-              onSaved={(updated) => {
-                setTasks((prev) =>
-                  prev.map((t) => (t.id === updated.id ? updated : t)).sort(byIdDesc),
-                )
-                setEditModalTask(null)
-              }}
-            />
+              <div className="mt-2.5 flex items-center justify-end gap-2.5 px-1 text-xs text-muted">
+                <span className="tabular-nums">{rangeLabel}</span>
+                <Pager />
+              </div>
+            </>
           )}
         </>
       )}
@@ -957,77 +455,80 @@ export function Dashboard() {
 }
 
 /**
- * Row-level assign control for the Unassigned tab (#236). With a ride-along target
- * it's a one-click Assign button; otherwise it's a small project picker — a plain
- * disclosure (Escape + outside-click close, initial focus into the list), not a
- * role=menu widget, matching the ProjectsView kebab.
+ * Trailing row action on the Unassigned tab (#236): with a ride-along target,
+ * one-click "Assign"; otherwise a small disclosure listing active projects.
  */
 function AssignControl({
   task,
-  rideAlong,
   projects,
+  target,
   onAssign,
 }: {
   task: Task
-  rideAlong: Project | null
   projects: Project[]
-  onAssign: (task: Task, project: Project) => void
+  target: Project | null
+  onAssign: (project: Project) => void
 }) {
   const [open, setOpen] = useState(false)
-  const firstItemRef = useRef<HTMLButtonElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
-    firstItemRef.current?.focus()
-    const close = () => setOpen(false)
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
     document.addEventListener('mousedown', close)
     return () => document.removeEventListener('mousedown', close)
   }, [open])
 
-  if (rideAlong) {
+  if (target) {
     return (
       <button
         type="button"
-        onClick={() => onAssign(task, rideAlong)}
-        aria-label={`Assign ${task.title} to ${rideAlong.name}`}
-        className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-accent-ink transition hover:bg-accent-tint"
+        onClick={() => onAssign(target)}
+        aria-label={`Assign ${task.title} to ${target.name}`}
+        className="mr-4 flex-none cursor-pointer rounded-lg bg-accent-tint px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-80"
       >
-        <FolderPlus className="h-4 w-4" strokeWidth={2} aria-hidden />
+        Assign
       </button>
     )
   }
 
   return (
-    <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+    <div ref={ref} className="relative mr-4 flex-none">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((v) => !v)}
         aria-label={`Assign ${task.title} to a project`}
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-accent-ink transition hover:bg-accent-tint"
+        className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-field px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover"
       >
-        <FolderPlus className="h-4 w-4" strokeWidth={2} aria-hidden />
+        Assign
+        <ChevronDown className="h-3.5 w-3.5" aria-hidden />
       </button>
       {open && (
         <div
           onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-          className="absolute right-0 z-10 mt-1 max-h-64 w-52 overflow-y-auto rounded-lg bg-surface py-1 text-left ring-1 ring-gray-200"
+          className="absolute right-0 z-10 mt-1 max-h-64 w-52 overflow-y-auto rounded-lg bg-surface py-1 ring-1 ring-field-hover"
         >
           {projects.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted">No active projects — create one first.</p>
+            <p className="px-3 py-2 text-xs text-muted">No active projects yet.</p>
           ) : (
-            projects.map((p, i) => (
+            projects.map((p) => (
               <button
                 key={p.id}
-                ref={i === 0 ? firstItemRef : undefined}
                 type="button"
                 onClick={() => {
                   setOpen(false)
-                  onAssign(task, p)
+                  onAssign(p)
                 }}
-                className="block w-full cursor-pointer truncate px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-page"
               >
-                {p.name}
+                <span
+                  className={`h-2 w-2 flex-none rounded-[3px] ${projectPole(p.color)}`}
+                  aria-hidden
+                />
+                <span className="truncate">{p.name}</span>
               </button>
             ))
           )}

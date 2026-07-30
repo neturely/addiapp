@@ -42,7 +42,9 @@ export function ProjectModal({
       </h2>
       <ProjectForm
         initial={
-          editing ? { name: project.name, description: project.description ?? '' } : undefined
+          editing
+            ? { name: project.name, description: project.description ?? '', color: project.color }
+            : undefined
         }
         submitLabel={editing ? 'Save changes' : 'Create project'}
         submittingLabel={editing ? 'Saving…' : 'Creating…'}

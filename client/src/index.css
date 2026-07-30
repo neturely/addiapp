@@ -1,6 +1,41 @@
 @import 'tailwindcss';
 
 /*
+ * Inter (#258) — self-hosted latin woff2 (no external font hosts; the files
+ * ship from client/public/fonts/). Weights: 400/500/600/700. The app rendered
+ * in the system stack before this — the old repo-root Nunito files were never
+ * wired up.
+ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-v20-latin-regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-v20-latin-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-v20-latin-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-v20-latin-700.woff2') format('woff2');
+}
+
+/*
  * AddiApp design tokens (visual refresh v2, #91/#92). Single source of truth.
  * Tailwind v4 `@theme` generates the `bg-*` / `text-*` / `bg-*-tint` utilities
  * AND exposes `--color-*` CSS vars (for raw-CSS / SVG fills like the Mascot).
@@ -10,6 +45,25 @@
  * cream page by flat color alone. `#D85A30` (old coral) is fully retired.
  */
 @theme {
+  /* Inter as the app-wide sans stack (#258); cv05/ss01 = the open digits/
+     disambiguated glyphs the shell prototype uses — revisit if they read badly
+     live. */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans--font-feature-settings: 'cv05', 'ss01';
+
+  /*
+   * Radius scale (#258) — one deliberate ramp instead of ad-hoc rounded-*:
+   *   rounded-lg (8px)      buttons, chips, small controls
+   *   rounded-control (9px) form fields / large buttons
+   *   rounded-xl (12px)     panels, table shells, menus
+   *   rounded-2xl (16px)    modals
+   *   rounded-card (20px)   hero/Play cards
+   * lg/xl/2xl are Tailwind defaults (listed for the ramp's sake); only the two
+   * odd sizes are custom tokens. Migrate surfaces as they're touched (B–E).
+   */
+  --radius-control: 9px;
+  --radius-card: 20px;
+
   /*
    * Vivid palette v3 (#143). Each hue has THREE roles — never one token doing
    * double duty:
@@ -24,6 +78,13 @@
   --color-primary-ink: #c43a0c;
   --color-on-primary: #3d1200;
   --color-primary-tint: #fdf0ea;
+  /* -deep roles (#258): solid BUTTON fills where NORMAL-SIZE white text clears
+     WCAG AA 4.5:1 — removing the old "white needs text-xl bold" constraint on
+     CTAs. Measured: white on primary-deep 5.11, hover 6.27; success-deep 5.81,
+     hover 7.93; danger-deep 6.57, hover 8.60. The vivid {h} fills stay for
+     non-text surfaces (meters, poles, tints' parent hue). */
+  --color-primary-deep: #c93a1d;
+  --color-primary-deep-hover: #b03418;
   /* success FILL deepened #3ecf4c → #1f9e3e (#174): white large-text now clears
      WCAG 3:1 (3.49) on the fill, mirroring the primary #ff5a36 → #fb5231 tune.
      Only solid-fill use is the InProgress meter bar (no text on it) + the
@@ -35,6 +96,8 @@
      the dashboard banner. #0a3d14 was 3.56 (large-text tier only). */
   --color-on-success: #04240b;
   --color-success-tint: #e5f5f0;
+  --color-success-deep: #16752c;
+  --color-success-deep-hover: #115e23;
   --color-accent: #1cb0f6;
   --color-accent-ink: #6e3fd6;
   --color-on-accent: #04283a;
@@ -49,9 +112,24 @@
   --color-warning-ink: #8a5a00;
   --color-on-warning: #2e2000;
   --color-warning-tint: #fbeed3;
+  /* danger hue (#258) — destructive actions (delete buttons, the upcoming
+     account-deletion flow). Same four-role shape as the other hues plus -deep.
+     Measured: danger-ink on danger-tint 7.59, on surface 8.66, on page 7.71;
+     white on danger 4.83 (the one vivid fill where even small white passes),
+     on danger-deep 6.57. No --color-on-danger yet — nothing consumes it. */
+  --color-danger: #d92d20;
+  --color-danger-deep: #b42318;
+  --color-danger-deep-hover: #96190f;
+  --color-danger-ink: #912018;
+  --color-danger-tint: #feecea;
   --color-muted: #5b6270;
   --color-page: #f6f1ea;
   --color-surface: #ffffff;
+  /* field (#258): the neutral input/secondary-button tone sitting between page
+     and surface — the button system's `secondary` fill and (from B on) form
+     fields. Measured: muted 5.16 on field, 4.67 on field-hover; gray-700 8.67. */
+  --color-field: #efebe4;
+  --color-field-hover: #e5e0d8;
 
   /* Mascot (#96): dedicated character-fill tokens — decorative, not text.
      Named separately (not reusing --color-primary etc.) because the mascot has
