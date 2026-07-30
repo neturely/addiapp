@@ -11,6 +11,12 @@ export type ShellState = {
   setSearch: (q: string) => void
   railOpen: boolean
   toggleRail: () => void
+  /** Below-`sm` the rail is an overlay drawer (#270) with its own state so it
+   * never pops open on load. */
+  narrow: boolean
+  drawerOpen: boolean
+  toggleDrawer: () => void
+  closeDrawer: () => void
   columnOpen: boolean
   toggleColumn: () => void
   /** True on the Play routes — the focus surface, where the shell chrome

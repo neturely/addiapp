@@ -16,7 +16,7 @@ import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
  * Project poles carry each project's palette colour (#268); the fixed entries
  * keep their fixed hues.
  */
-export function Rail() {
+export function Rail({ drawer = false }: { drawer?: boolean }) {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
@@ -64,7 +64,13 @@ export function Rail() {
     <nav
       id="app-rail"
       aria-label="Sidebar"
-      className="hidden w-56 flex-none flex-col overflow-y-auto px-2.5 py-4 sm:flex"
+      // Static pane at sm+; inside the #270 mobile drawer it fills the panel
+      // (the drawer wrapper owns positioning/scrim).
+      className={
+        drawer
+          ? 'flex h-full w-full flex-col overflow-y-auto px-2.5 py-4'
+          : 'hidden w-56 flex-none flex-col overflow-y-auto px-2.5 py-4 sm:flex'
+      }
     >
       <RailHead label="Tasks" plusTo="/tasks/new" plusLabel="Add task" plusState={{ from: '/dashboard' }} />
       <RailLink to="/dashboard" active={isAll} pole="bg-primary" label="All tasks" count={counts?.all} />
@@ -129,9 +135,9 @@ function RailHead({
         to={plusTo}
         state={plusState}
         aria-label={plusLabel}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-6 sm:w-6"
       >
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+        <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} aria-hidden />
       </Link>
     </div>
   )
@@ -154,7 +160,8 @@ function RailLink({
     <Link
       to={to}
       aria-current={active ? 'true' : undefined}
-      className={`flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-sm ${
+      // h-11 below sm = the drawer's ≥44px touch target (#270); compact at sm+.
+      className={`flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm sm:h-8 ${
         active
           ? 'bg-primary-tint font-semibold text-primary-ink'
           : 'text-gray-700 hover:bg-field-hover'

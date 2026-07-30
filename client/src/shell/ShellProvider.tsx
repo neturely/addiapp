@@ -10,16 +10,22 @@ import { ShellContext } from './shellContext'
  * icon instead so points are never invisible (epic #256 acceptance).
  */
 export function ShellProvider({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation()
+  const { pathname, key: locationKey } = useLocation()
   const solo = pathname === '/' || pathname.startsWith('/play')
   const wide = useMediaQuery('(min-width: 1240px)')
+  // Below Tailwind's `sm` the rail becomes an overlay drawer (#270).
+  const narrow = !useMediaQuery('(min-width: 640px)')
 
   const [search, setSearch] = useState('')
   const [railOpen, setRailOpen] = useState(true)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [columnOpen, setColumnOpen] = useState(true)
 
   // A search is a view-local filter — leaving the view discards it.
   useEffect(() => setSearch(''), [pathname])
+  // The drawer closes on ANY navigation (it overlays what you just navigated
+  // to) — keyed on location.key since rail links often change only the query.
+  useEffect(() => setDrawerOpen(false), [locationKey])
 
   const value = useMemo(
     () => ({
@@ -27,13 +33,17 @@ export function ShellProvider({ children }: { children: ReactNode }) {
       setSearch,
       railOpen,
       toggleRail: () => setRailOpen((v) => !v),
+      narrow,
+      drawerOpen,
+      toggleDrawer: () => setDrawerOpen((v) => !v),
+      closeDrawer: () => setDrawerOpen(false),
       columnOpen,
       toggleColumn: () => setColumnOpen((v) => !v),
       solo,
       wide,
       columnVisible: columnOpen && wide && !solo,
     }),
-    [search, railOpen, columnOpen, solo, wide],
+    [search, railOpen, narrow, drawerOpen, columnOpen, solo, wide],
   )
 
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>

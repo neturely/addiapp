@@ -248,7 +248,9 @@ export function TaskView() {
             onChange={(e) => setTitle(e.target.value)}
             maxLength={MAX_TITLE}
             aria-label="Title"
-            className="-mx-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 hover:bg-field focus:bg-field focus:outline-none"
+            // -ml only (not -mx): a full-width input with symmetric negative
+            // margins overflows a 375px viewport (#270).
+            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 hover:bg-field focus:bg-field focus:outline-none"
           />
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -371,7 +373,7 @@ export function TaskView() {
             </p>
           )}
 
-          <div className="mt-7 flex items-center gap-2.5">
+          <div className="mt-7 flex flex-wrap items-center gap-2.5">
             <Button type="submit" disabled={saving}>
               {saving ? 'Saving…' : 'Save changes'}
             </Button>
