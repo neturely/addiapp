@@ -36,7 +36,7 @@ final class Sessions
         }
 
         $stmt = Db::pdo()->prepare(
-            'SELECT u.id, u.email, u.display_name
+            'SELECT u.id, u.email, u.display_name, u.selection_strategy
              FROM sessions s JOIN users u ON u.id = s.user_id
              WHERE s.id = ? AND s.expires_at > NOW() LIMIT 1',
         );
@@ -53,6 +53,8 @@ final class Sessions
             // Same Gravatar hash publicUser() emits (#174) — this array hydrates
             // $req->user, so /auth/me (the client's hydration path) carries it too.
             'gravatarHash' => md5(strtolower(trim((string) $row['email']))),
+            // Play selection preference (#266) — Settings reads it off /auth/me.
+            'selectionStrategy' => (string) $row['selection_strategy'],
         ];
     }
 

@@ -211,7 +211,16 @@ final class TasksController
         $stmt = Db::pdo()->prepare('SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions));
         $stmt->execute($args);
         $candidates = array_map([self::class, 'mapTask'], $stmt->fetchAll());
-        Response::json(['task' => Selection::pick($candidates)]);
+        Response::json(['task' => Selection::pick($candidates, self::userStrategy((int) $req->userId))]);
+    }
+
+    /** The user's stored Play selection strategy (#266); defaults server-side. */
+    private static function userStrategy(int $userId): string
+    {
+        $stmt = Db::pdo()->prepare('SELECT selection_strategy FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $v = $stmt->fetchColumn();
+        return is_string($v) && $v !== '' ? $v : 'weightedByAge';
     }
 
     /**

@@ -139,8 +139,15 @@ controller.
   backlog candidates (time-filter-respecting), pick the project with the **least remaining
   effort** (Σ `PointsConfig::BASE_POINTS`, closest to done), tie-break **oldest project**
   (`created_at`, then id), then the **oldest task** within it. Same `{ task }` shape.
-- A future **per-user selection preference** is designed for (swap
-  `Selection::strategies()[$name]`) but **not built** — no settings page yet.
+- **Per-user selection preference — BUILT (#266, epic #256 E):**
+  `users.selection_strategy` (migration 015, default `weightedByAge`);
+  `Selection::pick($candidates, $strategy)` resolves via `strategies()` with a
+  fall-back so a stale name can never break selection; `GET /api/tasks/next`
+  reads the caller's stored strategy; `PATCH /api/account` accepts
+  `selectionStrategy` (validated against the seam) and the user payload carries
+  it. Settings has the picker. **Decided: `focusProject` stays a Play MODE, not
+  a strategy** — as a stored default it would silently override the win-type
+  choice; the Choice screen's third option is its home.
 
 ## What's built (maps to PROJECT_SPEC §5/§6) — LIVE at addiapp.com
 
@@ -257,10 +264,22 @@ to the old Node API.
 - **Add task (#35)**: `/tasks/new`. **Stats page (#38)**: `/stats` — since #260 the
   **narrow-viewport stats surface** (header Stats icon when the right column isn't
   rendered); the #37 PointsCard was retired into the shell's right column.
-- **Settings (#187, #200)**: `/settings` (gear nav) — account management. `AccountController`:
-  `PATCH /api/account` (display name; shared `AuthController::displayName` validator, ≤50 chars,
-  empty→NULL, now also enforced on register) + `POST /api/account/password` (needs current
-  password, keeps this session and revokes the rest via `Sessions::deleteUserSessionsExcept`).
+- **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
+  (Profile / Email / Password / **Play** / **Delete account**, hairline dividers —
+  replaced the three FormCards). `AccountController`:
+  `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
+  `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
+  register) + `POST /api/account/password` (needs current password, keeps this
+  session and revokes the rest via `Sessions::deleteUserSessionsExcept`) +
+  **`POST /api/auth/logout-others`** (#266 — the avatar menu's "Sign out other
+  devices") + **`DELETE /api/account`** (#266 — permanent deletion: password
+  re-auth, rate-limited; one `DELETE FROM users` cascades every owned table
+  (all FKs are `ON DELETE CASCADE`), plus an explicit sweep of email-keyed
+  `rate_limits` buckets (`action:sha1(email)`, no FK there); best-effort Resend
+  goodbye notice AFTER the delete; cookie cleared. Client: danger section →
+  shared-`Modal` with **type-"delete"-to-confirm + password**, then a full
+  reload to `/login`. Locked by `tests/Db/AccountDeletionTest.php` + e2e
+  `e2e/settings.mjs`).
   **Email change (#200)** is a re-verification flow: a `pending_email` column (migration 004) + an
   `email_change` `EmailTokens` type (enum extended, migration 005); `POST /api/account/email` stores
   the pending address (non-enumerating, rate-limited) and Resends a confirm link to it; the
