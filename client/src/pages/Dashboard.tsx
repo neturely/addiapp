@@ -347,7 +347,7 @@ export function Dashboard() {
                     key={task.id}
                     // Hover is a barely-off-white (#256 review) — distinct from
                     // the cream page behind the table, softer than the old tint.
-                    className={`flex h-12 items-center bg-surface transition hover:bg-[#fbf8f3] ${
+                    className={`group flex h-12 items-center bg-surface transition hover:bg-[#fbf8f3] ${
                       i === 0 ? 'rounded-t-xl' : ''
                     } ${i === visible.length - 1 ? 'rounded-b-xl' : ''}`}
                   >
@@ -389,29 +389,35 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
-                      <span className="hidden flex-none text-xs text-muted tabular-nums sm:block">
-                        {task.estimatedMinutes} min
+                      {/* Estimate + points as ONE cell — "10 min / 5 pts"
+                          (#256 review). Done rows show the points actually
+                          EARNED; the rest show the base forecast. The minutes
+                          half hides below sm. */}
+                      <span className="w-14 flex-none text-right text-sm tabular-nums sm:w-32">
+                        <span className="hidden text-xs text-muted sm:inline">
+                          {task.estimatedMinutes} min /{' '}
+                        </span>
+                        {task.status === 'done' && task.earnedPoints != null ? (
+                          <span className="font-semibold text-success-ink">
+                            +{task.earnedPoints} pts
+                          </span>
+                        ) : basePoints ? (
+                          <span className="font-semibold text-gray-700">
+                            {basePoints[task.complexity]} pts
+                          </span>
+                        ) : null}
                       </span>
-                      {/* Done rows show the points actually EARNED (#256
-                          review); the rest show the base forecast. */}
-                      {task.status === 'done' && task.earnedPoints != null ? (
-                        <span className="w-14 flex-none text-right text-sm font-semibold text-success-ink tabular-nums">
-                          +{task.earnedPoints} pts
-                        </span>
-                      ) : basePoints ? (
-                        <span className="w-14 flex-none text-right text-sm font-semibold text-gray-700 tabular-nums">
-                          {basePoints[task.complexity]} pts
-                        </span>
-                      ) : null}
                     </button>
                     {/* Ready rows get a one-click play (#256 review): start +
-                        jump straight into the InProgress screen. */}
+                        jump straight into the InProgress screen. Hover-only on
+                        pointer widths (#256 review); always visible below sm
+                        (no hover on touch) and on keyboard focus. */}
                     {task.status === 'backlog' && (
                       <button
                         type="button"
                         onClick={() => void playNow(task)}
                         aria-label={`Start ${task.title}`}
-                        className="mr-3 inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint"
+                        className="mr-3 inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                       >
                         <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
                       </button>
