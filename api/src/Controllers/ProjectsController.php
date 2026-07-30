@@ -25,7 +25,7 @@ final class ProjectsController
      * palette (client/src/lib/projectColors.ts) — the server only bounds it.
      * Bump BOTH when adding slots.
      */
-    public const PALETTE_SIZE = 8;
+    public const PALETTE_SIZE = 20;
 
     /**
      * GET /api/projects[?status=active|archived|all] — the user's projects, each

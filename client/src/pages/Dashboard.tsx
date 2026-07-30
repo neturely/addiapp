@@ -180,27 +180,32 @@ export function Dashboard() {
   const canPrev = offset > 0
   const canNext = last < total
 
+  // Arrows render only when there is somewhere to go (#256 review — no greyed
+  // stubs); the whole pager vanishes on a single page.
   function Pager() {
+    if (!canPrev && !canNext) return null
     return (
       <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          onClick={() => canPrev && setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-          disabled={!canPrev}
-          aria-label="Previous page"
-          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => canNext && setOffset((o) => o + PAGE_SIZE)}
-          disabled={!canNext}
-          aria-label="Next page"
-          className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
-        >
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </button>
+        {canPrev && (
+          <button
+            type="button"
+            onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+            aria-label="Previous page"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          </button>
+        )}
+        {canNext && (
+          <button
+            type="button"
+            onClick={() => setOffset((o) => o + PAGE_SIZE)}
+            aria-label="Next page"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </button>
+        )}
       </div>
     )
   }
@@ -236,29 +241,9 @@ export function Dashboard() {
         <ProjectsView />
       ) : (
         <>
-          {projectFilterId !== null ? (
-            /* Project-filter banner (#260/#245): one project's tasks, every status. */
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent-tint px-4 py-2.5 text-sm">
-              <span className="flex items-center gap-2 text-accent-ink">
-                <span
-                  className={`h-2.5 w-2.5 flex-none rounded-[3px] ${projectPole(projects.find((p) => p.id === projectFilterId)?.color)}`}
-                  aria-hidden
-                />
-                Project:{' '}
-                <span className="font-semibold">
-                  {projects.find((p) => p.id === projectFilterId)?.name ?? '…'}
-                </span>{' '}
-                — every status
-              </span>
-              <Link
-                to="/dashboard"
-                className="shrink-0 cursor-pointer rounded-md p-1 text-accent-ink transition hover:bg-white/50"
-                aria-label="Back to all tasks"
-              >
-                <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-              </Link>
-            </div>
-          ) : null}
+          {/* (The old project-filter banner is gone, #256 review — the toolbar's
+              selection label + scoped count carry the same information, and the
+              rail's All tasks is the way back.) */}
 
           {/* Ride-along assign banner (#236). */}
           {filter === 'unassigned' && rideAlongProject && (

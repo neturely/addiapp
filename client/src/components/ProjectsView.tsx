@@ -159,26 +159,31 @@ export function ProjectsView() {
         <span className="font-medium text-gray-700 tabular-nums">{countLabel}</span>
         <span className="flex-1" aria-hidden />
         <span className="tabular-nums">{`${first}–${last} of ${total}`}</span>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-            disabled={offset === 0}
-            aria-label="Previous page"
-            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => setOffset((o) => (o + PAGE_SIZE < total ? o + PAGE_SIZE : o))}
-            disabled={last >= total}
-            aria-label="Next page"
-            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent sm:h-8 sm:w-8"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
+        {/* Arrows only when there's somewhere to go (#256 review). */}
+        {(offset > 0 || last < total) && (
+          <div className="flex items-center gap-0.5">
+            {offset > 0 && (
+              <button
+                type="button"
+                onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+                aria-label="Previous page"
+                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+            {last < total && (
+              <button
+                type="button"
+                onClick={() => setOffset((o) => (o + PAGE_SIZE < total ? o + PAGE_SIZE : o))}
+                aria-label="Next page"
+                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
