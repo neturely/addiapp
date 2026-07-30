@@ -12,6 +12,7 @@ import {
 import { fetchPoints } from '@/lib/points'
 import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
+import { Mascot } from '@/components/Mascot'
 import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
@@ -21,8 +22,8 @@ type View = 'tasks' | 'projects'
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'backlog', label: 'To do' }, // presentation label; enum value stays `backlog` (#178)
-  { key: 'in_progress', label: 'In progress' },
+  { key: 'backlog', label: 'Ready' }, // presentation label; enum value stays `backlog` (#178)
+  { key: 'in_progress', label: 'Started' },
   { key: 'done', label: 'Done' },
 ]
 
@@ -313,6 +314,9 @@ export function Dashboard() {
             </p>
           ) : visible.length === 0 ? (
             <div className="rounded-xl bg-surface p-10 text-center">
+              {/* "Nothing to see here" mascot (#256 review) — the shared empty
+                  treatment for any information-less view. */}
+              <Mascot expression="empty" className="mx-auto mb-4 h-20 w-20" />
               <p className="text-muted">
                 {q !== ''
                   ? 'Nothing matches your search.'
@@ -322,7 +326,7 @@ export function Dashboard() {
                       ? 'No tasks yet.'
                       : filter === 'unassigned'
                         ? 'No unassigned tasks — every task is in a project.'
-                        : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
+                        : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
               </p>
               <Link
                 to="/tasks/new"

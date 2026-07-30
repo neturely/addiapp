@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type Expression = 'neutral' | 'celebrating' | 'idle'
+export type Expression = 'neutral' | 'celebrating' | 'idle' | 'empty'
 
 /**
  * AddiApp mascot — the "star character" (#210, supersedes the #96 penguin).
@@ -62,6 +62,8 @@ const DIRS: Record<Expression, [number, number]> = {
   neutral: [-0.9, -0.32],
   celebrating: [-0.6, -0.8],
   idle: [-0.72, 0.5],
+  // "nothing to see here" (#256 review): arms out near-horizontal — a shrug.
+  empty: [-0.98, -0.08],
 }
 
 function limbPaths(expr: Expression): string[] {
@@ -111,14 +113,40 @@ export function Mascot({
   halo?: boolean
 }) {
   const label =
-    expression === 'celebrating' ? 'AddiApp mascot, celebrating' : 'AddiApp mascot'
+    expression === 'celebrating'
+      ? 'AddiApp mascot, celebrating'
+      : expression === 'empty'
+        ? 'AddiApp mascot, shrugging — nothing here'
+        : 'AddiApp mascot'
 
   const eyeWhite = (cx: number) => (
     <circle key={`w${cx}`} cx={cx} cy={EY} r={EYE_R} fill="var(--color-mascot-patch)" />
   )
 
   let eyes: ReactNode
-  if (expression === 'idle') {
+  if (expression === 'empty') {
+    // side-glance: both pupils drift to one side — looking around an empty room
+    const px = PR * 0.55
+    const pupil = (cx: number) => (
+      <g key={`p${cx}`}>
+        <circle cx={cx + px} cy={EY} r={PR} fill="var(--color-mascot-pupil)" />
+        <circle
+          cx={cx + px + PR * 0.4}
+          cy={EY - PR * 0.4}
+          r={PR * 0.32}
+          fill="var(--color-mascot-patch)"
+        />
+      </g>
+    )
+    eyes = (
+      <>
+        {eyeWhite(EX1)}
+        {eyeWhite(EX2)}
+        {pupil(EX1)}
+        {pupil(EX2)}
+      </>
+    )
+  } else if (expression === 'idle') {
     // look-down (locked): pupils sit low — attentive, watching the task
     const py = EY + EYE_R * 0.42
     const pupil = (cx: number) => (
@@ -175,6 +203,17 @@ export function Mascot({
   let mouth: ReactNode
   if (expression === 'celebrating') {
     mouth = <path d="M52 73 Q60 71 68 73 Q60 87 52 73 Z" fill="var(--color-mascot-beak)" />
+  } else if (expression === 'empty') {
+    // small skewed flat line — unimpressed "huh, nothing here"
+    mouth = (
+      <path
+        d="M55 76.5 L65 75"
+        stroke="var(--color-mascot-beak)"
+        strokeWidth="3"
+        fill="none"
+        strokeLinecap="round"
+      />
+    )
   } else if (expression === 'idle') {
     mouth = (
       <path
