@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, CircleCheck, Play, Trash2 } from 'lucide-react'
+import {
+  ChevronLeft,
+  CircleCheck,
+  Flame,
+  Mountain,
+  Play,
+  Trash2,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
 import { ApiError } from '@/lib/apiError'
@@ -29,13 +38,12 @@ const COMPLEXITY_LABEL: Record<TaskComplexity, string> = {
   medium: 'Medium',
   high: 'High',
 }
-/** Vivid effort tiles (#176, retained here on #256 review): each hue as a solid
- *  fill with a white large/bold label (clears 3:1 on the tuned fills) and a
- *  dark on-fill caption (4.5:1); the checked tile gets the offset ring. */
-const EFFORT_TILE: Record<TaskComplexity, { fill: string; caption: string }> = {
-  low: { fill: 'bg-success', caption: 'text-on-success' },
-  medium: { fill: 'bg-warning', caption: 'text-on-warning' },
-  high: { fill: 'bg-primary', caption: 'text-on-primary' },
+/** Effort tiles (#256 review, Choice-option style): a shared LIGHT fill with a
+ *  coloured icon + dark label — colour lives in the icon, not the surface. */
+const EFFORT_TILE: Record<TaskComplexity, { Icon: LucideIcon; icon: string }> = {
+  low: { Icon: Zap, icon: 'text-success' },
+  medium: { Icon: Flame, icon: 'text-warning' },
+  high: { Icon: Mountain, icon: 'text-primary' },
 }
 const STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: 'Ready', // presentation label; enum value stays `backlog` (#178)
@@ -189,7 +197,9 @@ export function TaskView() {
           ...(projectId !== '' ? { projectId } : {}),
         })
         showToast({ message: `Task added: ${trimmed}`, icon: CircleCheck, tone: 'success' })
-        navigate(from)
+        // Create always lands on the dashboard (#256 review) — the Back button
+        // still honours `from` for a cancel.
+        navigate('/dashboard')
         return
       }
       const updated = await updateTask(task!.id, {
@@ -346,7 +356,7 @@ export function TaskView() {
               >
                 {COMPLEXITY_ORDER.map((c, i) => {
                   const checked = complexity === c
-                  const tile = EFFORT_TILE[c]
+                  const { Icon, icon } = EFFORT_TILE[c]
                   return (
                     <button
                       key={c}
@@ -362,16 +372,26 @@ export function TaskView() {
                       tabIndex={checked ? 0 : -1}
                       onClick={() => setComplexity(c)}
                       onKeyDown={(e) => onSegKeyDown(e, i)}
-                      className={`cursor-pointer rounded-lg py-2.5 text-center transition ${tile.fill} ${
-                        checked ? 'ring-4 ring-gray-900 ring-offset-2' : 'hover:opacity-90'
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl bg-page/70 px-3.5 py-3 text-left transition ${
+                        checked ? 'ring-2 ring-gray-900 ring-offset-2' : 'hover:bg-field'
                       }`}
                     >
-                      <div className="text-xl font-bold text-white">{COMPLEXITY_LABEL[c]}</div>
-                      {points && (
-                        <div className={`text-sm font-medium ${tile.caption}`}>
-                          {points.basePoints[c]} pts
-                        </div>
-                      )}
+                      <Icon
+                        className={`h-6 w-6 flex-none ${icon}`}
+                        fill={c === 'low' ? 'currentColor' : 'none'}
+                        strokeWidth={c === 'low' ? 0 : 2.25}
+                        aria-hidden
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-gray-800">
+                          {COMPLEXITY_LABEL[c]}
+                        </span>
+                        {points && (
+                          <span className="block text-xs text-muted">
+                            {points.basePoints[c]} pts
+                          </span>
+                        )}
+                      </span>
                     </button>
                   )
                 })}
