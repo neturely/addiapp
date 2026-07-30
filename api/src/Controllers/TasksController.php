@@ -39,7 +39,9 @@ final class TasksController
      */
     public function index(Request $req, array $params): void
     {
-        $conditions = ['user_id = ?'];
+        // Conditions are t.-prefixed: the list query LEFT JOINs projects (#268)
+        // for the row's project name + colour, and both tables share column names.
+        $conditions = ['t.user_id = ?'];
         $args = [$req->userId];
 
         $status = $req->query('status');
@@ -48,7 +50,7 @@ final class TasksController
                 Response::error('Invalid status filter', 400);
                 return;
             }
-            $conditions[] = 'status = ?';
+            $conditions[] = 't.status = ?';
             $args[] = $status;
         }
 
@@ -56,7 +58,7 @@ final class TasksController
         // different axis than the status tabs). Covered by the (user_id, project_id)
         // index from #234's migration 010.
         if ($req->query('unassigned') === '1') {
-            $conditions[] = 'project_id IS NULL';
+            $conditions[] = 't.project_id IS NULL';
         }
 
         // Per-project filter (#260, the backend half of #245): all of one owned
@@ -74,14 +76,19 @@ final class TasksController
                 Response::error('Project not found', 404);
                 return;
             }
-            $conditions[] = 'project_id = ?';
+            $conditions[] = 't.project_id = ?';
             $args[] = $projectId;
         }
+
+        // The list ships each row's project name + colour (#268) so the table can
+        // render poles without an N+1; covered by the (user_id, project_id) index.
+        $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color
+             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id';
 
         $paginated = $req->query('limit') !== null;
         if (!$paginated) {
             $stmt = Db::pdo()->prepare(
-                'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions) . ' ORDER BY id DESC',
+                $select . ' WHERE ' . implode(' AND ', $conditions) . ' ORDER BY t.id DESC',
             );
             $stmt->execute($args);
             Response::json(['tasks' => array_map([self::class, 'mapTask'], $stmt->fetchAll())]);
@@ -102,14 +109,14 @@ final class TasksController
                 Response::error('Invalid cursor', 400);
                 return;
             }
-            $conditions[] = 'id < ?';
+            $conditions[] = 't.id < ?';
             $args[] = $cursor;
         }
 
         // Fetch one extra row to detect whether a further page exists.
         $stmt = Db::pdo()->prepare(
-            'SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions)
-            . ' ORDER BY id DESC LIMIT ' . ($limit + 1),
+            $select . ' WHERE ' . implode(' AND ', $conditions)
+            . ' ORDER BY t.id DESC LIMIT ' . ($limit + 1),
         );
         $stmt->execute($args);
         $rows = $stmt->fetchAll();
@@ -508,6 +515,15 @@ final class TasksController
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
             'createdAt' => Timestamps::iso($r['created_at']),
             'updatedAt' => Timestamps::iso($r['updated_at']),
+            // Joined project name + colour (#268) — present only on the list
+            // query (the LEFT JOIN); single-task responses omit the key.
+            ...(array_key_exists('project_name', $r)
+                ? [
+                    'project' => $r['project_name'] !== null
+                        ? ['name' => $r['project_name'], 'color' => (int) $r['project_color']]
+                        : null,
+                ]
+                : []),
         ];
     }
 

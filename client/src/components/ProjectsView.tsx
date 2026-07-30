@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Archive, ArchiveRestore, MoreVertical, Pencil, Plus } from 'lucide-react'
+import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
@@ -231,7 +232,13 @@ function ProjectCard({
   return (
     <div className="flex flex-col rounded-2xl bg-surface p-5">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 flex-1 truncate font-bold text-gray-800">{project.name}</h3>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span
+            className={`h-2.5 w-2.5 flex-none rounded-[3px] ${projectPole(project.color)}`}
+            aria-hidden
+          />
+          <h3 className="min-w-0 truncate font-bold text-gray-800">{project.name}</h3>
+        </div>
         <div
           className="relative shrink-0"
           // Keep clicks inside the menu from bubbling to the document close handler.
@@ -318,7 +325,13 @@ function ArchivedProjectCard({
   return (
     <div className="flex flex-col rounded-2xl bg-surface p-5 opacity-80">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="min-w-0 flex-1 truncate font-bold text-gray-600">{project.name}</h3>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span
+            className={`h-2.5 w-2.5 flex-none rounded-[3px] opacity-60 ${projectPole(project.color)}`}
+            aria-hidden
+          />
+          <h3 className="min-w-0 truncate font-bold text-gray-600">{project.name}</h3>
+        </div>
         <span className="rounded-full bg-field px-2.5 py-0.5 text-xs font-semibold text-muted">
           Archived
         </span>

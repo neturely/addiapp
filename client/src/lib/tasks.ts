@@ -13,6 +13,9 @@ export type Task = {
   status: TaskStatus
   /** Owning project id (#234); null when unassigned. */
   projectId?: number | null
+  /** Joined project name + palette colour (#268) — present on LIST responses
+   * only (the server's LEFT JOIN); null when unassigned. */
+  project?: { name: string; color: number } | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
 }
