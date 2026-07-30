@@ -17,7 +17,7 @@ const radios = await page.$$eval(
   '[aria-labelledby="project-color-label"] [role="radio"]',
   (els) => els.map((e) => ({ checked: e.getAttribute('aria-checked'), tab: e.tabIndex })),
 )
-ok(radios.length === 8, `#268: swatch radiogroup has 8 radios (got ${radios.length})`)
+ok(radios.length === 20, `#268: swatch radiogroup has 20 radios (got ${radios.length})`)
 ok(radios.filter((r) => r.checked === 'true').length === 1, '#268: exactly one swatch checked')
 ok(
   radios.every((r) => (r.checked === 'true' ? r.tab === 0 : r.tab === -1)),

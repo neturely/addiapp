@@ -42,8 +42,8 @@ ok(
   '#262: prev returns to the first page',
 )
 ok(
-  await page.$eval('button[aria-label="Previous page"]', (b) => b.disabled),
-  '#262: prev disabled on the first page',
+  (await page.$('button[aria-label="Previous page"]')) === null,
+  '#262: prev arrow absent on the first page (arrows only render when usable)',
 )
 
 // Sort toggle: "newest first" (the default) ↔ "oldest first" flips row order + URL.
