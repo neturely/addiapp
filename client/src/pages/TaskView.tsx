@@ -38,12 +38,15 @@ const COMPLEXITY_LABEL: Record<TaskComplexity, string> = {
   medium: 'Medium',
   high: 'High',
 }
-/** Effort tiles (#256 review, Choice-option style): a shared LIGHT fill with a
- *  coloured icon + dark label — colour lives in the icon, not the surface. */
-const EFFORT_TILE: Record<TaskComplexity, { Icon: LucideIcon; icon: string }> = {
-  low: { Icon: Zap, icon: 'text-success' },
-  medium: { Icon: Flame, icon: 'text-warning' },
-  high: { Icon: Mountain, icon: 'text-primary' },
+/** Effort tiles (#256 review, Choice-option style): light fill + coloured icon
+ *  + dark label; the SELECTED tile takes its hue's pastel tint (no ring). */
+const EFFORT_TILE: Record<
+  TaskComplexity,
+  { Icon: LucideIcon; icon: string; checked: string }
+> = {
+  low: { Icon: Zap, icon: 'text-success', checked: 'bg-success-tint' },
+  medium: { Icon: Flame, icon: 'text-warning', checked: 'bg-warning-tint' },
+  high: { Icon: Mountain, icon: 'text-primary', checked: 'bg-primary-tint' },
 }
 const STATUS_LABEL: Record<TaskStatus, string> = {
   backlog: 'Ready', // presentation label; enum value stays `backlog` (#178)
@@ -356,7 +359,7 @@ export function TaskView() {
               >
                 {COMPLEXITY_ORDER.map((c, i) => {
                   const checked = complexity === c
-                  const { Icon, icon } = EFFORT_TILE[c]
+                  const { Icon, icon, checked: checkedFill } = EFFORT_TILE[c]
                   return (
                     <button
                       key={c}
@@ -372,8 +375,8 @@ export function TaskView() {
                       tabIndex={checked ? 0 : -1}
                       onClick={() => setComplexity(c)}
                       onKeyDown={(e) => onSegKeyDown(e, i)}
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl bg-page/70 px-3.5 py-3 text-left transition ${
-                        checked ? 'ring-2 ring-gray-900 ring-offset-2' : 'hover:bg-field'
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
+                        checked ? checkedFill : 'bg-page/70 hover:bg-field'
                       }`}
                     >
                       <Icon

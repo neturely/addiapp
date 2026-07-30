@@ -206,17 +206,24 @@ export function Dashboard() {
   }
 
   const rangeLabel = `${first}–${last} of ${total}`
-  const ready = counts?.backlog ?? 0
   // Toolbar's selection label — mirrors the rail choice (project name, a status
   // filter, or "All tasks").
+  const filterProject =
+    projectFilterId !== null ? projects.find((p) => p.id === projectFilterId) : undefined
   const selectionLabel =
     projectFilterId !== null
-      ? (projects.find((p) => p.id === projectFilterId)?.name ?? 'Project')
+      ? (filterProject?.name ?? 'Project')
       : filter === 'all'
         ? 'All tasks'
         : filter === 'unassigned'
           ? 'Unassigned'
           : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
+  // Count text scopes to the selection (#256 review): a project filter shows
+  // THAT project's remaining count (the rail's figure), not the global backlog.
+  const ready = counts?.backlog ?? 0
+  const countLabel = filterProject
+    ? `${filterProject.remainingCount} of ${filterProject.totalCount} left to do`
+    : `${ready} ${ready === 1 ? 'task' : 'tasks'} ready to do`
 
   return (
     // No page heading / view toggle (review feedback on #256): the rail's
@@ -279,8 +286,9 @@ export function Dashboard() {
               </p>
             )}
 
-          {/* Toolbar (#262; #256 review layout): "{selection} · oldest first" —
-              dynamic from the rail — then the ready count; range + pager right. */}
+          {/* Toolbar (#262; #256 review layout): "{selection} · sort toggle" —
+              dynamic from the rail — then the count (project-scoped when a
+              project filter is active); range + pager right. */}
           <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
             <span className="flex items-center gap-1">
               {selectionLabel} ·{' '}
@@ -294,9 +302,7 @@ export function Dashboard() {
               </button>
             </span>
             <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
-            <span className="font-medium text-gray-700 tabular-nums">
-              {ready} {ready === 1 ? 'task' : 'tasks'} ready to do
-            </span>
+            <span className="font-medium text-gray-700 tabular-nums">{countLabel}</span>
             <span className="flex-1" aria-hidden />
             <span className="tabular-nums">{rangeLabel}</span>
             <Pager />
