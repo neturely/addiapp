@@ -253,8 +253,9 @@ to the old Node API.
   rules slot in as more cells) → a served points-forecast panel (base + max speed
   bonus + today's multiplier; `speedBonus` config now rides `GET /api/points`) →
   Save · Delete (shared-`Modal` **confirm dialog** — the undo-toast delete is
-  retired) · Start now/Resume. **The `backlog` status DISPLAYS as "To do"** —
-  presentation-only; never string-match the label. **Pagination (#262 — supersedes
+  retired) · Start now/Resume. **Status display labels: `backlog` = "Ready",
+  `in_progress` = "Started"** (#256 review; was To do/In progress) —
+  presentation-only; never string-match a label. **Pagination (#262 — supersedes
   #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
   returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
   range; global `counts` on every page) — the toolbar reads **"{selection} ·
@@ -262,9 +263,11 @@ to the old Node API.
   `counts.backlog`; the sort text is a TOGGLE button flipping newest/oldest via
   `?sort=oldest` + the server's validated `order=asc|desc` param) + range +
   prev/next pagers (top and foot), 25/page. **Default order: NEWEST FIRST**
-  (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All / To do /
-  In progress / Done / Unassigned, with counts) live in the rail's Tasks section
-  as `?tab=` links, and the filter is purely URL-derived.
+  (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All tasks /
+  Ready / Started / Unassigned / Done, with counts — that order) live in the
+  rail's Tasks section as `?tab=` links, and the filter is purely URL-derived.
+  Empty states show the **`empty` mascot expression** (shrug + side-glance —
+  the shared nothing-here treatment; a 404 adoption is a later candidate).
   Filtering stays server-side; column sorting was dropped with the table. The
   Unassigned tab keeps the #236 assign flow as a trailing row action
   (`AssignControl`); assigns refetch the current page (server-authoritative).
@@ -373,8 +376,8 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Rail** (`Rail.tsx`, `w-56`, collapsible; below `sm` it's an **overlay drawer**,
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
-  (All / Unassigned / Completed → the Dashboard's `?tab=` filters, counts from the
-  server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
+  (All tasks / Ready / Started / Unassigned / Done → the Dashboard's `?tab=`
+  filters, counts from the server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
 - **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in
@@ -439,7 +442,9 @@ built; mobile stays the full page pending #98.
 
 Mascot — **currently LIVE = v3 "star character" (#210; supersedes the v2 penguin
 #96 entirely)** — one `Mascot` component (`client/src/components/Mascot.tsx`) with
-an `expression` prop (`neutral | celebrating | idle`) **plus an opt-in `halo` prop**.
+an `expression` prop (`neutral | celebrating | idle | empty`) **plus an opt-in `halo`
+prop**. (`empty` — #256 review: shrug arms, side-glance pupils, flat mouth — is the
+shared "nothing to see here" face for empty states.)
 A **round golden face** (`--color-mascot-body #ffc800`) with **four chunky rounded
 star-point limbs** (2 arms upper, 2 legs lower) that **pose per expression** (a
 second expression channel on top of the face), **big cartoony eyes** (cream whites +

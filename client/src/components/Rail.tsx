@@ -79,28 +79,22 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         plusState={{ from: '/dashboard' }}
       />
       {/* The full status-filter set lives HERE (#256 review — the in-table pill
-          row is gone); labels match the Dashboard's ("To do" = `backlog`, #178). */}
+          row is gone). Display labels only ("Ready" = `backlog`, "Started" =
+          `in_progress`, #178 rule): never string-match a label. */}
       <RailLink to="/dashboard" active={isAll} pole="bg-primary" label="All tasks" count={counts?.all} />
       <RailLink
         to="/dashboard?tab=backlog"
         active={isTab('backlog')}
         pole="bg-accent"
-        label="To do"
+        label="Ready"
         count={counts?.backlog}
       />
       <RailLink
         to="/dashboard?tab=in_progress"
         active={isTab('in_progress')}
         pole="bg-warning"
-        label="In progress"
+        label="Started"
         count={counts?.in_progress}
-      />
-      <RailLink
-        to="/dashboard?tab=done"
-        active={isTab('done')}
-        pole="bg-success"
-        label="Done"
-        count={counts?.done}
       />
       <RailLink
         to="/dashboard?tab=unassigned"
@@ -108,6 +102,13 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         pole="bg-gray-400"
         label="Unassigned"
         count={counts?.unassigned}
+      />
+      <RailLink
+        to="/dashboard?tab=done"
+        active={isTab('done')}
+        pole="bg-success"
+        label="Done"
+        count={counts?.done}
       />
 
       <RailHead

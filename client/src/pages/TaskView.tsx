@@ -34,8 +34,8 @@ const SEG_CHECKED: Record<TaskComplexity, string> = {
   high: 'bg-primary-tint text-primary-ink font-semibold',
 }
 const STATUS_LABEL: Record<TaskStatus, string> = {
-  backlog: 'To do', // presentation label; enum value stays `backlog` (#178)
-  in_progress: 'In progress',
+  backlog: 'Ready', // presentation label; enum value stays `backlog` (#178)
+  in_progress: 'Started',
   done: 'Done',
 }
 
