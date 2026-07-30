@@ -143,7 +143,13 @@ export function ProjectForm({
                   checked ? 'ring-2 ring-gray-800 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
                 }`}
               >
-                {checked && <Check className="h-4 w-4 text-white" strokeWidth={3} aria-hidden />}
+                {checked && (
+                  <Check
+                    className={`h-4 w-4 ${c.darkCheck ? 'text-gray-800' : 'text-white'}`}
+                    strokeWidth={3}
+                    aria-hidden
+                  />
+                )}
               </button>
             )
           })}
