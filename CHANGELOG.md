@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [2.0.0] - 2026-07-30
 ### Added
 - GUI refresh (epic [#256](https://github.com/neturely/addiapp/issues/256)) — a full app-shell redesign: header with search + icon nav, collapsible rail (task filters + per-project entries with live counts), right column with the Play card and Today/All-time stats ([#260](https://github.com/neturely/addiapp/issues/260))
 - Task view at `/tasks/:id` — the single task surface for viewing, editing, and creating (extensible field grid + a served points forecast), replacing the AddTask page, edit modal, and inline row editing ([#262](https://github.com/neturely/addiapp/issues/262))
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Toasts stack (up to 5) with independent timers, bottom-right on desktop ([#256](https://github.com/neturely/addiapp/issues/256) review)
 - Self-hosted Inter as the app font; shared button system on AA-verified deep fills; a full danger hue ([#258](https://github.com/neturely/addiapp/issues/258))
 - The rail becomes an overlay drawer below 640px; touch targets ≥44px ([#270](https://github.com/neturely/addiapp/issues/270))
+- Docs sync — Projects epic into PROJECT_SPEC + README rewrite + CLAUDE.md currency ([#252](https://github.com/neturely/addiapp/issues/252))
 
 ## [1.9.0] - 2026-07-21
 ### Added
@@ -114,7 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/neturely/addiapp/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/neturely/addiapp/compare/v1.6.0...v1.7.0
