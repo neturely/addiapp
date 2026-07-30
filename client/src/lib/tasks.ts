@@ -16,6 +16,8 @@ export type Task = {
   /** Joined project name + palette colour (#268) — present on LIST responses
    * only (the server's LEFT JOIN); null when unassigned. */
   project?: { name: string; color: number } | null
+  /** Points actually earned on completion (LIST only; null until done). */
+  earnedPoints?: number | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
   /** ISO creation timestamp — the task view's "added N days ago" line (#262). */

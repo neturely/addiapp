@@ -80,10 +80,13 @@ final class TasksController
             $args[] = $projectId;
         }
 
-        // The list ships each row's project name + colour (#268) so the table can
-        // render poles without an N+1; covered by the (user_id, project_id) index.
-        $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color
-             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id';
+        // The list ships each row's project name + colour (#268) and, for done
+        // tasks, the points actually earned (#256 review — points_log join;
+        // UNIQUE(task_id) keeps it 1:1) — no N+1 either way.
+        $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color,
+                    pl.total_points AS earned_points
+             FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+             LEFT JOIN points_log pl ON pl.task_id = t.id';
 
         $paginated = $req->query('limit') !== null;
         if (!$paginated) {
@@ -542,6 +545,10 @@ final class TasksController
                         ? ['name' => $r['project_name'], 'color' => (int) $r['project_color']]
                         : null,
                 ]
+                : []),
+            // Points actually earned (#256 review) — list only, null until done.
+            ...(array_key_exists('earned_points', $r)
+                ? ['earnedPoints' => $r['earned_points'] !== null ? (int) $r['earned_points'] : null]
                 : []),
         ];
     }
