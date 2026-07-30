@@ -333,7 +333,7 @@ final class AuthController
         return $t;
     }
 
-    /** @return array{id:int,email:string,displayName:?string,gravatarHash:string} */
+    /** @return array{id:int,email:string,displayName:?string,gravatarHash:string,selectionStrategy:string} */
     public static function publicUser(array $row): array
     {
         return [
@@ -344,6 +344,9 @@ final class AuthController
             // scheme. Computed once here so the client renders the avatar without
             // any crypto/deps; the client falls back to initials on a 404 (d=404).
             'gravatarHash' => md5(strtolower(trim((string) $row['email']))),
+            // Play selection preference (#266); coalesced so narrow SELECTs that
+            // predate the column stay valid.
+            'selectionStrategy' => (string) ($row['selection_strategy'] ?? 'weightedByAge'),
         ];
     }
 }

@@ -95,9 +95,11 @@ $router->get('/api/projects', [$projects, 'index'], true);
 $router->post('/api/projects', [$projects, 'create'], true);
 $router->patch('/api/projects/{id}', [$projects, 'update'], true);
 
-// Account settings (#187, #200) — all require auth.
+// Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);
 $router->post('/api/account/password', [$account, 'changePassword'], true);
 $router->post('/api/account/email', [$account, 'changeEmail'], true);
+$router->post('/api/auth/logout-others', [$account, 'logoutOthers'], true);
+$router->delete('/api/account', [$account, 'destroy'], true);
 
 $router->dispatch(Request::fromGlobals());

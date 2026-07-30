@@ -65,4 +65,19 @@ final class Templates
             "Reset your AddiApp password: {$link} (expires in 1 hour). If you didn't request this, ignore this email — your password won't change.",
         );
     }
+
+    /** Goodbye notice after account deletion (#266) — informational, no links. */
+    public static function accountDeleted(string $to): EmailMessage
+    {
+        return new EmailMessage(
+            $to,
+            'Your AddiApp account has been deleted',
+            self::wrap(
+                'Your account is gone',
+                '<p>Your AddiApp account — every task, project and your points history — has been permanently deleted, as you requested.</p>'
+                . '<p style="color:#666;font-size:13px">Nothing is recoverable. If this wasn\'t you, reply to this email right away.</p>',
+            ),
+            "Your AddiApp account and all its data have been permanently deleted, as you requested. Nothing is recoverable. If this wasn't you, reply to this email right away.",
+        );
+    }
 }
