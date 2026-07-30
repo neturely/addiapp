@@ -13,7 +13,7 @@ import {
   type Task,
 } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
-import { formatClock } from '@/lib/time'
+import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
 
 /** Effort → tint pill classes (#264; the #178 palette, AA dark-on-tint). */
@@ -281,7 +281,50 @@ export function InProgress() {
           </button>
         </>
       }
+      secondary={<AlsoRunning currentId={task.id} />}
       footer="You can leave any time — this task stays in progress until you complete it."
     />
+  )
+}
+
+/**
+ * Other parallel running tasks (#256 review), listed under the card's CTA —
+ * clicking one swaps it into this screen (a plain navigate: the route decides
+ * which task is the main card, so back/refresh keep working). Each row ticks
+ * its own clock off `startedAt`, same anchor as the main timer.
+ */
+function AlsoRunning({ currentId }: { currentId: number }) {
+  const { activeTasks } = useInProgress()
+  const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const others = activeTasks.filter((t) => t.id !== currentId)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (others.length === 0) return
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [others.length])
+  if (others.length === 0) return null
+  const qs = params.toString()
+  return (
+    <div className="border-t border-field pt-3 text-left">
+      <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        Also running
+      </div>
+      {others.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => navigate(`/play/progress/${t.id}${qs ? `?${qs}` : ''}`)}
+          aria-label={`Switch to ${t.title}`}
+          className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page"
+        >
+          <span className="min-w-0 truncate font-medium text-gray-800">{t.title}</span>
+          <span className="flex-none font-mono text-xs tabular-nums text-muted">
+            {formatClock(elapsedSecondsSince(t.startedAt, now))}
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }

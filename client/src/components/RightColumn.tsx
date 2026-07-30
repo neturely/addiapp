@@ -116,7 +116,11 @@ type Celebration = { title: string; points: number | null }
  * moment the Play Completion screen gives — before settling back. */
 function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
   const { activeTasks, refresh } = useInProgress()
-  const activeTask = activeTasks[0] ?? null
+  // The card's hero slot (#256 review): a clicked compact mirror swaps in here;
+  // otherwise the most recently started task. A completed hero falls back.
+  const [heroId, setHeroId] = useState<number | null>(null)
+  const activeTask = activeTasks.find((t) => t.id === heroId) ?? activeTasks[0] ?? null
+  const others = activeTask ? activeTasks.filter((t) => t.id !== activeTask.id) : []
   const [celebration, setCelebration] = useState<Celebration | null>(null)
   const celebrationTimer = useRef<number | null>(null)
   useEffect(
@@ -125,6 +129,13 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
     },
     [],
   )
+
+  const promote = (id: number) => {
+    setHeroId(id)
+    // Picking a task cuts a running celebration short — the card is wanted.
+    if (celebrationTimer.current) window.clearTimeout(celebrationTimer.current)
+    setCelebration(null)
+  }
 
   const completed = (title: string, points: number | null) => {
     setCelebration({ title, points })
@@ -153,14 +164,31 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
         />
       </div>
       {celebration ? (
-        <CelebrationPanel celebration={celebration} />
+        <>
+          <CelebrationPanel celebration={celebration} />
+          {/* Still-running tasks stay listed under the celebration — clicking
+              one dismisses it and swaps that task into the hero slot. */}
+          {activeTasks.map((t) => (
+            <CompactMirror
+              key={t.id}
+              task={t}
+              onCompleted={completed}
+              onSelect={() => promote(t.id)}
+            />
+          ))}
+        </>
       ) : activeTask ? (
         <>
           <RunningMirror task={activeTask} onCompleted={completed} />
-          {/* Other running tasks stack as compact mirrors — most recent is the
-              hero above; each keeps its own live clock and Mark done. */}
-          {activeTasks.slice(1).map((t) => (
-            <CompactMirror key={t.id} task={t} onCompleted={completed} />
+          {/* Other running tasks stack as compact mirrors — each keeps its own
+              live clock and Mark done; clicking one swaps it into the hero. */}
+          {others.map((t) => (
+            <CompactMirror
+              key={t.id}
+              task={t}
+              onCompleted={completed}
+              onSelect={() => promote(t.id)}
+            />
           ))}
         </>
       ) : (
@@ -303,15 +331,18 @@ function RunningMirror({
 
 /**
  * Compact mirror for a second/third parallel running task (#256 review): a
- * hairline-divided row under the hero mirror — title (→ its InProgress screen),
- * its own live clock, and a one-tap Mark done.
+ * hairline-divided row under the hero mirror — clicking the title swaps the
+ * task into the hero slot; plus its own live clock and a one-tap Mark done.
  */
 function CompactMirror({
   task,
   onCompleted,
+  onSelect,
 }: {
   task: Task
   onCompleted: (title: string, points: number | null) => void
+  /** Swap this task into the card's hero slot (#256 review). */
+  onSelect: () => void
 }) {
   const { showToast } = useToast()
   const [now, setNow] = useState(() => Date.now())
@@ -337,17 +368,19 @@ function CompactMirror({
 
   return (
     <div className="mt-4 flex items-center gap-2 border-t border-field pt-3 text-left">
-      <div className="min-w-0 flex-1">
-        <Link
-          to={`/play/progress/${task.id}`}
-          className="block truncate text-xs font-semibold text-gray-800 transition hover:text-primary-ink"
-        >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-label={`Show ${task.title} on the card`}
+        className="min-w-0 flex-1 cursor-pointer text-left"
+      >
+        <span className="block truncate text-xs font-semibold text-gray-800 transition hover:text-primary-ink">
           {task.title}
-        </Link>
+        </span>
         <span className="font-mono text-xs tabular-nums text-muted">
           {formatClock(elapsedSecondsSince(task.startedAt, now))}
         </span>
-      </div>
+      </button>
       <button
         type="button"
         disabled={completing}
