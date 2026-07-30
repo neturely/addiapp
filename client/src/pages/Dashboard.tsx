@@ -56,15 +56,10 @@ export function Dashboard() {
   const { showToast } = useToast()
   const { search } = useShell()
 
-  // Top-level Tasks | Projects toggle (#234), URL-driven (`?view=`).
+  // Tasks vs Projects view, URL-driven (`?view=`) — navigated from the rail's
+  // linkable section headings (the in-page toggle was removed on #256 review).
   const [searchParams, setSearchParams] = useSearchParams()
   const view: View = searchParams.get('view') === 'projects' ? 'projects' : 'tasks'
-  function setView(next: View) {
-    const params = new URLSearchParams(searchParams)
-    if (next === 'projects') params.set('view', 'projects')
-    else params.delete('view')
-    setSearchParams(params)
-  }
 
   // `?project=ID`: with `tab=unassigned` it's the #236 assign ride-along target;
   // without it's the #260 rail per-project filter (every status).
@@ -206,35 +201,11 @@ export function Dashboard() {
   const ready = counts?.backlog ?? 0
 
   return (
+    // No page heading / view toggle (review feedback on #256): the rail's
+    // linkable Tasks/Projects section headings are the view navigation now;
+    // an sr-only h1 keeps the page named for screen readers.
     <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
-      <header className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <div className="flex gap-2">
-          {(
-            [
-              ['tasks', 'Tasks'],
-              ['projects', 'Projects'],
-            ] as [View, string][]
-          ).map(([v, label]) => {
-            const active = view === v
-            return (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setView(v)}
-                className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                  active
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-surface text-muted hover:bg-primary-tint'
-                }`}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-      </header>
+      <h1 className="sr-only">Dashboard</h1>
 
       {view === 'projects' ? (
         <ProjectsView />

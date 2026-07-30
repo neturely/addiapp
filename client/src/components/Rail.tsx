@@ -72,7 +72,13 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
           : 'hidden w-56 flex-none flex-col overflow-y-auto px-2.5 py-4 sm:flex'
       }
     >
-      <RailHead label="Tasks" plusTo="/tasks/new" plusLabel="Add task" plusState={{ from: '/dashboard' }} />
+      <RailHead
+        label="Tasks"
+        to="/dashboard"
+        plusTo="/tasks/new"
+        plusLabel="Add task"
+        plusState={{ from: '/dashboard' }}
+      />
       <RailLink to="/dashboard" active={isAll} pole="bg-primary" label="All tasks" count={counts?.all} />
       <RailLink
         to="/dashboard?tab=unassigned"
@@ -91,6 +97,7 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
 
       <RailHead
         label="Projects"
+        to="/dashboard?view=projects"
         plusTo="/dashboard?view=projects&new=1"
         plusLabel="New project"
         className="mt-6"
@@ -117,12 +124,16 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
 
 function RailHead({
   label,
+  to,
   plusTo,
   plusLabel,
   plusState,
   className = '',
 }: {
   label: string
+  /** The section heading is itself a link (#256 review feedback) — Tasks →
+   * the task list, Projects → the projects grid. */
+  to: string
   plusTo: string
   plusLabel: string
   plusState?: unknown
@@ -130,7 +141,13 @@ function RailHead({
 }) {
   return (
     <div className={`mb-1 flex items-center justify-between pl-2.5 pr-1 ${className}`}>
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</span>
+      <Link
+        to={to}
+        // h-11 below sm = a real touch target in the drawer (#270); text-size at sm+.
+        className="flex h-11 items-center text-[11px] font-semibold uppercase tracking-wider text-muted transition hover:text-primary-ink sm:h-auto"
+      >
+        {label}
+      </Link>
       <Link
         to={plusTo}
         state={plusState}
