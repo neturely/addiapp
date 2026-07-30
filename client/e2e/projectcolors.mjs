@@ -54,7 +54,7 @@ const poleClass = await page.evaluate((n) => {
   const link = [...document.querySelectorAll('#app-rail a')].find((a) => a.textContent.includes(n))
   return link?.querySelector('span[aria-hidden]')?.className ?? ''
 }, name)
-ok(/bg-success/.test(poleClass), `#268: rail pole carries slot-1 colour (class: "${poleClass}")`)
+ok(poleClass.includes('bg-[#d1511a]'), `#268: rail pole carries slot-1 colour (class: "${poleClass}")`)
 
 await browser.close()
 process.exit(done())

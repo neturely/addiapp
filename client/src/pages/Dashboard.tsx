@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronLeft, ChevronRight, FolderPlus, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, FolderPlus, Play, Plus, X } from 'lucide-react'
 import {
   assignTaskToProject,
   fetchTasksPage,
+  startTask,
   type Task,
   type TaskComplexity,
   type TaskCounts,
@@ -163,6 +164,16 @@ export function Dashboard() {
       setCounts(page.counts)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not assign that task.')
+    }
+  }
+
+  // One-click play from a ready row (#256 review).
+  async function playNow(task: Task) {
+    try {
+      const started = await startTask(task.id)
+      navigate(`/play/progress/${started.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start the task.')
     }
   }
 
@@ -381,12 +392,30 @@ export function Dashboard() {
                       <span className="hidden flex-none text-xs text-muted tabular-nums sm:block">
                         {task.estimatedMinutes} min
                       </span>
-                      {basePoints && (
-                        <span className="w-12 flex-none text-right text-sm font-semibold text-gray-700 tabular-nums">
+                      {/* Done rows show the points actually EARNED (#256
+                          review); the rest show the base forecast. */}
+                      {task.status === 'done' && task.earnedPoints != null ? (
+                        <span className="w-14 flex-none text-right text-sm font-semibold text-success-ink tabular-nums">
+                          +{task.earnedPoints} pts
+                        </span>
+                      ) : basePoints ? (
+                        <span className="w-14 flex-none text-right text-sm font-semibold text-gray-700 tabular-nums">
                           {basePoints[task.complexity]} pts
                         </span>
-                      )}
+                      ) : null}
                     </button>
+                    {/* Ready rows get a one-click play (#256 review): start +
+                        jump straight into the InProgress screen. */}
+                    {task.status === 'backlog' && (
+                      <button
+                        type="button"
+                        onClick={() => void playNow(task)}
+                        aria-label={`Start ${task.title}`}
+                        className="mr-3 inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint"
+                      >
+                        <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
+                      </button>
+                    )}
                     {filter === 'unassigned' && (
                       <AssignControl
                         task={task}
