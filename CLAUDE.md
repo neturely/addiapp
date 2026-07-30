@@ -219,10 +219,19 @@ to the old Node API.
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
-- **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
-  to it — the standalone Home screen was retired in #191), Task `/play/task`,
-  In-progress `/play/progress/:id`, Completion, Empty state. A mid-flight task is
-  surfaced by a Resume banner on Choice **plus** the header timer chip.
+- **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
+  (`/` redirects to it — the standalone Home screen was retired in #191), Task
+  `/play/task`, In-progress `/play/progress/:id`, Completion, Empty state. **#264
+  (epic #256 D):** Choice is now ONE prototype-style card (mascot half-out, three
+  full-width option rows, time chips inside — still not on `PlayCard`, still the
+  5-radio roving radiogroup); InProgress gained effort+estimate pills and its CTA
+  is **"Mark done"** on `success-deep` (e2e greps updated); the shell right column
+  carries a **running-task mirror** (`RunningMirror` in `RightColumn.tsx` — live
+  clock off `startedAt`, speed-bonus deadline, Open + **Mark done from the
+  column**, which toasts the points, refreshes `InProgressProvider` imperatively
+  and fires `PROJECTS_CHANGED_EVENT` for the rail). **No Pause** — deliberate
+  epic scope cut. A mid-flight task is surfaced by the Choice Resume banner, the
+  header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
   name · effort tint pill · **title — description** (truncated) · estimate · base
@@ -342,9 +351,9 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in
   solo): idle Play card (mascot half-out) + **Today** panel (points, tasks, the
   multiplier track — cap/`capTaskNumber` **served** on `GET /api/points/stats`, never
-  hardcoded) + **All-time** tint tiles. Refetches on route change, no polling. The
-  running-task mirror lands in D (#264). **`PointsCard` is deleted** (the column
-  replaced it on the Dashboard).
+  hardcoded) + **All-time** tint tiles. Refetches on route change + after in-column
+  completion, no polling. The Play card mirrors the running task (#264 — see Play
+  mode). **`PointsCard` is deleted** (the column replaced it on the Dashboard).
 - **Solo mode**: `/play*` hides rail + column + search — Play is the focus surface.
 - **Stats page survives** as the narrow-viewport surface at `/stats` (reached via
   the conditional header icon); it is no longer in any desktop nav path.

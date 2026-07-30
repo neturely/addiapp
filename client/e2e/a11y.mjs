@@ -207,7 +207,7 @@ const milestone = await page.evaluate(() => {
   return { present: !!sr, text: sr?.textContent ?? null }
 })
 ok(milestone.present && milestone.text === '', 'A11Y-4: InProgress sr-only milestone announcer present + empty in the bonus window')
-await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /complete/i.test(b.textContent || ''))?.click())
+await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /mark done/i.test(b.textContent || ''))?.click())
 await page.waitForFunction(() => /nice work/i.test(document.body.textContent || ''), { timeout: 5000 })
 await sleep(200)
 const completion = await page.evaluate(() => {

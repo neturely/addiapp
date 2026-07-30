@@ -1,0 +1,79 @@
+// Play refresh checks (#264): the Choice card structure, and the right-column
+// running mirror (live clock + Mark done from the column).
+import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
+
+const { ok, done } = reporter()
+const browser = await launch()
+const page = await browser.newPage()
+await page.setViewport({ width: 1400, height: 900 })
+await login(page)
+
+// --- Choice card ---
+await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
+const choice = await page.evaluate(() => {
+  const text = document.body.textContent || ''
+  return {
+    small: /get small tasks done/i.test(text),
+    big: /take on bigger issues/i.test(text),
+    projects: /focus on projects/i.test(text),
+    auto: /auto-picked/i.test(text),
+    time: /how much time do you have/i.test(text),
+    radios: document.querySelectorAll('[role=radio]').length,
+  }
+})
+ok(choice.small && choice.big && choice.projects, '#264: three choice options render')
+ok(choice.auto, '#264: "Auto-picked" tag on the projects option')
+ok(choice.time && choice.radios === 5, '#264: time chips are the 5-radio radiogroup')
+
+// --- running mirror ---
+const id = await seedTask(page, 'Mirror probe', 'medium', 30)
+await page.evaluate(
+  (tid) =>
+    fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'in_progress' }),
+    }),
+  id,
+)
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+await page.waitForFunction(
+  () => /working on/i.test(document.querySelector('aside')?.textContent || ''),
+  { timeout: 5000 },
+)
+ok(true, '#264: right column mirrors the running task ("Working on")')
+ok(
+  await page.evaluate(() => /mirror probe/i.test(document.querySelector('aside')?.textContent || '')),
+  '#264: mirror shows the task title',
+)
+const clock1 = await page.evaluate(
+  () => document.querySelector('aside .tabular-nums')?.textContent || '',
+)
+await sleep(2200)
+const clock2 = await page.evaluate(
+  () => document.querySelector('aside .tabular-nums')?.textContent || '',
+)
+ok(clock1 !== clock2, `#264: mirror clock ticks ("${clock1}" → "${clock2}")`)
+
+// Mark done from the column: toast fires, mirror reverts to idle.
+await page.evaluate(() =>
+  [...document.querySelectorAll('aside button')]
+    .find((b) => /mark done/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForSelector('[role=status][aria-live=polite]', { timeout: 5000 })
+ok(
+  await page.evaluate(() =>
+    /points|done/i.test(document.querySelector('[role=status]')?.textContent || ''),
+  ),
+  '#264: in-column Mark done fires the points toast',
+)
+await page.waitForFunction(
+  () => /nothing running/i.test(document.querySelector('aside')?.textContent || ''),
+  { timeout: 5000 },
+)
+ok(true, '#264: mirror reverts to the idle Play card after completion')
+
+await browser.close()
+process.exit(done())

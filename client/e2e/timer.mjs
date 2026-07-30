@@ -49,7 +49,7 @@ ok((await page.$(CHIP(id))) !== null, '#135: chip persists across pages')
 
 // complete on the InProgress screen (in-place, no route change) → chip disappears
 await page.goto(`${BASE}/play/progress/${id}`, { waitUntil: 'networkidle0' })
-await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /complete/i.test(b.textContent || ''))?.click())
+await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /mark done/i.test(b.textContent || ''))?.click())
 await page.waitForFunction(() => /nice work/i.test(document.body.textContent || ''), { timeout: 5000 })
 await sleep(400)
 ok((await page.$(CHIP(id))) === null, '#135: chip disappears after in-place completion (imperative refresh)')
