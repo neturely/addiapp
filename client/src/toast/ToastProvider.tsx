@@ -14,7 +14,7 @@ const TONE_BADGE: Record<ToastTone, string> = {
 const DEFAULT_DURATION = 5000
 /** Rapid-fire toasts STACK (#256 review) rather than overriding; oldest drops
  *  beyond this cap so the pile can't grow unbounded. */
-const MAX_STACK = 3
+const MAX_STACK = 5
 
 type StackedToast = ToastOptions & { id: number }
 
@@ -57,6 +57,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 /** One pill with its own pause-on-hover/focus auto-dismiss timer. */
 function ToastPill({ toast, onDone }: { toast: StackedToast; onDone: () => void }) {
   const timerRef = useRef<number | null>(null)
+  // Ref-stable dismiss: `onDone` is a fresh closure on every provider render
+  // (any stack change), and depending on it restarted EVERY pill's timer in
+  // lockstep — they all expired together. The timer must run once from mount.
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
   const duration = toast.duration ?? DEFAULT_DURATION
 
   const clearTimer = useCallback(() => {
@@ -67,13 +72,14 @@ function ToastPill({ toast, onDone }: { toast: StackedToast; onDone: () => void 
   }, [])
   const startTimer = useCallback(() => {
     clearTimer()
-    timerRef.current = window.setTimeout(onDone, duration)
-  }, [clearTimer, onDone, duration])
+    timerRef.current = window.setTimeout(() => onDoneRef.current(), duration)
+  }, [clearTimer, duration])
 
   useEffect(() => {
     startTimer()
     return clearTimer
-  }, [startTimer, clearTimer])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const Icon = toast.icon
   const tone = toast.tone ?? 'neutral'

@@ -68,13 +68,6 @@ export function ProjectsView() {
     return () => document.removeEventListener('mousedown', close)
   }, [openMenuId])
 
-  function setArchivedParam(next: boolean) {
-    const params = new URLSearchParams(searchParams)
-    if (next) params.set('archived', '1')
-    else params.delete('archived')
-    setSearchParams(params)
-  }
-
   function onSaved(saved: Project) {
     setProjects((prev) => {
       const exists = prev.some((p) => p.id === saved.id)
@@ -117,41 +110,8 @@ export function ProjectsView() {
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        {/* Active | Archived pill toggle (#248) — URL-driven so it's linkable
-            (the rail's Archived entry lands on ?view=projects&archived=1). */}
-        <div className="flex gap-2">
-          {(
-            [
-              [false, 'Active'],
-              [true, 'Archived'],
-            ] as [boolean, string][]
-          ).map(([v, label]) => (
-            <button
-              key={label}
-              type="button"
-              aria-pressed={archived === v}
-              onClick={() => setArchivedParam(v)}
-              className={`cursor-pointer rounded-full px-3 py-1 text-sm font-medium transition ${
-                archived === v ? 'bg-primary text-on-primary' : 'bg-surface text-muted hover:bg-primary-tint'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {!archived && (
-          <button
-            type="button"
-            onClick={() => setModal(null)}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary-deep px-4 py-2 font-semibold text-white transition hover:bg-primary-deep-hover"
-          >
-            <Plus className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-            New project
-          </button>
-        )}
-      </div>
-
+      {/* No in-page chrome (#256 review): the Active/Archived pools and the
+          New-project plus live in the rail's Projects section. */}
       {error && (
         <p role="alert" className="mb-3 text-sm text-red-600">
           {error}
@@ -167,7 +127,9 @@ export function ProjectsView() {
           {q !== '' ? 'Nothing matches your search.' : 'No archived projects.'}
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        // Three-up on wide viewports (#256 review; 1240 is the app's wide
+        // breakpoint), two-up from sm.
+        <div className="grid gap-4 sm:grid-cols-2 min-[1240px]:grid-cols-3">
           {visible.map((project) =>
             archived ? (
               <ArchivedProjectCard

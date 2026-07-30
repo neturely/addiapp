@@ -34,7 +34,9 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
 
   useEffect(() => {
     let cancelled = false
-    fetchProjects()
+    // 'all' (#256 review): the Projects section lists the Active/Archived pools
+    // with counts, so both are needed; entries render the active ones.
+    fetchProjects('all')
       .then((p) => !cancelled && setProjects(p))
       .catch(() => undefined) // the rail degrades to the fixed entries
     fetchTasksPage({ limit: 1 })
@@ -44,6 +46,9 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
       cancelled = true
     }
   }, [location.pathname, location.search, refresh])
+
+  const activeProjects = projects.filter((p) => p.status === 'active')
+  const archivedCount = projects.length - activeProjects.length
 
   const onDashboard = location.pathname === '/dashboard'
   const tab = searchParams.get('tab')
@@ -118,7 +123,23 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         plusLabel="New project"
         className="mt-6"
       />
-      {projects.map((p) => (
+      {/* The two pools (#256 review — the in-page Active|Archived pills are
+          gone): both open the Projects grid; entries below are the active ones. */}
+      <RailLink
+        to="/dashboard?view=projects"
+        active={onDashboard && view === 'projects' && !archived}
+        pole="bg-success"
+        label="Active"
+        count={activeProjects.length}
+      />
+      <RailLink
+        to="/dashboard?view=projects&archived=1"
+        active={isArchived}
+        pole="bg-gray-400"
+        label="Archived"
+        count={archivedCount}
+      />
+      {activeProjects.map((p) => (
         <RailLink
           key={p.id}
           to={`/dashboard?project=${p.id}`}
@@ -128,12 +149,6 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
           count={p.remainingCount}
         />
       ))}
-      <RailLink
-        to="/dashboard?view=projects&archived=1"
-        active={isArchived}
-        pole="bg-gray-400"
-        label="Archived"
-      />
     </nav>
   )
 }
