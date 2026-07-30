@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/toast/useToast'
+import { Button } from '@/components/Button'
 import { FormCard } from '@/components/FormCard'
 import { changePassword, requestEmailChange, updateAccount } from '@/lib/account'
 
@@ -80,8 +81,6 @@ export function Settings() {
   }
 
   const field = 'w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none'
-  const cta =
-    'cursor-pointer rounded-lg bg-primary px-6 py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-gray-400'
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-2xl p-4 sm:p-8">
@@ -111,9 +110,9 @@ export function Settings() {
               {profileError}
             </p>
           )}
-          <button type="submit" disabled={savingProfile} className={cta}>
+          <Button type="submit" disabled={savingProfile}>
             {savingProfile ? 'Saving…' : 'Save profile'}
-          </button>
+          </Button>
         </form>
       </FormCard>
 
@@ -160,13 +159,9 @@ export function Settings() {
               {emailSent}
             </p>
           )}
-          <button
-            type="submit"
-            disabled={savingEmail || newEmail.trim() === ''}
-            className={cta}
-          >
+          <Button type="submit" variant="secondary" disabled={savingEmail || newEmail.trim() === ''}>
             {savingEmail ? 'Sending…' : 'Send confirmation'}
-          </button>
+          </Button>
         </form>
       </FormCard>
 
@@ -206,9 +201,9 @@ export function Settings() {
               {pwError}
             </p>
           )}
-          <button type="submit" disabled={savingPw} className={cta}>
+          <Button type="submit" disabled={savingPw}>
             {savingPw ? 'Saving…' : 'Change password'}
-          </button>
+          </Button>
         </form>
       </FormCard>
     </main>
