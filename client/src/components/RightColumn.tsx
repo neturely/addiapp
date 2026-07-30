@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { CircleCheck, Play } from 'lucide-react'
 import { buttonClasses } from './buttonClasses'
+import { CONFETTI } from './confetti'
 import { Mascot } from './Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchUserStats, type UserStats } from '@/lib/points'
@@ -106,22 +107,54 @@ export function RightColumn() {
   )
 }
 
+/** The card's post-completion celebration (#256 review): title + points. */
+type Celebration = { title: string; points: number | null }
+
 /** Idle Play entry, or the running-task mirror(s) when tasks are in flight
- * (#264; parallel tasks each get their own timer, #256 review). */
+ * (#264; parallel tasks each get their own timer, #256 review). Marking done
+ * here flips the card into a brief confetti celebration — the same reward
+ * moment the Play Completion screen gives — before settling back. */
 function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
   const { activeTasks, refresh } = useInProgress()
   const activeTask = activeTasks[0] ?? null
-  const completed = () => {
+  const [celebration, setCelebration] = useState<Celebration | null>(null)
+  const celebrationTimer = useRef<number | null>(null)
+  useEffect(
+    () => () => {
+      if (celebrationTimer.current) window.clearTimeout(celebrationTimer.current)
+    },
+    [],
+  )
+
+  const completed = (title: string, points: number | null) => {
+    setCelebration({ title, points })
+    if (celebrationTimer.current) window.clearTimeout(celebrationTimer.current)
+    celebrationTimer.current = window.setTimeout(() => setCelebration(null), 5000)
     void refresh()
     onCompleted()
   }
 
   return (
     <div className="relative mb-3 rounded-card bg-surface px-4 pb-5 pt-12 text-center">
+      {celebration &&
+        CONFETTI.map((c, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className={`animate-confetti absolute h-2.5 w-2.5 rounded-full ${c.pos}`}
+            style={{ backgroundColor: c.color, animationDelay: c.delay }}
+          />
+        ))}
       <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2">
-        <Mascot expression={activeTask ? 'neutral' : 'idle'} halo className="h-[4.5rem] w-[4.5rem]" />
+        <Mascot
+          expression={celebration ? 'celebrating' : activeTask ? 'neutral' : 'idle'}
+          halo
+          className="h-[4.5rem] w-[4.5rem]"
+        />
       </div>
-      {activeTask ? (
+      {celebration ? (
+        <CelebrationPanel celebration={celebration} />
+      ) : activeTask ? (
         <>
           <RunningMirror task={activeTask} onCompleted={completed} />
           {/* Other running tasks stack as compact mirrors — most recent is the
@@ -150,13 +183,50 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
 }
 
 /**
+ * The card's reward moment (#256 review) — shown for a few seconds after an
+ * in-column Mark done, with the confetti + celebrating mascot around it. A
+ * `role="status"` live region so the outcome (incl. points) is announced; the
+ * points panel mirrors the Completion screen's tinted treatment.
+ */
+function CelebrationPanel({ celebration }: { celebration: Celebration }) {
+  return (
+    <div role="status">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-success-ink">
+        Nice work!
+      </div>
+      <h2 className="mb-3 mt-1.5 line-clamp-2 font-semibold leading-snug text-gray-800">
+        {celebration.title}
+      </h2>
+      {celebration.points != null ? (
+        <div className="mx-auto max-w-[10rem] rounded-xl bg-success-tint px-4 py-3">
+          <div className="text-3xl font-bold tabular-nums tracking-tight text-success-ink">
+            +{celebration.points}
+          </div>
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-success-ink">
+            points
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-muted">Task complete.</p>
+      )}
+    </div>
+  )
+}
+
+/**
  * The running-task mirror (#264): live clock off `startedAt` (client-side tick,
  * same anchor as the InProgress screen + timer chip — always in sync), the
  * speed-bonus deadline, and Mark done right from the column. Completing here
  * doesn't navigate, so it refreshes the InProgressProvider imperatively (the
  * #135 chip pattern) and signals the rail/stats to refetch.
  */
-function RunningMirror({ task, onCompleted }: { task: Task; onCompleted: () => void }) {
+function RunningMirror({
+  task,
+  onCompleted,
+}: {
+  task: Task
+  onCompleted: (title: string, points: number | null) => void
+}) {
   const { showToast } = useToast()
   const [now, setNow] = useState(() => Date.now())
   const [completing, setCompleting] = useState(false)
@@ -174,16 +244,10 @@ function RunningMirror({ task, onCompleted }: { task: Task; onCompleted: () => v
     setCompleting(true)
     try {
       const { pointsAwarded } = await completeTask(task.id)
-      showToast({
-        message: pointsAwarded
-          ? `Nice work! +${pointsAwarded.totalPoints} points`
-          : `Done: ${task.title}`,
-        icon: CircleCheck,
-        tone: 'success',
-      })
-      // Remaining-count listeners (the rail) refetch on this signal.
+      // Remaining-count listeners (the rail) refetch on this signal. The
+      // reward itself shows as the card's confetti celebration, not a toast.
       window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT))
-      onCompleted()
+      onCompleted(task.title, pointsAwarded?.totalPoints ?? null)
     } catch {
       showToast({ message: 'Could not complete the task.', icon: CircleCheck, tone: 'neutral' })
     } finally {
@@ -242,7 +306,13 @@ function RunningMirror({ task, onCompleted }: { task: Task; onCompleted: () => v
  * hairline-divided row under the hero mirror — title (→ its InProgress screen),
  * its own live clock, and a one-tap Mark done.
  */
-function CompactMirror({ task, onCompleted }: { task: Task; onCompleted: () => void }) {
+function CompactMirror({
+  task,
+  onCompleted,
+}: {
+  task: Task
+  onCompleted: (title: string, points: number | null) => void
+}) {
   const { showToast } = useToast()
   const [now, setNow] = useState(() => Date.now())
   const [completing, setCompleting] = useState(false)
@@ -256,15 +326,8 @@ function CompactMirror({ task, onCompleted }: { task: Task; onCompleted: () => v
     setCompleting(true)
     try {
       const { pointsAwarded } = await completeTask(task.id)
-      showToast({
-        message: pointsAwarded
-          ? `Nice work! +${pointsAwarded.totalPoints} points`
-          : `Done: ${task.title}`,
-        icon: CircleCheck,
-        tone: 'success',
-      })
       window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT))
-      onCompleted()
+      onCompleted(task.title, pointsAwarded?.totalPoints ?? null)
     } catch {
       showToast({ message: 'Could not complete the task.', icon: CircleCheck, tone: 'neutral' })
     } finally {

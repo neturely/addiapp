@@ -56,24 +56,29 @@ const clock2 = await page.evaluate(
 )
 ok(clock1 !== clock2, `#264: mirror clock ticks ("${clock1}" → "${clock2}")`)
 
-// Mark done from the column: toast fires, mirror reverts to idle.
+// Mark done from the column: the card flips into the confetti celebration
+// (#256 review — replaced the points toast), then reverts to idle.
 await page.evaluate(() =>
   [...document.querySelectorAll('aside button')]
     .find((b) => /mark done/i.test(b.textContent || ''))
     ?.click(),
 )
-await page.waitForSelector('[role=status][aria-live=polite]', { timeout: 5000 })
+await page.waitForSelector('aside [role=status]', { timeout: 5000 })
 ok(
   await page.evaluate(() =>
-    /points|done/i.test(document.querySelector('[role=status]')?.textContent || ''),
+    /nice work|points|done/i.test(document.querySelector('aside [role=status]')?.textContent || ''),
   ),
-  '#264: in-column Mark done fires the points toast',
+  '#256r: in-column Mark done shows the card celebration with the reward',
+)
+ok(
+  await page.evaluate(() => document.querySelectorAll('aside .animate-confetti').length > 0),
+  '#256r: celebration renders the confetti accents',
 )
 await page.waitForFunction(
   () => /nothing running/i.test(document.querySelector('aside')?.textContent || ''),
-  { timeout: 5000 },
+  { timeout: 9000 },
 )
-ok(true, '#264: mirror reverts to the idle Play card after completion')
+ok(true, '#264: mirror reverts to the idle Play card after the celebration')
 
 await browser.close()
 process.exit(done())
