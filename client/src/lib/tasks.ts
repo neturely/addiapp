@@ -116,12 +116,16 @@ export async function fetchTasksPage(opts: {
   status?: TaskStatus
   /** #236 Unassigned tab: tasks with no project (a different axis than status). */
   unassigned?: boolean
+  /** #260 rail per-project filter (backend half of #245): one owned project's
+   * tasks, any status. Non-enumerating — a foreign id 404s. */
+  projectId?: number
   limit: number
   before?: number | null
 }): Promise<TaskPage> {
   const params = new URLSearchParams()
   if (opts.status) params.set('status', opts.status)
   if (opts.unassigned) params.set('unassigned', '1')
+  if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   params.set('limit', String(opts.limit))
   if (opts.before != null) params.set('before', String(opts.before))
   return requestJson<TaskPage>(`/tasks?${params.toString()}`)

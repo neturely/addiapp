@@ -42,8 +42,9 @@ await sleep(2200)
 const t2 = await chipText(id)
 ok(t2 !== t1, `#135: chip ticks ("${t1}" → "${t2}")`)
 
-// persists across navigation
-await page.goto(`${BASE}/stats`, { waitUntil: 'networkidle0' })
+// persists across navigation (/settings — a plain shell page; /stats is
+// narrow-viewport-only since #260)
+await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
 ok((await page.$(CHIP(id))) !== null, '#135: chip persists across pages')
 
 // complete on the InProgress screen (in-place, no route change) → chip disappears
