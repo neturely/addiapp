@@ -52,7 +52,7 @@ export function Header() {
   const { user, logout } = useAuth()
   const { showToast } = useToast()
   const { pathname } = useLocation()
-  const { activeTask } = useInProgress()
+  const { activeTask, activeTasks } = useInProgress()
   const {
     search,
     setSearch,
@@ -136,7 +136,7 @@ export function Header() {
       )}
 
       <div className="ml-auto flex items-center gap-1.5">
-        {activeTask && <TimerChip task={activeTask} />}
+        {activeTask && <TimerChip task={activeTask} others={activeTasks.length - 1} />}
         <nav className="flex items-center gap-1" aria-label="Primary">
           {NAV.map(({ to, label, Icon, match }) => {
             const active = match(pathname)
