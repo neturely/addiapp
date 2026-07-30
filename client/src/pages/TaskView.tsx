@@ -231,7 +231,9 @@ export function TaskView() {
       </div>
 
       <form onSubmit={save} className="flex-1 rounded-xl bg-surface">
-        <div className="max-w-3xl px-6 py-8 sm:px-9">
+        {/* mx-auto (#256 review): centre the content column in the full-width
+            surface so the whitespace is symmetric, not all on the right. */}
+        <div className="mx-auto max-w-3xl px-6 py-8 sm:px-9">
           <div className="mb-2 flex items-center gap-2 text-sm text-muted">
             <span
               className={`h-2.5 w-2.5 flex-none rounded-[3px] ${project ? projectPole(project.color) : 'bg-gray-300'}`}
