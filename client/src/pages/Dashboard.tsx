@@ -24,6 +24,7 @@ import {
   type TaskCounts,
   type TaskStatus,
 } from '@/lib/tasks'
+import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
 import { EditTaskModal } from '@/components/EditTaskModal'
 import { ProjectsView } from '@/components/ProjectsView'
@@ -554,7 +555,11 @@ export function Dashboard() {
                project's tasks (every status) — name it and offer the way back.
                The tabs are hidden; they're status filters, this is the project axis. */
             <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent-tint px-4 py-2.5 text-sm">
-              <span className="text-accent-ink">
+              <span className="flex items-center gap-2 text-accent-ink">
+                <span
+                  className={`h-2.5 w-2.5 flex-none rounded-[3px] ${projectPole(projects.find((p) => p.id === projectFilterId)?.color)}`}
+                  aria-hidden
+                />
                 Project:{' '}
                 <span className="font-semibold">
                   {projects.find((p) => p.id === projectFilterId)?.name ?? '…'}

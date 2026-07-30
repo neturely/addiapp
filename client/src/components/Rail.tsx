@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import { fetchProjects, type Project } from '@/lib/projects'
+import { projectPole } from '@/lib/projectColors'
+import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
 import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
 
 /**
@@ -12,13 +13,24 @@ import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
  * server sources the Dashboard uses (`counts` on page 1, project remaining
  * counts) and refresh on route change like InProgressProvider — no polling.
  *
- * Poles are fixed colours until F (#268) gives projects their own.
+ * Project poles carry each project's palette colour (#268); the fixed entries
+ * keep their fixed hues.
  */
 export function Rail() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [counts, setCounts] = useState<TaskCounts | null>(null)
+
+  // Refresh on route change (InProgressProvider's pattern — no polling) AND on
+  // the projects-changed signal: a modal create/archive doesn't navigate, so
+  // without it the rail would go stale until the next navigation (#268).
+  const [refresh, setRefresh] = useState(0)
+  useEffect(() => {
+    const bump = () => setRefresh((n) => n + 1)
+    window.addEventListener(PROJECTS_CHANGED_EVENT, bump)
+    return () => window.removeEventListener(PROJECTS_CHANGED_EVENT, bump)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -31,7 +43,7 @@ export function Rail() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search])
+  }, [location.pathname, location.search, refresh])
 
   const onDashboard = location.pathname === '/dashboard'
   const tab = searchParams.get('tab')
@@ -82,7 +94,7 @@ export function Rail() {
           key={p.id}
           to={`/dashboard?project=${p.id}`}
           active={activeProjectId === p.id}
-          pole="bg-accent"
+          pole={projectPole(p.color)}
           label={p.name}
           count={p.remainingCount}
         />

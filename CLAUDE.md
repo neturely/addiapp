@@ -208,6 +208,15 @@ to the old Node API.
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
+  **Colours (#268, GUI-refresh epic #256 F):** `projects.color` (migration 014, `TINYINT NOT NULL DEFAULT 0`)
+  is a **palette INDEX, not a hex** — the fixed 8-slot palette lives in `client/src/lib/projectColors.ts`
+  (`projectPole()` helper); the server only bounds it (`ProjectsController::PALETTE_SIZE` — bump BOTH when
+  adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
+  roving-tabindex swatch radiogroup; poles render in the rail, project cards, and the Dashboard project
+  banner. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
+  so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
+  project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
+  AND that signal (modal create/archive doesn't navigate).
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191)**: Choice `/play` is the landing (`/` redirects
   to it — the standalone Home screen was retired in #191), Task `/play/task`,

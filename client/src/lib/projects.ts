@@ -13,6 +13,8 @@ export type Project = {
   /** Optional free-text description; null when none. */
   description?: string | null
   status: ProjectStatus
+  /** Palette index into PROJECT_COLORS (#268). */
+  color: number
   totalCount: number
   remainingCount: number
   createdAt: string
@@ -24,6 +26,8 @@ export type ProjectInput = {
   name: string
   /** Optional; empty string is normalized to NULL server-side. */
   description?: string | null
+  /** Palette index (#268); server-bounded, defaults to 0. */
+  color?: number
 }
 
 /**
@@ -32,6 +36,17 @@ export type ProjectInput = {
  */
 function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, init)
+}
+
+/**
+ * Fired on window after any project mutation (#268) so passive listeners (the
+ * shell rail) can refetch without polling — modal create/archive doesn't
+ * navigate, so a route-change refresh alone would go stale.
+ */
+export const PROJECTS_CHANGED_EVENT = 'addiapp:projects-changed'
+
+function notifyProjectsChanged() {
+  window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT))
 }
 
 /**
@@ -51,10 +66,11 @@ export async function createProject(input: ProjectInput): Promise<Project> {
     method: 'POST',
     body: JSON.stringify(input),
   })
+  notifyProjectsChanged()
   return project
 }
 
-/** Patch a project's name/description and/or status (Archive = status 'archived'). */
+/** Patch a project's name/description/colour and/or status (Archive = 'archived'). */
 export async function updateProject(
   id: number,
   patch: Partial<ProjectInput> & { status?: ProjectStatus },
@@ -63,5 +79,6 @@ export async function updateProject(
     method: 'PATCH',
     body: JSON.stringify(patch),
   })
+  notifyProjectsChanged()
   return project
 }

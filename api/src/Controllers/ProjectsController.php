@@ -21,6 +21,13 @@ final class ProjectsController
     private const STATUS = ['active', 'archived'];
 
     /**
+     * Palette size (#268): `projects.color` is an index into the client's fixed
+     * palette (client/src/lib/projectColors.ts) — the server only bounds it.
+     * Bump BOTH when adding slots.
+     */
+    public const PALETTE_SIZE = 8;
+
+    /**
      * GET /api/projects[?status=active|archived|all] — the user's projects, each
      * with remaining + total task counts for the "3 of 7 remaining" sub-label.
      * total = every task in the project; remaining = status <> 'done'. One
@@ -75,9 +82,19 @@ final class ProjectsController
             }
         }
 
+        $color = 0;
+        if (array_key_exists('color', $req->body)) {
+            $parsed = self::color($req->input('color'));
+            if ($parsed === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $color = $parsed;
+        }
+
         $pdo = Db::pdo();
-        $pdo->prepare('INSERT INTO projects (user_id, name, description) VALUES (?, ?, ?)')
-            ->execute([$req->userId, $name, $description]);
+        $pdo->prepare('INSERT INTO projects (user_id, name, description, color) VALUES (?, ?, ?, ?)')
+            ->execute([$req->userId, $name, $description, $color]);
 
         $created = self::loadWithCounts($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
         if ($created === null) {
@@ -128,6 +145,15 @@ final class ProjectsController
             }
             $sets[] = 'status = ?';
             $args[] = $status;
+        }
+        if (array_key_exists('color', $req->body)) {
+            $color = self::color($req->input('color'));
+            if ($color === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $sets[] = 'color = ?';
+            $args[] = $color;
         }
 
         if (count($sets) === 0) {
@@ -193,6 +219,7 @@ final class ProjectsController
             'name' => $r['name'],
             'description' => $r['description'],
             'status' => $r['status'],
+            'color' => (int) $r['color'],
             // SUM over an empty LEFT JOIN group is NULL — coalesce to 0.
             'totalCount' => (int) ($r['total_count'] ?? 0),
             'remainingCount' => (int) ($r['remaining_count'] ?? 0),
@@ -237,5 +264,11 @@ final class ProjectsController
     private static function enum(mixed $v, array $allowed): ?string
     {
         return is_string($v) && in_array($v, $allowed, true) ? $v : null;
+    }
+
+    /** Palette index (#268): an integer in [0, PALETTE_SIZE), else null (invalid). */
+    private static function color(mixed $v): ?int
+    {
+        return is_int($v) && $v >= 0 && $v < self::PALETTE_SIZE ? $v : null;
     }
 }
