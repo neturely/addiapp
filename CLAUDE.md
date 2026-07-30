@@ -274,7 +274,6 @@ addiapp/
 │       └── Controllers/          #   Auth, Tasks, Points, Health
 ├── tests/                        # PHPUnit backend tests (Unit + Db; #124/#128/#129)
 ├── composer.json · phpunit.xml   # dev-only test tooling (vendor/ git-ignored, never rsynced)
-├── public/fonts/                 # Nunito web fonts (kept from original)
 ├── CLAUDE.md · PROJECT_SPEC.md · README.md
 ```
 
@@ -389,6 +388,29 @@ double duty:
 
 Plus `muted #5B6270`, cream `page #F6F1EA`, `surface #FFFFFF`, and the `--color-mascot-*`
 set (separate). Old coral `#D85A30` fully retired; the v2 muted fills are gone as fills.
+
+**#258 foundations (GUI-refresh epic #256)** added on top of v3 — all ratios measured,
+recorded in `index.css` comments:
+- `--color-{h}-deep` (+ `-deep-hover`) for primary/success/danger = solid **button** fills
+  where normal-size white clears AA 4.5:1 (5.11–8.60) — CTAs no longer need `text-xl` bold
+  for white to pass. The vivid `{h}` fills stay for non-text surfaces (meters, poles).
+- A full **`danger` hue** (`danger`/`-deep`/`-deep-hover`/`-ink`/`-tint`) for destructive
+  actions; no `on-danger` yet (nothing consumes it).
+- `--color-field #EFEBE4` + `--color-field-hover` = the neutral input/secondary-button tone
+  between page and surface.
+- **Shared button system** (`components/Button.tsx` + `components/buttonClasses.ts` —
+  `buttonClasses` for Link-as-button):
+  variants primary/secondary/ghost/success/danger × sizes md/lg on the deep fills. Use it
+  for ALL new buttons instead of hand-rolled classes; existing screens migrate as B–E touch
+  them (adopted so far: Settings, EmptyState). This supersedes the "primary CTAs are
+  `text-xl font-bold text-white` on vivid" standardization for migrated surfaces — the
+  text-on-vivid rule below still governs the not-yet-migrated ones.
+- **Radius scale**: 8px buttons/chips (`rounded-lg`) · 9px controls (`rounded-control`) ·
+  12px panels (`rounded-xl`) · 16px modals (`rounded-2xl`) · 20px hero cards (`rounded-card`).
+- **Inter** is the app font — self-hosted latin woff2 400/500/600/700 in
+  `client/public/fonts/` + `@font-face`/`--font-sans` in `index.css` (with `cv05`/`ss01`
+  features). Before #258 NO webfont was actually loaded (the repo-root Nunito files were
+  never wired to the client and are deleted). Never load fonts from an external host.
 
 **⚠ Flat-surface rule — STILL the rule, with one scoped exception and one open proposal.**
 The UI is deliberately **FLAT — no shadows/borders**, colour separation only (established
