@@ -13,6 +13,9 @@ export type Task = {
   status: TaskStatus
   /** Owning project id (#234); null when unassigned. */
   projectId?: number | null
+  /** Joined project name + palette colour (#268) — present on LIST responses
+   * only (the server's LEFT JOIN); null when unassigned. */
+  project?: { name: string; color: number } | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
 }
@@ -116,12 +119,16 @@ export async function fetchTasksPage(opts: {
   status?: TaskStatus
   /** #236 Unassigned tab: tasks with no project (a different axis than status). */
   unassigned?: boolean
+  /** #260 rail per-project filter (backend half of #245): one owned project's
+   * tasks, any status. Non-enumerating — a foreign id 404s. */
+  projectId?: number
   limit: number
   before?: number | null
 }): Promise<TaskPage> {
   const params = new URLSearchParams()
   if (opts.status) params.set('status', opts.status)
   if (opts.unassigned) params.set('unassigned', '1')
+  if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   params.set('limit', String(opts.limit))
   if (opts.before != null) params.set('before', String(opts.before))
   return requestJson<TaskPage>(`/tasks?${params.toString()}`)

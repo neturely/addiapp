@@ -24,10 +24,11 @@ import {
   type TaskCounts,
   type TaskStatus,
 } from '@/lib/tasks'
+import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
-import { PointsCard } from '@/components/PointsCard'
 import { EditTaskModal } from '@/components/EditTaskModal'
 import { ProjectsView } from '@/components/ProjectsView'
+import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
 type Filter = 'all' | TaskStatus | 'unassigned'
@@ -93,6 +94,13 @@ function belongsToFilter(task: Task, f: Filter): boolean {
   return task.status === f
 }
 
+// Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
+function filterFromTab(tab: string | null): Filter {
+  return tab === 'unassigned' || tab === 'backlog' || tab === 'in_progress' || tab === 'done'
+    ? tab
+    : 'all'
+}
+
 type EditValues = {
   title: string
   complexity: TaskComplexity
@@ -112,6 +120,7 @@ type EditValues = {
 export function Dashboard() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { search } = useShell()
 
   // Top-level Tasks | Projects toggle (#234). Driven by `?view=` so it's linkable
   // (e.g. a project card's "Assign task" deep-links back into the Tasks view) and
@@ -132,10 +141,16 @@ export function Dashboard() {
   const projectParam = Number(searchParams.get('project'))
   const rideAlongId = Number.isInteger(projectParam) && projectParam > 0 ? projectParam : null
 
+  // Rail per-project filter (#260, the client half of #245): `?project=ID`
+  // WITHOUT the unassigned tab filters the Tasks view to that project's tasks
+  // (every status). With `tab=unassigned` the same param stays the #236
+  // ride-along assign target — two flows, one URL convention.
+  const projectFilterId = tabParam !== 'unassigned' && view === 'tasks' ? rideAlongId : null
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<Filter>(tabParam === 'unassigned' ? 'unassigned' : 'all')
+  const [filter, setFilter] = useState<Filter>(filterFromTab(tabParam))
   // Latest filter for the deferred delete/undo paths (#100): those fire from a
   // timer or after a tab switch, so they must read the CURRENT filter, not the one
   // captured when the timer was armed.
@@ -145,7 +160,6 @@ export function Dashboard() {
     key: 'created',
     dir: 'desc',
   })
-  const [pointsRefresh, setPointsRefresh] = useState(0)
 
   // Keyset pagination state (#100): `tasks` holds the loaded rows for the current
   // filter (server-side), `counts` the per-status totals for the tab bar, and
@@ -164,11 +178,11 @@ export function Dashboard() {
   const [pendingTask, setPendingTask] = useState<Task | null>(null)
   const pendingRef = useRef<{ task: Task; timer: number } | null>(null)
 
-  // Active projects for the Unassigned tab (#236): the assign picker's options and
-  // the ride-along target resolution. Fetched lazily when that tab is active.
+  // Active projects for the Unassigned tab (#236: assign picker + ride-along
+  // resolution) and the project-filter banner's name (#260). Fetched lazily.
   const [projects, setProjects] = useState<Project[]>([])
   useEffect(() => {
-    if (filter !== 'unassigned') return
+    if (filter !== 'unassigned' && projectFilterId === null) return
     let cancelled = false
     fetchProjects()
       .then((p) => !cancelled && setProjects(p))
@@ -176,12 +190,13 @@ export function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [filter])
+  }, [filter, projectFilterId])
 
-  // Follow a ride-along deep-link that arrives after mount (the Dashboard is already
-  // mounted when a project card navigates to `?tab=unassigned&project=ID`).
+  // Follow a tab deep-link that arrives after mount (#236 ride-along, #260 rail):
+  // the Dashboard is already mounted when the rail navigates to `?tab=…`. An
+  // absent tab (rail "All tasks") resets to the default view.
   useEffect(() => {
-    if (tabParam === 'unassigned') setFilter('unassigned')
+    setFilter(filterFromTab(tabParam))
   }, [tabParam])
 
   // Resolve the ride-along target; a stale/archived/foreign id simply doesn't
@@ -196,6 +211,8 @@ export function Dashboard() {
   // Map the active filter to the #100/#236 query params. Unassigned is its own
   // axis (`unassigned=1`, any status); the rest are status filters.
   function pageQuery(f: Filter, before?: number | null) {
+    // Project-filter mode (#260) overrides the tabs: one project, every status.
+    if (projectFilterId !== null) return { projectId: projectFilterId, limit: PAGE_SIZE, before }
     if (f === 'unassigned') return { unassigned: true, limit: PAGE_SIZE, before }
     return { status: f === 'all' ? undefined : f, limit: PAGE_SIZE, before }
   }
@@ -216,7 +233,8 @@ export function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [filter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, projectFilterId])
 
   async function loadMore() {
     if (nextCursor == null || loadingMore) return
@@ -399,8 +417,8 @@ export function Dashboard() {
         setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)).sort(byIdDesc))
       }
       setEditingId(null)
-      // A status change may have awarded points — refresh the summary card.
-      if (patch.status) setPointsRefresh((n) => n + 1)
+      // (The old PointsCard refresh went with the card — the right column (#260)
+      // refetches on route change instead.)
     } catch (e) {
       setRowError(e instanceof Error ? e.message : 'Could not save changes.')
     } finally {
@@ -421,10 +439,20 @@ export function Dashboard() {
   // is client-side over the LOADED rows; the default `created`/id-desc matches the
   // server order, so it's exact until a non-default sort is applied to a list with
   // more pages still to load (acceptable — "Load more" makes the partial set clear).
-  const visible = [...tasks].sort((a, b) => {
-    const c = compareBy(a, b, sort.key)
-    return sort.dir === 'asc' ? c : -c
-  })
+  // The header search (#260) filters the same loaded set — a view-local narrowing,
+  // not a server query (the C rewrite may push it server-side).
+  const q = search.trim().toLowerCase()
+  const visible = [...tasks]
+    .filter(
+      (t) =>
+        q === '' ||
+        t.title.toLowerCase().includes(q) ||
+        (t.description ?? '').toLowerCase().includes(q),
+    )
+    .sort((a, b) => {
+      const c = compareBy(a, b, sort.key)
+      return sort.dir === 'asc' ? c : -c
+    })
 
   // Click a header to sort by it; same column toggles direction. New columns
   // start ascending, except "created" (newest-first is the useful default).
@@ -522,8 +550,31 @@ export function Dashboard() {
         <ProjectsView />
       ) : (
         <>
-          <PointsCard refreshSignal={pointsRefresh} />
-
+          {projectFilterId !== null ? (
+            /* Project-filter banner (#260/#245): the rail landed us on one
+               project's tasks (every status) — name it and offer the way back.
+               The tabs are hidden; they're status filters, this is the project axis. */
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent-tint px-4 py-2.5 text-sm">
+              <span className="flex items-center gap-2 text-accent-ink">
+                <span
+                  className={`h-2.5 w-2.5 flex-none rounded-[3px] ${projectPole(projects.find((p) => p.id === projectFilterId)?.color)}`}
+                  aria-hidden
+                />
+                Project:{' '}
+                <span className="font-semibold">
+                  {projects.find((p) => p.id === projectFilterId)?.name ?? '…'}
+                </span>{' '}
+                — every status
+              </span>
+              <Link
+                to="/dashboard"
+                className="shrink-0 cursor-pointer rounded-md p-1 text-accent-ink transition hover:bg-white/50"
+                aria-label="Back to all tasks"
+              >
+                <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+              </Link>
+            </div>
+          ) : (
           <div className="mb-4 flex flex-wrap items-center gap-2">
             {FILTERS.map((f) => {
               const active = filter === f.key
@@ -565,6 +616,7 @@ export function Dashboard() {
               )}
             </button>
           </div>
+          )}
 
           {/* Ride-along assign banner (#236): a project card's "Assign task" landed
               here with a target — the row + buttons assign to it in one click. */}
@@ -607,11 +659,15 @@ export function Dashboard() {
           ) : visible.length === 0 ? (
             <div className="rounded-2xl bg-surface p-10 text-center">
               <p className="text-muted">
-                {(counts?.all ?? 0) === 0
-                  ? 'No tasks yet.'
-                  : filter === 'unassigned'
-                    ? 'No unassigned tasks — every task is in a project.'
-                    : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
+                {q !== ''
+                  ? 'Nothing matches your search.'
+                  : projectFilterId !== null
+                    ? 'No tasks in this project yet.'
+                    : (counts?.all ?? 0) === 0
+                      ? 'No tasks yet.'
+                      : filter === 'unassigned'
+                        ? 'No unassigned tasks — every task is in a project.'
+                        : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase().replace('to do', 'to-do')} tasks.`}
               </p>
               <Link
                 to="/tasks/new"
