@@ -52,8 +52,7 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
   const projectParam = Number(searchParams.get('project'))
 
   const isAll = onDashboard && !tab && view !== 'projects' && !projectParam
-  const isUnassigned = onDashboard && tab === 'unassigned'
-  const isDone = onDashboard && tab === 'done'
+  const isTab = (t: string) => onDashboard && tab === t
   const isArchived = onDashboard && view === 'projects' && archived
   const activeProjectId =
     onDashboard && view !== 'projects' && tab !== 'unassigned' && projectParam > 0
@@ -79,20 +78,36 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         plusLabel="Add task"
         plusState={{ from: '/dashboard' }}
       />
+      {/* The full status-filter set lives HERE (#256 review — the in-table pill
+          row is gone); labels match the Dashboard's ("To do" = `backlog`, #178). */}
       <RailLink to="/dashboard" active={isAll} pole="bg-primary" label="All tasks" count={counts?.all} />
       <RailLink
-        to="/dashboard?tab=unassigned"
-        active={isUnassigned}
-        pole="bg-gray-400"
-        label="Unassigned"
-        count={counts?.unassigned}
+        to="/dashboard?tab=backlog"
+        active={isTab('backlog')}
+        pole="bg-accent"
+        label="To do"
+        count={counts?.backlog}
+      />
+      <RailLink
+        to="/dashboard?tab=in_progress"
+        active={isTab('in_progress')}
+        pole="bg-warning"
+        label="In progress"
+        count={counts?.in_progress}
       />
       <RailLink
         to="/dashboard?tab=done"
-        active={isDone}
+        active={isTab('done')}
         pole="bg-success"
-        label="Completed"
+        label="Done"
         count={counts?.done}
+      />
+      <RailLink
+        to="/dashboard?tab=unassigned"
+        active={isTab('unassigned')}
+        pole="bg-gray-400"
+        label="Unassigned"
+        count={counts?.unassigned}
       />
 
       <RailHead

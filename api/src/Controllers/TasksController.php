@@ -123,8 +123,11 @@ final class TasksController
         $count->execute($args);
         $total = (int) $count->fetchColumn();
 
+        // Paginated list order is OLDEST FIRST (#256 review — the toolbar labels
+        // it, and the queue reads front-to-back like Play's age weighting). The
+        // legacy unbounded list above keeps its id DESC.
         $stmt = $pdo->prepare(
-            $select . $where . ' ORDER BY t.id DESC LIMIT ' . $limit . ' OFFSET ' . $offset,
+            $select . $where . ' ORDER BY t.id ASC LIMIT ' . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
 
