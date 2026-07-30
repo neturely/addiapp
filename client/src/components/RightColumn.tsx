@@ -106,9 +106,15 @@ export function RightColumn() {
   )
 }
 
-/** Idle Play entry, or the running-task mirror when one is in flight (#264). */
+/** Idle Play entry, or the running-task mirror(s) when tasks are in flight
+ * (#264; parallel tasks each get their own timer, #256 review). */
 function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
-  const { activeTask, refresh } = useInProgress()
+  const { activeTasks, refresh } = useInProgress()
+  const activeTask = activeTasks[0] ?? null
+  const completed = () => {
+    void refresh()
+    onCompleted()
+  }
 
   return (
     <div className="relative mb-3 rounded-card bg-surface px-4 pb-5 pt-12 text-center">
@@ -116,13 +122,14 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
         <Mascot expression={activeTask ? 'neutral' : 'idle'} halo className="h-[4.5rem] w-[4.5rem]" />
       </div>
       {activeTask ? (
-        <RunningMirror
-          task={activeTask}
-          onCompleted={() => {
-            void refresh()
-            onCompleted()
-          }}
-        />
+        <>
+          <RunningMirror task={activeTask} onCompleted={completed} />
+          {/* Other running tasks stack as compact mirrors — most recent is the
+              hero above; each keeps its own live clock and Mark done. */}
+          {activeTasks.slice(1).map((t) => (
+            <CompactMirror key={t.id} task={t} onCompleted={completed} />
+          ))}
+        </>
       ) : (
         <>
           <div className="text-[11px] font-semibold uppercase tracking-wider text-primary-ink">
@@ -227,6 +234,67 @@ function RunningMirror({ task, onCompleted }: { task: Task; onCompleted: () => v
         </button>
       </div>
     </>
+  )
+}
+
+/**
+ * Compact mirror for a second/third parallel running task (#256 review): a
+ * hairline-divided row under the hero mirror — title (→ its InProgress screen),
+ * its own live clock, and a one-tap Mark done.
+ */
+function CompactMirror({ task, onCompleted }: { task: Task; onCompleted: () => void }) {
+  const { showToast } = useToast()
+  const [now, setNow] = useState(() => Date.now())
+  const [completing, setCompleting] = useState(false)
+
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [])
+
+  async function markDone() {
+    setCompleting(true)
+    try {
+      const { pointsAwarded } = await completeTask(task.id)
+      showToast({
+        message: pointsAwarded
+          ? `Nice work! +${pointsAwarded.totalPoints} points`
+          : `Done: ${task.title}`,
+        icon: CircleCheck,
+        tone: 'success',
+      })
+      window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT))
+      onCompleted()
+    } catch {
+      showToast({ message: 'Could not complete the task.', icon: CircleCheck, tone: 'neutral' })
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 flex items-center gap-2 border-t border-field pt-3 text-left">
+      <div className="min-w-0 flex-1">
+        <Link
+          to={`/play/progress/${task.id}`}
+          className="block truncate text-xs font-semibold text-gray-800 transition hover:text-primary-ink"
+        >
+          {task.title}
+        </Link>
+        <span className="font-mono text-xs tabular-nums text-muted">
+          {formatClock(elapsedSecondsSince(task.startedAt, now))}
+        </span>
+      </div>
+      <button
+        type="button"
+        disabled={completing}
+        onClick={() => void markDone()}
+        aria-label={`Mark ${task.title} done`}
+        className="inline-flex h-8 w-8 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint disabled:opacity-50"
+      >
+        <CircleCheck className="h-5 w-5" aria-hidden />
+      </button>
+    </div>
   )
 }
 

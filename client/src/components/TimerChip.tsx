@@ -11,7 +11,7 @@ import { formatClock, elapsedSecondsSince } from '@/lib/time'
  * live region — the aria-label stays stable so a screen reader isn't spammed
  * every second (the InProgress screen carries the real timer).
  */
-export function TimerChip({ task }: { task: Task }) {
+export function TimerChip({ task, others = 0 }: { task: Task; others?: number }) {
   const [elapsed, setElapsed] = useState(() => elapsedSecondsSince(task.startedAt))
   useEffect(() => {
     setElapsed(elapsedSecondsSince(task.startedAt))
@@ -22,12 +22,19 @@ export function TimerChip({ task }: { task: Task }) {
   return (
     <Link
       to={`/play/progress/${task.id}`}
-      aria-label={`Resume “${task.title}”`}
+      aria-label={`Resume “${task.title}”${others > 0 ? ` (${others} more running)` : ''}`}
       className="inline-flex items-center gap-2 font-mono text-xl font-bold tabular-nums text-gray-900 transition hover:opacity-80"
     >
       {/* "Live/ongoing" indicator — a pulsing dot, not a duration icon (#181). */}
       <span aria-hidden className="animate-pulse-dot h-2 w-2 shrink-0 rounded-full bg-primary" />
       {formatClock(elapsed)}
+      {/* Parallel running tasks (#256 review): the chip mirrors the most
+          recent; a small +N flags the rest (they live in the right column). */}
+      {others > 0 && (
+        <span className="rounded-full bg-primary-tint px-1.5 py-0.5 text-xs font-semibold text-primary-ink">
+          +{others}
+        </span>
+      )}
     </Link>
   )
 }

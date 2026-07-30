@@ -11,6 +11,7 @@ import {
   type TaskStatus,
 } from '@/lib/tasks'
 import { fetchPoints } from '@/lib/points'
+import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
 import { Mascot } from '@/components/Mascot'
@@ -409,6 +410,9 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
+                      {/* Started rows carry their own live clock (#256 review
+                          — tasks run in parallel, each on its own timer). */}
+                      {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for
@@ -461,6 +465,26 @@ export function Dashboard() {
         </>
       )}
     </main>
+  )
+}
+
+/**
+ * Live elapsed clock on a Started row (#256 review) — ticks client-side off the
+ * server `startedAt`, the same anchor as the header chip and column mirror so
+ * they always agree. Not a live region (no per-second SR spam); hidden below sm
+ * where the row is already tight.
+ */
+function RowTimer({ startedAt }: { startedAt?: string | null }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(iv)
+  }, [])
+  return (
+    <span className="hidden flex-none items-center gap-1.5 font-mono text-xs tabular-nums text-gray-700 sm:inline-flex">
+      <span aria-hidden className="animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+      {formatClock(elapsedSecondsSince(startedAt, now))}
+    </span>
   )
 }
 
