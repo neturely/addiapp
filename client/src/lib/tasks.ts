@@ -17,6 +17,10 @@ export type Task = {
   /** Joined project name + palette colour (#268) — present on LIST responses
    * only (the server's LEFT JOIN); null when unassigned. */
   project?: { name: string; color: number } | null
+  /** Owning category id (#276); null when uncategorized. */
+  categoryId?: number | null
+  /** Joined category name + palette colour (#276) — LIST responses only. */
+  category?: { name: string; color: number } | null
   /** Points actually earned on completion (LIST only; null until done). */
   earnedPoints?: number | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
@@ -53,6 +57,8 @@ export type NewTaskInput = {
   estimatedMinutes: number
   /** Optional project to create the task into (#234); must be an active owned project. */
   projectId?: number
+  /** Optional category to create the task into (#276); must be owned. */
+  categoryId?: number
 }
 
 /** Play-mode pick strategy. Default (win-type) unless `projects` (#238). */
@@ -66,6 +72,8 @@ export type NextTaskFilters = {
   exclude?: number
   /** "Focus on projects" mode (#238): win-type ignored; pick from active projects. */
   mode?: PlayMode
+  /** Scope the pick to one owned category (#276) — composes with every mode. */
+  category?: number
 }
 
 /** Which Play Choice options can produce a task at any time (#306). */
@@ -141,6 +149,8 @@ export async function fetchTasksPage(opts: {
   /** #260 rail per-project filter (backend half of #245): one owned project's
    * tasks, any status. Non-enumerating — a foreign id 404s. */
   projectId?: number
+  /** #276 rail per-category filter — same rules as projectId. */
+  categoryId?: number
   limit: number
   offset?: number
   /** Row order: 'asc' (oldest first, the default) or 'desc' (newest first). */
@@ -150,6 +160,7 @@ export async function fetchTasksPage(opts: {
   if (opts.status) params.set('status', opts.status)
   if (opts.unassigned) params.set('unassigned', '1')
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
+  if (opts.categoryId != null) params.set('categoryId', String(opts.categoryId))
   params.set('limit', String(opts.limit))
   if (opts.offset) params.set('offset', String(opts.offset))
   if (opts.order === 'desc') params.set('order', 'desc')
@@ -160,9 +171,11 @@ export async function fetchTasksPage(opts: {
  * `projectId: null` unassigns (#236 semantics). */
 export async function updateTask(
   id: number,
-  patch: Partial<Omit<NewTaskInput, 'projectId'>> & {
+  patch: Partial<Omit<NewTaskInput, 'projectId' | 'categoryId'>> & {
     status?: TaskStatus
     projectId?: number | null
+    /** #276 semantics mirror projectId: an int assigns, null unlabels. */
+    categoryId?: number | null
   },
 ): Promise<Task> {
   const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
@@ -205,6 +218,7 @@ export async function fetchNextTask(filters: NextTaskFilters): Promise<Task | nu
   else if (filters.size) params.set('size', filters.size) // win-type is ignored in projects mode
   if (filters.minutes != null) params.set('minutes', String(filters.minutes))
   if (filters.exclude != null) params.set('exclude', String(filters.exclude))
+  if (filters.category != null) params.set('category', String(filters.category))
   const qs = params.toString()
   const { task } = await requestJson<{ task: Task | null }>(`/tasks/next${qs ? `?${qs}` : ''}`)
   return task

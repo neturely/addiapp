@@ -14,7 +14,11 @@ import { fetchPoints } from '@/lib/points'
 import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
+import { deleteCategory, fetchCategories, type Category } from '@/lib/categories'
+import { Button } from '@/components/Button'
+import { CategoryModal } from '@/components/CategoryModal'
 import { Mascot } from '@/components/Mascot'
+import { Modal } from '@/components/Modal'
 import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
@@ -71,6 +75,18 @@ export function Dashboard() {
   const rideAlongId = Number.isInteger(projectParam) && projectParam > 0 ? projectParam : null
   const projectFilterId = tabParam !== 'unassigned' && view === 'tasks' ? rideAlongId : null
 
+  // `?category=ID` (#276): the rail's custom-list entries. Independent axis;
+  // the project filter wins if both ever appear in one URL.
+  const categoryParam = Number(searchParams.get('category'))
+  const categoryFilterId =
+    view === 'tasks' &&
+    tabParam !== 'unassigned' &&
+    projectFilterId === null &&
+    Number.isInteger(categoryParam) &&
+    categoryParam > 0
+      ? categoryParam
+      : null
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [total, setTotal] = useState(0)
   const [counts, setCounts] = useState<TaskCounts | null>(null)
@@ -93,18 +109,20 @@ export function Dashboard() {
   }
 
   // A filter or sort change is a fresh first page.
-  useEffect(() => setOffset(0), [filter, projectFilterId, newestFirst])
+  useEffect(() => setOffset(0), [filter, projectFilterId, categoryFilterId, newestFirst])
 
   const loadPage = useCallback(() => {
     const order = newestFirst ? ('desc' as const) : undefined
     const query =
       projectFilterId !== null
         ? { projectId: projectFilterId, limit: PAGE_SIZE, offset, order }
-        : filter === 'unassigned'
-          ? { unassigned: true, limit: PAGE_SIZE, offset, order }
-          : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
+        : categoryFilterId !== null
+          ? { categoryId: categoryFilterId, limit: PAGE_SIZE, offset, order }
+          : filter === 'unassigned'
+            ? { unassigned: true, limit: PAGE_SIZE, offset, order }
+            : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
     return fetchTasksPage(query)
-  }, [filter, projectFilterId, offset, newestFirst])
+  }, [filter, projectFilterId, categoryFilterId, offset, newestFirst])
 
   useEffect(() => {
     let cancelled = false
@@ -144,6 +162,55 @@ export function Dashboard() {
       cancelled = true
     }
   }, [filter, projectFilterId])
+
+  // Categories (#276): the active filter's name/colour for the toolbar +
+  // Edit/Delete, and the `?newCategory=1` modal deep-link from the rail's plus.
+  const [categories, setCategories] = useState<Category[]>([])
+  const newCategoryParam = searchParams.get('newCategory') === '1'
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
+  const [categoryBusy, setCategoryBusy] = useState(false)
+  useEffect(() => {
+    if (categoryFilterId === null) return
+    let cancelled = false
+    fetchCategories()
+      .then((c) => !cancelled && setCategories(c))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [categoryFilterId])
+  const filterCategory =
+    categoryFilterId !== null ? (categories.find((c) => c.id === categoryFilterId) ?? null) : null
+
+  function closeNewCategory() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('newCategory')
+    setSearchParams(params)
+  }
+
+  async function confirmDeleteCategory() {
+    if (!deletingCategory) return
+    setCategoryBusy(true)
+    try {
+      const { unlabelledTasks } = await deleteCategory(deletingCategory.id)
+      showToast({
+        message:
+          unlabelledTasks > 0
+            ? `Category deleted — ${unlabelledTasks} ${unlabelledTasks === 1 ? 'task' : 'tasks'} kept without it`
+            : 'Category deleted',
+        icon: X,
+        tone: 'neutral',
+      })
+      setDeletingCategory(null)
+      navigate('/dashboard')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete the category.')
+      setDeletingCategory(null)
+    } finally {
+      setCategoryBusy(false)
+    }
+  }
 
   const rideAlongProject =
     rideAlongId !== null ? (projects.find((p) => p.id === rideAlongId) ?? null) : null
@@ -231,17 +298,21 @@ export function Dashboard() {
   const selectionLabel =
     projectFilterId !== null
       ? (filterProject?.name ?? 'Project')
-      : filter === 'all'
-        ? 'All tasks'
-        : filter === 'unassigned'
-          ? 'Unassigned'
-          : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
-  // Count text scopes to the selection (#256 review): a project filter shows
-  // THAT project's remaining count (the rail's figure), not the global backlog.
+      : categoryFilterId !== null
+        ? (filterCategory?.name ?? 'Category')
+        : filter === 'all'
+          ? 'All tasks'
+          : filter === 'unassigned'
+            ? 'Unassigned'
+            : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
+  // Count text scopes to the selection (#256 review): a project/category filter
+  // shows THAT list's remaining count (the rail's figure), not the global backlog.
   const ready = counts?.backlog ?? 0
   const countLabel = filterProject
     ? `${filterProject.remainingCount} of ${filterProject.totalCount} left to do`
-    : `${ready} ${ready === 1 ? 'task' : 'tasks'} ready to do`
+    : filterCategory
+      ? `${filterCategory.remainingCount} of ${filterCategory.totalCount} left to do`
+      : `${ready} ${ready === 1 ? 'task' : 'tasks'} ready to do`
 
   return (
     // No page heading / view toggle (review feedback on #256): the rail's
@@ -301,6 +372,26 @@ export function Dashboard() {
             </span>
             <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
             <span className="font-medium text-gray-700 tabular-nums">{countLabel}</span>
+            {/* Manage the filtered category in place (#276) — mirrors the
+                project cards' kebab actions, surfaced in the toolbar. */}
+            {filterCategory && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(filterCategory)}
+                  className="tap-44 cursor-pointer underline transition hover:text-primary-ink"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingCategory(filterCategory)}
+                  className="tap-44 cursor-pointer underline transition hover:text-danger-ink"
+                >
+                  Delete
+                </button>
+              </>
+            )}
             <span className="flex-1" aria-hidden />
             <span className="tabular-nums">{rangeLabel}</span>
             <Pager />
@@ -326,11 +417,13 @@ export function Dashboard() {
                   ? 'Nothing matches your search.'
                   : projectFilterId !== null
                     ? 'No tasks in this project yet.'
-                    : (counts?.all ?? 0) === 0
-                      ? 'No tasks yet.'
-                      : filter === 'unassigned'
-                        ? 'No unassigned tasks — every task is in a project.'
-                        : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
+                    : categoryFilterId !== null
+                      ? 'No tasks in this category yet.'
+                      : (counts?.all ?? 0) === 0
+                        ? 'No tasks yet.'
+                        : filter === 'unassigned'
+                          ? 'No unassigned tasks — every task is in a project.'
+                          : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
               </p>
               <Link
                 to="/tasks/new"
@@ -411,6 +504,17 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
+                      {/* Category chip (#276) — the custom-list label, pole dot
+                          + name; hidden below sm where the row is tight. */}
+                      {task.category && (
+                        <span className="hidden max-w-28 flex-none items-center gap-1.5 rounded-full bg-field px-2.5 py-0.5 text-[11px] font-medium text-gray-700 sm:inline-flex">
+                          <span
+                            className={`h-1.5 w-1.5 flex-none rounded-full ${projectPole(task.category.color)}`}
+                            aria-hidden
+                          />
+                          <span className="truncate">{task.category.name}</span>
+                        </span>
+                      )}
                       {/* Started rows carry their own live clock (#256 review
                           — tasks run in parallel, each on its own timer). */}
                       {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
@@ -464,6 +568,58 @@ export function Dashboard() {
             </>
           )}
         </>
+      )}
+
+      {/* New category (#276) — the rail's Categories plus deep-links ?newCategory=1. */}
+      {newCategoryParam && (
+        <CategoryModal
+          onClose={closeNewCategory}
+          onSaved={(saved) => {
+            closeNewCategory()
+            navigate(`/dashboard?category=${saved.id}`)
+          }}
+        />
+      )}
+      {editingCategory && (
+        <CategoryModal
+          category={editingCategory}
+          onClose={() => setEditingCategory(null)}
+          onSaved={(saved) => {
+            setEditingCategory(null)
+            setCategories((cs) => cs.map((c) => (c.id === saved.id ? saved : c)))
+          }}
+        />
+      )}
+      {deletingCategory && (
+        <Modal
+          titleId="category-delete-title"
+          onClose={() => !categoryBusy && setDeletingCategory(null)}
+        >
+          <h2 id="category-delete-title" className="mb-3 text-xl font-bold text-gray-800">
+            Delete this category?
+          </h2>
+          <p className="mb-5 text-sm leading-relaxed text-gray-700">
+            “{deletingCategory.name}” will be deleted. Its {deletingCategory.totalCount}{' '}
+            {deletingCategory.totalCount === 1 ? 'task keeps' : 'tasks keep'} existing — they just
+            lose the category.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              disabled={categoryBusy}
+              onClick={() => setDeletingCategory(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={categoryBusy}
+              onClick={() => void confirmDeleteCategory()}
+            >
+              {categoryBusy ? 'Deleting…' : 'Delete category'}
+            </Button>
+          </div>
+        </Modal>
       )}
     </main>
   )

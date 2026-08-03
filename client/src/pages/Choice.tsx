@@ -4,6 +4,7 @@ import { Layers, Mountain, Play, Zap } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { Mascot } from '@/components/Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
+import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchTaskAvailability, type TaskAvailability, type WinSize } from '@/lib/tasks'
 
 /** Time-available presets (minutes). null = "any amount of time". */
@@ -57,17 +58,36 @@ export function Choice() {
     }
   }, [])
 
+  // Category filter (#276): scope any option's pick to one custom list. The
+  // select renders only when the user actually has categories (best-effort
+  // fetch — a failure just hides the filter).
+  const [categories, setCategories] = useState<Category[]>([])
+  const [category, setCategory] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetchCategories()
+      .then((c) => {
+        if (!cancelled) setCategories(c)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function go(size: WinSize) {
     const params = new URLSearchParams({ size })
     if (minutes != null) params.set('minutes', String(minutes))
+    if (category != null) params.set('category', String(category))
     navigate(`/play/task?${params.toString()}`)
   }
 
   // "Focus on projects" (#238): a mode, not a size — win-type is ignored, the
-  // server auto-picks the project closest to done. Only the time filter carries.
+  // server auto-picks the project closest to done. Time + category carry.
   function goProjects() {
     const params = new URLSearchParams({ mode: 'projects' })
     if (minutes != null) params.set('minutes', String(minutes))
+    if (category != null) params.set('category', String(category))
     navigate(`/play/task?${params.toString()}`)
   }
 
@@ -182,6 +202,29 @@ export function Choice() {
             Auto-picked
           </span>
         </button>
+        )}
+
+        {/* Category filter (#276) — only when custom lists exist; "Anything"
+            keeps the default unscoped pick. */}
+        {categories.length > 0 && (
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <label htmlFor="play-category" className="text-xs text-muted">
+              From
+            </label>
+            <select
+              id="play-category"
+              value={category ?? ''}
+              onChange={(e) => setCategory(e.target.value === '' ? null : Number(e.target.value))}
+              className="h-8 cursor-pointer rounded-lg bg-page/70 px-2.5 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="">Anything</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         <p id="time-label" className="mb-2.5 mt-5 text-center text-xs text-muted">

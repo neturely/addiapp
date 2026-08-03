@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/src/autoload.php';
 use App\Config;
 use App\Controllers\AccountController;
 use App\Controllers\AuthController;
+use App\Controllers\CategoriesController;
 use App\Controllers\HealthController;
 use App\Controllers\PointsController;
 use App\Controllers\ProjectsController;
@@ -66,6 +67,7 @@ $tasks = new TasksController();
 $points = new PointsController();
 $account = new AccountController();
 $projects = new ProjectsController();
+$categories = new CategoriesController();
 
 $router->get('/api/health', [$health, 'index']);
 
@@ -91,6 +93,12 @@ $router->delete('/api/tasks/{id}', [$tasks, 'destroy'], true);
 
 $router->get('/api/points', [$points, 'index'], true);
 $router->get('/api/points/stats', [$points, 'stats'], true);
+
+// Task categories (#276) — all require auth.
+$router->get('/api/categories', [$categories, 'index'], true);
+$router->post('/api/categories', [$categories, 'create'], true);
+$router->patch('/api/categories/{id}', [$categories, 'update'], true);
+$router->delete('/api/categories/{id}', [$categories, 'destroy'], true);
 
 // Projects (#234) — all require auth.
 $router->get('/api/projects', [$projects, 'index'], true);
