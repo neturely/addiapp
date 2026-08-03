@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
+  Archive,
   ArchiveRestore,
   ChevronDown,
   ChevronLeft,
@@ -250,6 +251,21 @@ export function Dashboard() {
       setCounts(page.counts)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not assign that task.')
+    }
+  }
+
+  // One-click archive from the Done tab (#321) — the standard done → archived
+  // path, refetching like assign so the row leaves and counts settle.
+  async function archiveDone(task: Task) {
+    try {
+      await archiveTask(task.id, true)
+      showToast({ message: 'Task archived', icon: Archive, tone: 'neutral' })
+      const page = await loadPage()
+      setTasks(page.tasks)
+      setTotal(page.total)
+      setCounts(page.counts)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not archive that task.')
     }
   }
 
@@ -590,6 +606,18 @@ export function Dashboard() {
                         target={rideAlongProject}
                         onAssign={(project) => void assign(task, project)}
                       />
+                    )}
+                    {/* One-click Archive on done rows (#321) — the Assign
+                        button's trailing style/placement. */}
+                    {filter === 'done' && task.status === 'done' && (
+                      <button
+                        type="button"
+                        onClick={() => void archiveDone(task)}
+                        aria-label={`Archive ${task.title}`}
+                        className="mr-4 flex-none cursor-pointer rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
+                      >
+                        Archive
+                      </button>
                     )}
                     {/* Unarchive (#312) — the archive tab's trailing row action,
                         in the AssignControl style/placement. */}

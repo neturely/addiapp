@@ -313,5 +313,111 @@ await page.evaluate(
   archTask,
 )
 
+// --- One-click Archive on Done views (#321) ---
+// Task half: a done row exposes the trailing Archive button; clicking removes it.
+const oneClick = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: `e2e oneclick probe ${Date.now()}`, complexity: 'low', estimatedMinutes: 5 }),
+  })
+  const { task } = await r.json()
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'done' }),
+  })
+  return task.id
+})
+await page.goto(`${BASE}/dashboard?tab=done`, { waitUntil: 'networkidle0' })
+const rowArchive = await page.evaluate(() =>
+  [...document.querySelectorAll('main button')].some((b) =>
+    /^archive e2e oneclick probe/i.test(b.getAttribute('aria-label') || ''),
+  ),
+)
+ok(rowArchive, '#321: done row exposes the trailing Archive button')
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => /^archive e2e oneclick probe/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () => !/e2e oneclick probe/i.test(document.querySelector('main ul')?.textContent || ''),
+  { timeout: 5000 },
+)
+ok(
+  await page.evaluate(async (tid) => {
+    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) => r.json())
+    return task.archivedAt !== null
+  }, oneClick),
+  '#321: row Archive files the done task (archivedAt set, row gone)',
+)
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  oneClick,
+)
+
+// Project half: a done card exposes a visible Archive button.
+const doneProject = await page.evaluate(async () => {
+  const r = await fetch('/api/projects', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: `e2e done-card probe ${Date.now()}` }),
+  })
+  const { project } = await r.json()
+  const tr = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'done-card task', complexity: 'low', estimatedMinutes: 5, projectId: project.id }),
+  })
+  const { task } = await tr.json()
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'done' }),
+  })
+  return { id: project.id, name: project.name, taskId: task.id }
+})
+await page.goto(`${BASE}/dashboard?view=projects&status=done`, { waitUntil: 'networkidle0' })
+const cardArchive = await page.evaluate(
+  (name) =>
+    [...document.querySelectorAll('button')].some(
+      (b) => (b.getAttribute('aria-label') || '') === `Archive ${name}`,
+    ),
+  doneProject.name,
+)
+ok(cardArchive, '#321: done project card exposes a visible Archive button')
+await page.evaluate(
+  (name) =>
+    [...document.querySelectorAll('button')]
+      .find((b) => (b.getAttribute('aria-label') || '') === `Archive ${name}`)
+      ?.click(),
+  doneProject.name,
+)
+await page.waitForFunction(
+  (name) => !document.querySelector('main')?.textContent?.includes(name),
+  { timeout: 5000 },
+  doneProject.name,
+)
+ok(
+  await page.evaluate(async (pid) => {
+    const { projects } = await fetch('/api/projects?status=archived', { credentials: 'include' }).then(
+      (r) => r.json(),
+    )
+    return projects.some((p) => p.id === pid)
+  }, doneProject.id),
+  '#321: card Archive moves the done project to Archived (card gone)',
+)
+// Cleanup: delete the archived probe project + its task.
+await page.evaluate(async (probe) => {
+  await fetch(`/api/projects/${probe.id}`, { method: 'DELETE', credentials: 'include' })
+  await fetch(`/api/tasks/${probe.taskId}`, { method: 'DELETE', credentials: 'include' })
+}, doneProject)
+
 await browser.close()
 process.exit(done())
