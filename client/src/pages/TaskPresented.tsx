@@ -167,14 +167,14 @@ export function TaskPresented() {
           <button
             type="button"
             onClick={() => void roll(task.id)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary-ink"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary-ink sm:min-h-0"
           >
             <Shuffle className="h-4 w-4" />
             Give me something else
           </button>
           <Link
             to="/play"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary-ink"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-muted transition hover:bg-primary-tint hover:text-primary-ink sm:min-h-0"
           >
             <SlidersHorizontal className="h-4 w-4" />
             Change my pick

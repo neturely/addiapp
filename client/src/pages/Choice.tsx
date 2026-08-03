@@ -85,7 +85,7 @@ export function Choice() {
         {activeTask && (
           <Link
             to={`/play/progress/${activeTask.id}`}
-            className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-tint px-5 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+            className="mb-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent-tint px-5 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 sm:min-h-0"
           >
             <Play className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={0} aria-hidden />
             Resume: <span className="max-w-[14rem] truncate">{activeTask.title}</span>
@@ -171,7 +171,7 @@ export function Choice() {
                 tabIndex={active ? 0 : -1}
                 onClick={() => setMinutes(opt.minutes)}
                 onKeyDown={(e) => onPillKeyDown(e, i)}
-                className={`h-8 cursor-pointer rounded-lg px-3.5 text-[13px] transition ${
+                className={`tap-44 h-8 cursor-pointer rounded-lg px-3.5 text-[13px] transition ${
                   active
                     ? 'bg-primary-deep font-semibold text-white'
                     : 'bg-page/70 text-gray-700 hover:bg-field'

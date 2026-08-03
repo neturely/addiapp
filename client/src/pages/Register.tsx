@@ -63,7 +63,7 @@ export function Register() {
             </p>
           )}
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-primary-ink underline">
+            <Link to="/login" className="tap-44 text-primary-ink underline">
               Back to sign in
             </Link>
           </p>
@@ -113,7 +113,7 @@ export function Register() {
         </form>
         <p className="mt-4 text-center text-sm">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary-ink underline">
+          <Link to="/login" className="tap-44 text-primary-ink underline">
             Sign in
           </Link>
         </p>

@@ -602,7 +602,15 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   `title=` tooltips** (removed sitewide in #181 — they render an ugly OS box for mouse
   users and duplicate the `aria-label`); label with `aria-label` only. Any CSS motion
   accent (e.g. the timer chip's `animate-pulse-dot`, the Completion confetti) must be
-  disabled under `prefers-reduced-motion` in `index.css`. Don't add ARIA
+  disabled under `prefers-reduced-motion` in `index.css`.
+  **Touch targets ≥44px (#116, RESP-6):** small standalone controls (header icons,
+  inline text links, pills) take the **`tap-44`** utility (`index.css`) — an invisible
+  centred `::after` halo that tops the hit box up to 44px without changing the visual
+  box; tightly **stacked** rows instead get a real mobile-only height bump
+  (`h-11 sm:h-9` / `min-h-11 sm:min-h-0` — halos would overlap and mis-tap), and the
+  shared Button md/lg sizes already rise to 44px below `sm`. New small controls should
+  follow one of those two patterns; `responsive.mjs` has a halo-aware hit-area helper.
+  Don't add ARIA
   without verifying the SR/keyboard interaction it produces — use the
   `client/e2e/` harness (`npm run e2e:a11y -w client`, #170): puppeteer-core drives
   the real app in system Chrome and asserts focus/keyboard/ARIA behavior. It's the

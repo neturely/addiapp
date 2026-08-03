@@ -51,7 +51,7 @@ export function Verify() {
             <h1 className="mb-2 text-xl font-bold">Verification failed</h1>
             <p role="alert" className="text-sm text-red-600">{message}</p>
             <p className="mt-4 text-sm">
-              <Link to="/login" className="text-primary-ink underline">
+              <Link to="/login" className="tap-44 text-primary-ink underline">
                 Back to sign in
               </Link>{' '}
               to request a new link.
