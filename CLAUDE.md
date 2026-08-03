@@ -69,6 +69,25 @@ the old app was never in real use.
   Idle sessions still lapse after 7 idle days; login GCs expired rows
   (`Sessions::purgeExpired`). Decided (#246): NO 24h idle logout — it fights
   the daily-habit loop for negligible security value at this threat model.
+  **Optional TOTP 2FA (#319):** per-user, off by default — dependency-free RFC 6238
+  (`Auth/Totp.php`, HMAC-SHA1/6-digit/30s, ±1 step drift, pinned to the RFC Appendix B
+  vectors in `tests/Unit/TotpTest.php`). Enrollment is staged-then-armed:
+  `POST /api/account/totp/setup` (password re-auth) stores a secret with
+  `users.totp_enabled=0` (migrations 018/019) and returns secret + otpauth URI (NO
+  QR dep — manual entry, v1); `/confirm` needs one valid code to arm and returns
+  **10 single-use backup codes** (bcrypt-hashed in `backup_codes`, migration 020,
+  plaintext shown exactly once; `Auth/BackupCodes.php`); `/disable` needs password
+  + a TOTP/backup code (staged-only cancel needs just the password). With 2FA on,
+  login answers **403 `totp_required` + a 5-min single-use challenge** (an
+  `email_tokens` `totp_challenge` row, migration 021; `EmailTokens::peek` validates
+  without consuming so a typo doesn't burn it) and `POST /api/auth/verify-otp`
+  (challenge + 6-digit code OR backup code; rate-limited ~10/challenge) consumes it
+  and mints the session. Password reset does NOT bypass or clear TOTP; backup codes
+  ARE the recovery. Client: Settings "Two-factor authentication" section (enroll
+  modal + inline disable), Login swaps to a code screen (`ApiError.details` carries
+  the challenge). Deliberately out of v1: QR rendering, remember-this-device,
+  WebAuthn. Locked by `tests/Db/TotpFlowTest.php` + the settings.mjs TOTP cycle
+  (which always leaves the dev user 2FA-off).
 - Styling: Tailwind CSS v4 (utility classes, no config file; coral brand accents
   as arbitrary values like `bg-[#D85A30]`).
 - Transactional email: **Resend** (direct curl from PHP; `RESEND_API_KEY`) for
@@ -335,8 +354,9 @@ to the old Node API.
   header Stats icon (shown when the right column isn't rendered — which on /stats
   itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
-  (Profile / Email / Password / **Play** / **Sign out everywhere** / **Delete
-  account**, hairline dividers — replaced the three FormCards). `AccountController`:
+  (Profile / Email / Password / **Play** / **Two-factor authentication** (#319) /
+  **Sign out everywhere** / **Delete account**, hairline dividers — replaced the
+  three FormCards). `AccountController`:
   `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
   `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
   register) + `POST /api/account/password` (needs current password, keeps this

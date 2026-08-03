@@ -77,6 +77,7 @@ $router->post('/api/auth/forgot-password', [$auth, 'forgotPassword']);
 $router->post('/api/auth/reset-password', [$auth, 'resetPassword']);
 $router->post('/api/auth/logout', [$auth, 'logout']);
 $router->post('/api/auth/confirm-email-change', [$auth, 'confirmEmailChange']);
+$router->post('/api/auth/verify-otp', [$auth, 'verifyOtp']);
 $router->get('/api/auth/me', [$auth, 'me'], true);
 
 // Tasks — all require auth. `/next` is registered before `/{id}` so it wins.
@@ -102,6 +103,9 @@ $router->patch('/api/account', [$account, 'update'], true);
 $router->post('/api/account/password', [$account, 'changePassword'], true);
 $router->post('/api/account/email', [$account, 'changeEmail'], true);
 $router->post('/api/auth/logout-others', [$account, 'logoutOthers'], true);
+$router->post('/api/account/totp/setup', [$account, 'totpSetup'], true);
+$router->post('/api/account/totp/confirm', [$account, 'totpConfirm'], true);
+$router->post('/api/account/totp/disable', [$account, 'totpDisable'], true);
 $router->delete('/api/account', [$account, 'destroy'], true);
 
 $router->dispatch(Request::fromGlobals());

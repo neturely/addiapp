@@ -69,7 +69,12 @@ export async function apiRequest<T = unknown>(
     }
     const body = (data ?? {}) as ApiErrorBody
     const code = body.message ? body.error : undefined
-    throw new ApiError(body.message ?? body.error ?? 'Something went wrong', res.status, code)
+    throw new ApiError(
+      body.message ?? body.error ?? 'Something went wrong',
+      res.status,
+      code,
+      (data ?? undefined) as Record<string, unknown> | undefined,
+    )
   }
   return data as T
 }

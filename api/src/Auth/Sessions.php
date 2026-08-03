@@ -45,7 +45,7 @@ final class Sessions
         }
 
         $stmt = Db::pdo()->prepare(
-            'SELECT u.id, u.email, u.display_name, u.selection_strategy
+            'SELECT u.id, u.email, u.display_name, u.selection_strategy, u.totp_enabled
              FROM sessions s JOIN users u ON u.id = s.user_id
              WHERE s.id = ? AND s.expires_at > NOW() LIMIT 1',
         );
@@ -66,6 +66,8 @@ final class Sessions
             'gravatarHash' => md5(strtolower(trim((string) $row['email']))),
             // Play selection preference (#266) — Settings reads it off /auth/me.
             'selectionStrategy' => (string) $row['selection_strategy'],
+            // TOTP 2FA status (#319) — Settings renders On/Off from /auth/me.
+            'totpEnabled' => (int) $row['totp_enabled'] === 1,
         ];
     }
 
