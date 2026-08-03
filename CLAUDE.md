@@ -225,6 +225,13 @@ to the old Node API.
   (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
   → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
+  **Availability pruning (#306):** `GET /api/tasks/availability` → `{ small, big, projects }` (one grouped
+  LEFT-JOIN pass over the caller's backlog; pools from `WIN_TYPE_COMPLEXITY`; `projects` = a backlog task in
+  an ACTIVE project; the **time filter is deliberately excluded** — "nothing matched your time" stays the
+  empty state's job). Choice fetches on mount (`fetchTaskAvailability`), shows all three while loading (no
+  pop-in; best-effort — fetch failure keeps every option), hides zero-candidate options on resolve; **all
+  three unavailable → the shared `EmptyState` replaces the card** (`repick={false}` hides its self-looping
+  re-pick link).
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
   **Colours (#268, GUI-refresh epic #256 F; re-cut #308):** `projects.color` (migration 014,

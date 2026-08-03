@@ -67,6 +67,13 @@ export type NextTaskFilters = {
   mode?: PlayMode
 }
 
+/** Which Play Choice options can produce a task at any time (#306). */
+export type TaskAvailability = {
+  small: boolean
+  big: boolean
+  projects: boolean
+}
+
 /**
  * Thin alias over the shared `apiRequest` wrapper (issue #101). Delegating here
  * gives every task call status-preserving `ApiError`s and the global 401 handler
@@ -75,6 +82,11 @@ export type NextTaskFilters = {
  */
 function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, init)
+}
+
+/** Can each Choice option yield a task (#306)? Time filter deliberately absent. */
+export function fetchTaskAvailability(): Promise<TaskAvailability> {
+  return requestJson<TaskAvailability>('/tasks/availability')
 }
 
 /** Create a task (issue #35 add-task form → the #27 POST /api/tasks endpoint). */
