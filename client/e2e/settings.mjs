@@ -16,7 +16,7 @@ const sections = await page.evaluate(() =>
   [...document.querySelectorAll('main h2')].map((h) => h.textContent?.trim()),
 )
 ok(
-  ['Profile', 'Email', 'Password', 'Play', 'Sign out everywhere', 'Delete account'].every((s) =>
+  ['Profile', 'Email', 'Password', 'Play', 'Sign out', 'Delete account'].every((s) =>
     sections.includes(s),
   ),
   `#266/#304: all six sections render (${sections.join(', ')})`,

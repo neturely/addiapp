@@ -14,12 +14,13 @@ import {
 
 /**
  * Account settings (#266, consolidating #187/#200): one sectioned surface —
- * Profile / Email / Password / Play / Sign out everywhere / Delete account,
+ * Profile / Email / Password / Play / Sign out / Delete account,
  * divider-separated (the prototype's settings view; replaces the three
  * FormCards). The Play section finally wires the Selection::strategies()
- * preference; the danger area holds Sign out everywhere (#304, relocated from
- * the avatar menu) and Delete account (#266, type-to-confirm + password
- * re-auth) as the final, heaviest item.
+ * preference; the danger area holds the "Sign out" section (#304, relocated
+ * from the avatar menu; its button acts everywhere — this device included) and
+ * Delete account (#266, type-to-confirm + password re-auth) as the final,
+ * heaviest item.
  */
 
 /**
@@ -352,7 +353,7 @@ export function Settings() {
           </Section>
 
           <Section
-            title="Sign out everywhere"
+            title="Sign out"
             lede="Ends your session on every device, including this one. You'll just need to sign back in."
           >
             <div>

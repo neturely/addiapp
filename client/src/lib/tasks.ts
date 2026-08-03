@@ -1,4 +1,5 @@
 import { apiRequest } from './api'
+import { notifyProjectsChanged } from './projects'
 
 export type TaskComplexity = 'low' | 'medium' | 'high'
 export type TaskStatus = 'backlog' | 'in_progress' | 'done'
@@ -95,6 +96,8 @@ export async function createTask(input: NewTaskInput): Promise<Task> {
     method: 'POST',
     body: JSON.stringify(input),
   })
+  // Creating into a project can revert a done one to active (#310).
+  if (input.projectId != null) notifyProjectsChanged()
   return task
 }
 
@@ -166,12 +169,17 @@ export async function updateTask(
     method: 'PATCH',
     body: JSON.stringify(patch),
   })
+  // A status change or (re)assignment can move the task's project between
+  // active ⇄ done and shift its remaining count (#310) — ping the rail.
+  if ('status' in patch || 'projectId' in patch) notifyProjectsChanged()
   return task
 }
 
 /** Delete a task (issue #36 → #27 DELETE, 204). */
 export async function deleteTask(id: number): Promise<void> {
   await requestJson<void>(`/tasks/${id}`, { method: 'DELETE' })
+  // Removing the last unfinished task can complete its project (#310).
+  notifyProjectsChanged()
 }
 
 /**
@@ -184,6 +192,9 @@ export async function assignTaskToProject(id: number, projectId: number | null):
     method: 'PATCH',
     body: JSON.stringify({ projectId }),
   })
+  // Assignment can reactivate a done/archived project (#310) and always
+  // shifts remaining counts — ping the rail.
+  notifyProjectsChanged()
   return task
 }
 
@@ -226,7 +237,7 @@ export type ProjectCompletion = { projectId: number; name: string; bonus: number
 export async function completeTask(
   id: number,
 ): Promise<{ task: Task; pointsAwarded?: AwardResult; projectCompleted?: ProjectCompletion }> {
-  return requestJson<{
+  const res = await requestJson<{
     task: Task
     pointsAwarded?: AwardResult
     projectCompleted?: ProjectCompletion
@@ -234,4 +245,7 @@ export async function completeTask(
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),
   })
+  // Completing the last task auto-marks its project done (#310) — ping the rail.
+  notifyProjectsChanged()
+  return res
 }
