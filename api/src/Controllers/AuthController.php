@@ -126,6 +126,10 @@ final class AuthController
             return;
         }
 
+        // Opportunistic GC (#246): expired rows are filtered by every session
+        // query but were never deleted — sweep them on the login path.
+        Sessions::purgeExpired();
+
         Sessions::setCookie(Sessions::create((int) $user['id']));
         Response::json(['user' => self::publicUser($user)]);
     }
