@@ -358,7 +358,9 @@ to the old Node API.
   header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
-  name · effort tint pill · **title — description** (truncated) · ONE combined
+  name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
+  All tasks + the per-project/category filters; the homogeneous status tabs and
+  Unassigned/Archived keep the **effort** pill) · **title — description** (truncated) · ONE combined
   **"10 min / 5 pts"** cell (#256 review — minutes muted, points **gold**
   `text-warning-ink`, same size/weight; done rows show the EARNED "+N pts" in
   gold via the list's `points_log` join; base from `GET /api/points`). Ready

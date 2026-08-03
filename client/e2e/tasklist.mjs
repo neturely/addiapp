@@ -419,5 +419,37 @@ await page.evaluate(async (probe) => {
   await fetch(`/api/tasks/${probe.taskId}`, { method: 'DELETE', credentials: 'include' })
 }, doneProject)
 
+// --- Status pill on mixed-status lists (#322) ---
+const pillProbe = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: `e2e pill probe ${Date.now()}`, complexity: 'high', estimatedMinutes: 5 }),
+  })
+  const { task } = await r.json()
+  return task.id
+})
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+const allPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e pill probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(allPill === 'Ready', `#322: All tab pill shows the STATUS (got "${allPill}")`)
+await page.goto(`${BASE}/dashboard?tab=backlog`, { waitUntil: 'networkidle0' })
+const tabPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e pill probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(tabPill === 'High', `#322: status tab keeps the DIFFICULTY pill (got "${tabPill}")`)
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  pillProbe,
+)
+
 await browser.close()
 process.exit(done())
