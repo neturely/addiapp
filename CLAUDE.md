@@ -59,9 +59,16 @@ the old app was never in real use.
   statement can't leave a partial state. `CREATE TABLE/INDEX IF NOT EXISTS` is fine
   (both engines support it).
 - Auth: custom, self-rolled — **DB-backed server-side sessions** (opaque random
-  token in an httpOnly `sid` cookie, 7-day TTL; the `sessions` row is the source
-  of truth, so logout/expiry revoke access immediately) + **bcrypt** via PHP's
+  token in an httpOnly `sid` cookie; the `sessions` row is the source of truth,
+  so logout/expiry revoke access immediately) + **bcrypt** via PHP's
   `password_hash`/`password_verify`. Sessions, **not JWT**. Not Supabase Auth.
+  The 7-day TTL is **SLIDING (#246)**: a validated request rolls `expires_at`
+  forward (+ re-issues the cookie), throttled to ~once/day (only when remaining
+  TTL < 6 days) and capped at a **60-day absolute lifetime** from creation
+  (constants in `Sessions`; no migration — `sessions.created_at` predates it).
+  Idle sessions still lapse after 7 idle days; login GCs expired rows
+  (`Sessions::purgeExpired`). Decided (#246): NO 24h idle logout — it fights
+  the daily-habit loop for negligible security value at this threat model.
 - Styling: Tailwind CSS v4 (utility classes, no config file; coral brand accents
   as arbitrary values like `bg-[#D85A30]`).
 - Transactional email: **Resend** (direct curl from PHP; `RESEND_API_KEY`) for
