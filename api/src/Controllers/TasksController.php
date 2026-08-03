@@ -55,6 +55,12 @@ final class TasksController
             $args[] = $status;
         }
 
+        // Archived axis (#312): filed-away done tasks. Default lists/tabs —
+        // including All tasks — EXCLUDE archived ("out of sight"); `archived=1`
+        // flips to the archive view.
+        $archived = $req->query('archived') === '1';
+        $conditions[] = $archived ? 't.archived_at IS NOT NULL' : 't.archived_at IS NULL';
+
         // Unassigned filter (#236): tasks with no project, across all statuses (a
         // different axis than the status tabs). Covered by the (user_id, project_id)
         // index from #234's migration 010.
@@ -157,8 +163,11 @@ final class TasksController
             return;
         }
         $order = $orderParam === 'desc' ? 'DESC' : 'ASC';
+        // The archive orders by WHEN it was filed (#312 — newest-archived first
+        // under the default desc), with id as a same-second tiebreak.
+        $orderCol = $archived ? 't.archived_at' : 't.id';
         $stmt = $pdo->prepare(
-            $select . $where . " ORDER BY t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
+            $select . $where . " ORDER BY {$orderCol} {$order}, t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
 
@@ -178,7 +187,11 @@ final class TasksController
      */
     private static function statusCounts(PDO $pdo, int $userId): array
     {
-        $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? GROUP BY status');
+        // Archived rows (#312) sit outside every status figure — "Done" means
+        // "done, not filed away" — and get their own count for the archive tab.
+        $stmt = $pdo->prepare(
+            'SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? AND archived_at IS NULL GROUP BY status',
+        );
         $stmt->execute([$userId]);
         $counts = ['all' => 0, 'backlog' => 0, 'in_progress' => 0, 'done' => 0];
         foreach ($stmt->fetchAll() as $row) {
@@ -187,9 +200,15 @@ final class TasksController
             $counts['all'] += $n;
         }
 
-        $u = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL');
+        $u = $pdo->prepare(
+            'SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL AND archived_at IS NULL',
+        );
         $u->execute([$userId]);
         $counts['unassigned'] = (int) $u->fetchColumn();
+
+        $a = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND archived_at IS NOT NULL');
+        $a->execute([$userId]);
+        $counts['archived'] = (int) $a->fetchColumn();
 
         return $counts;
     }
@@ -531,7 +550,20 @@ final class TasksController
             }
         }
 
-        if (count($sets) === 0 && $newStatus === null) {
+        // Archive / unarchive (#312): a boolean AXIS flag beside status. Only a
+        // done task can be archived (done → archive, matching the project flow);
+        // the done-check runs below once the existing row is in hand.
+        $archivedFlag = null;
+        if (array_key_exists('archived', $req->body)) {
+            $rawArchived = $req->input('archived');
+            if (!is_bool($rawArchived)) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $archivedFlag = $rawArchived;
+        }
+
+        if (count($sets) === 0 && $newStatus === null && $archivedFlag === null) {
             Response::error('No fields to update', 400);
             return;
         }
@@ -577,7 +609,23 @@ final class TasksController
                     $sets[] = 'completed_at = NULL';
                     $sets[] = 'actual_minutes = NULL';
                 }
+                // Leaving 'done' un-files the task (#312) — the archived ⇒ done
+                // invariant keeps archived rows out of the Play backlog pool.
+                if ($newStatus !== 'done') {
+                    $sets[] = 'archived_at = NULL';
+                }
             }
+        }
+
+        if ($archivedFlag === true) {
+            if (($newStatus ?? $existing['status']) !== 'done') {
+                Response::error('Only done tasks can be archived', 400);
+                return;
+            }
+            // IFNULL keeps the original filing time on a redundant re-archive.
+            $sets[] = 'archived_at = IFNULL(archived_at, NOW())';
+        } elseif ($archivedFlag === false) {
+            $sets[] = 'archived_at = NULL';
         }
 
         $args[] = $id;
@@ -687,6 +735,8 @@ final class TasksController
             'startedAt' => Timestamps::iso($r['started_at']),
             'completedAt' => Timestamps::iso($r['completed_at']),
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
+            // Archived axis (#312); coalesced for narrow pre-migration SELECTs.
+            'archivedAt' => Timestamps::iso($r['archived_at'] ?? null),
             'createdAt' => Timestamps::iso($r['created_at']),
             'updatedAt' => Timestamps::iso($r['updated_at']),
             // Joined project name + colour (#268) — present only on the list

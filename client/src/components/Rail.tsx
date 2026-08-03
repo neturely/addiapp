@@ -133,6 +133,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Done"
         count={counts?.done}
       />
+      {/* Filed-away done tasks (#312) — the Tasks mirror of the Projects
+          section's Archived entry. */}
+      <RailLink
+        to="/dashboard?tab=archived"
+        active={isTab('archived')}
+        pole="bg-gray-400"
+        label="Archived"
+        count={counts?.archived}
+      />
 
       {/* User-defined categories (#276): custom lists managed like projects —
           the plus opens the New-category modal on the Dashboard; each entry

@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronLeft, ChevronRight, FolderPlus, Play, Plus, X } from 'lucide-react'
 import {
+  ArchiveRestore,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FolderPlus,
+  Play,
+  Plus,
+  X,
+} from 'lucide-react'
+import {
+  archiveTask,
   assignTaskToProject,
   fetchTasksPage,
   startTask,
@@ -23,7 +33,7 @@ import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
-type Filter = 'all' | TaskStatus | 'unassigned'
+type Filter = 'all' | TaskStatus | 'unassigned' | 'archived'
 type View = 'tasks' | 'projects'
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -31,6 +41,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'backlog', label: 'Ready' }, // presentation label; enum value stays `backlog` (#178)
   { key: 'in_progress', label: 'Started' },
   { key: 'done', label: 'Done' },
+  { key: 'archived', label: 'Archived' }, // the #312 archive axis, not a status
 ]
 
 // Tint pills (#178 palette): dark on-fill text keeps them AA in a dense list.
@@ -44,7 +55,11 @@ const PAGE_SIZE = 25 // offset page size (#262)
 
 // Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
 function filterFromTab(tab: string | null): Filter {
-  return tab === 'unassigned' || tab === 'backlog' || tab === 'in_progress' || tab === 'done'
+  return tab === 'unassigned' ||
+    tab === 'backlog' ||
+    tab === 'in_progress' ||
+    tab === 'done' ||
+    tab === 'archived'
     ? tab
     : 'all'
 }
@@ -120,7 +135,9 @@ export function Dashboard() {
           ? { categoryId: categoryFilterId, limit: PAGE_SIZE, offset, order }
           : filter === 'unassigned'
             ? { unassigned: true, limit: PAGE_SIZE, offset, order }
-            : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
+            : filter === 'archived'
+              ? { archived: true, limit: PAGE_SIZE, offset, order }
+              : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
     return fetchTasksPage(query)
   }, [filter, projectFilterId, categoryFilterId, offset, newestFirst])
 
@@ -233,6 +250,21 @@ export function Dashboard() {
       setCounts(page.counts)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not assign that task.')
+    }
+  }
+
+  // Unarchive from the archive tab (#312) — back to plain Done. Server-
+  // authoritative like assign: refetch the page after success.
+  async function unarchive(task: Task) {
+    try {
+      await archiveTask(task.id, false)
+      showToast({ message: 'Task restored to Done', icon: ArchiveRestore, tone: 'success' })
+      const page = await loadPage()
+      setTasks(page.tasks)
+      setTotal(page.total)
+      setCounts(page.counts)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not unarchive that task.')
     }
   }
 
@@ -419,11 +451,13 @@ export function Dashboard() {
                     ? 'No tasks in this project yet.'
                     : categoryFilterId !== null
                       ? 'No tasks in this category yet.'
-                      : (counts?.all ?? 0) === 0
-                        ? 'No tasks yet.'
-                        : filter === 'unassigned'
-                          ? 'No unassigned tasks — every task is in a project.'
-                          : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
+                      : filter === 'archived'
+                        ? 'Nothing archived — archive done tasks to file them away.'
+                        : (counts?.all ?? 0) === 0
+                          ? 'No tasks yet.'
+                          : filter === 'unassigned'
+                            ? 'No unassigned tasks — every task is in a project.'
+                            : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
               </p>
               <Link
                 to="/tasks/new"
@@ -556,6 +590,18 @@ export function Dashboard() {
                         target={rideAlongProject}
                         onAssign={(project) => void assign(task, project)}
                       />
+                    )}
+                    {/* Unarchive (#312) — the archive tab's trailing row action,
+                        in the AssignControl style/placement. */}
+                    {filter === 'archived' && (
+                      <button
+                        type="button"
+                        onClick={() => void unarchive(task)}
+                        aria-label={`Unarchive ${task.title}`}
+                        className="mr-4 flex-none cursor-pointer rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
+                      >
+                        Unarchive
+                      </button>
                     )}
                   </li>
                 ))}

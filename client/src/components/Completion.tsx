@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Archive, Check } from 'lucide-react'
 import { Mascot } from './Mascot'
 import { CONFETTI } from './confetti'
 import { PlayCard } from './PlayCard'
 import { fetchUserStats } from '@/lib/points'
-import type { PlayMode, ProjectCompletion, WinSize } from '@/lib/tasks'
+import { archiveTask, type PlayMode, type ProjectCompletion, type WinSize } from '@/lib/tasks'
 
 
 type CompletionProps = {
   title: string
+  /** The just-completed task's id (#312) — enables the archive shortcut beside
+   *  "Keep going". Omitted = no archive button (e.g. contexts without the id). */
+  taskId?: number
   /** Total points earned for this task (from the #28 award). Omitted if not awarded. */
   totalPoints?: number
   /** Daily multiplier applied to this completion (brief context, not a breakdown). */
@@ -37,6 +41,7 @@ type CompletionProps = {
  */
 export function Completion({
   title,
+  taskId,
   totalPoints,
   multiplier,
   size,
@@ -51,6 +56,20 @@ export function Completion({
   if (minutes != null) params.set('minutes', String(minutes))
   if (category != null) params.set('category', String(category))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
+
+  // Archive shortcut (#312): file the just-completed task away at the
+  // celebration moment — no navigation, "Keep going" stays primary.
+  const [filing, setFiling] = useState<'idle' | 'busy' | 'done'>('idle')
+  async function fileAway() {
+    if (taskId == null || filing !== 'idle') return
+    setFiling('busy')
+    try {
+      await archiveTask(taskId, true)
+      setFiling('done')
+    } catch {
+      setFiling('idle') // quiet failure — the Done tab archive remains
+    }
+  }
 
   // Streak for the context line — post-completion, so it reflects this task (#181).
   const [streak, setStreak] = useState<number | null>(null)
@@ -140,12 +159,30 @@ export function Completion({
         ) : undefined
       }
       primary={
-        <Link
-          to={keepGoingHref}
-          className="block w-full rounded-xl bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90"
-        >
-          Keep going
-        </Link>
+        <div className="flex items-stretch gap-2">
+          <Link
+            to={keepGoingHref}
+            className="block flex-1 rounded-xl bg-primary py-3 text-xl font-bold text-white transition hover:opacity-90"
+          >
+            Keep going
+          </Link>
+          {/* Archive shortcut (#312) — compact secondary beside the CTA. */}
+          {taskId != null && (
+            <button
+              type="button"
+              onClick={() => void fileAway()}
+              disabled={filing !== 'idle'}
+              aria-label={filing === 'done' ? 'Archived' : 'Archive this task'}
+              className="tap-44 inline-flex w-14 flex-none cursor-pointer items-center justify-center rounded-xl bg-field text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:opacity-80"
+            >
+              {filing === 'done' ? (
+                <Check className="h-5 w-5 text-success-ink" strokeWidth={2.5} aria-hidden />
+              ) : (
+                <Archive className="h-5 w-5" strokeWidth={2} aria-hidden />
+              )}
+            </button>
+          )}
+        </div>
       }
     />
   )
