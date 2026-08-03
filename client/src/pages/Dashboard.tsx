@@ -52,6 +52,15 @@ const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string 
   high: { label: 'High', className: 'bg-[#ffcdb8] text-on-primary' },
 }
 
+// Status pill for mixed-status lists (#322): the #256 display labels (never a
+// new string source) on the AA tint+ink pairs. Only Ready/Started/Done —
+// Unassigned is a project axis, already visible in the project cell.
+const STATUS_TAG: Record<TaskStatus, { label: string; className: string }> = {
+  backlog: { label: 'Ready', className: 'bg-accent-tint text-accent-ink' },
+  in_progress: { label: 'Started', className: 'bg-warning-tint text-warning-ink' },
+  done: { label: 'Done', className: 'bg-success-tint text-success-ink' },
+}
+
 const PAGE_SIZE = 25 // offset page size (#262)
 
 // Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
@@ -535,11 +544,22 @@ export function Dashboard() {
                       >
                         {task.project?.name ?? 'No project'}
                       </span>
-                      <span
-                        className={`flex-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${COMPLEXITY_TAG[task.complexity].className}`}
-                      >
-                        {COMPLEXITY_TAG[task.complexity].label}
-                      </span>
+                      {/* Mixed-status lists — All tasks and the per-project/
+                          category filters (both compute filter 'all') — spend
+                          the pill slot on STATUS (#322): that's what the user
+                          scans a mixed list for. Homogeneous status tabs (and
+                          Unassigned/Archived) keep the difficulty pill. */}
+                      {(() => {
+                        const tag =
+                          filter === 'all' ? STATUS_TAG[task.status] : COMPLEXITY_TAG[task.complexity]
+                        return (
+                          <span
+                            className={`flex-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tag.className}`}
+                          >
+                            {tag.label}
+                          </span>
+                        )
+                      })()}
                       <span className="min-w-0 flex-1 truncate text-sm">
                         <span
                           className={
