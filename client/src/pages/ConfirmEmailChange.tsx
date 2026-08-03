@@ -52,7 +52,7 @@ export function ConfirmEmailChange() {
                   session on confirm, but this SPA still holds a cached `user` in
                   memory. A full reload clears it so we don't land in a "ghost
                   logged-in" state before the next 401. */}
-              <a href="/login" className="text-primary-ink underline">
+              <a href="/login" className="tap-44 text-primary-ink underline">
                 Sign in
               </a>{' '}
               with your new address.
@@ -66,7 +66,7 @@ export function ConfirmEmailChange() {
               {message}
             </p>
             <p className="mt-4 text-sm">
-              <Link to="/settings" className="text-primary-ink underline">
+              <Link to="/settings" className="tap-44 text-primary-ink underline">
                 Back to settings
               </Link>
             </p>

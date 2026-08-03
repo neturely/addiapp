@@ -185,6 +185,26 @@
 }
 
 /*
+ * #116 (RESP-6): guarantee a ≥44×44px touch target WITHOUT changing the
+ * visual box — an invisible pseudo-element halo centred on the control. Each
+ * side only extends when the box is under 44px in that dimension (the min()
+ * resolves to 0 otherwise). Use on small standalone controls (header icons,
+ * inline text links, pills); for tightly STACKED rows prefer a real
+ * mobile-only min-height bump — overlapping halos there would mis-tap.
+ */
+.tap-44 {
+  position: relative;
+}
+.tap-44::after {
+  content: '';
+  position: absolute;
+  top: min(0px, calc(50% - 22px));
+  bottom: min(0px, calc(50% - 22px));
+  left: min(0px, calc(50% - 22px));
+  right: min(0px, calc(50% - 22px));
+}
+
+/*
  * The AppLayout shell owns page height (#92). Pages still set their own
  * `min-h-screen` (per-screen cleanup is retrofit #94); inside the shell that
  * would stack a full viewport UNDER the header+footer and push the footer off

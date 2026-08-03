@@ -55,7 +55,7 @@ export function ForgotPassword() {
             reset link is on its way. The link expires in 1 hour.
           </p>
           <p className="mt-4 text-sm">
-            <Link to="/login" className="text-primary-ink underline">
+            <Link to="/login" className="tap-44 text-primary-ink underline">
               Back to sign in
             </Link>
           </p>
@@ -92,7 +92,7 @@ export function ForgotPassword() {
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link to="/login" className="text-primary-ink underline">
+          <Link to="/login" className="tap-44 text-primary-ink underline">
             Back to sign in
           </Link>
         </p>

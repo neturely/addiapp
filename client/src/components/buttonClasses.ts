@@ -20,9 +20,11 @@ const VARIANT: Record<ButtonVariant, string> = {
   ghost: 'font-medium text-muted hover:bg-field hover:text-gray-700',
 }
 
+// Below `sm` both sizes rise to 44px (#116 touch targets); visuals otherwise
+// unchanged — same padding, radius and type scale.
 const SIZE: Record<ButtonSize, string> = {
-  md: 'h-9 rounded-lg px-3.5 text-sm',
-  lg: 'h-[42px] rounded-control px-5 text-[15px]',
+  md: 'h-11 rounded-lg px-3.5 text-sm sm:h-9',
+  lg: 'h-11 rounded-control px-5 text-[15px] sm:h-[42px]',
 }
 
 export function buttonClasses(
