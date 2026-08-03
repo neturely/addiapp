@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   BarChart3,
-  CircleCheck,
   LayoutGrid,
   Menu,
   PanelRight,
@@ -13,9 +12,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useInProgress } from '@/inprogress/useInProgress'
-import { logoutOtherDevices } from '@/lib/account'
 import { useShell } from '@/shell/useShell'
-import { useToast } from '@/toast/useToast'
 import { TimerChip } from './TimerChip'
 import type { AuthUser } from '@/auth/authContext'
 
@@ -50,7 +47,6 @@ const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => 
  */
 export function Header() {
   const { user, logout } = useAuth()
-  const { showToast } = useToast()
   const { pathname } = useLocation()
   const { activeTask, activeTasks } = useInProgress()
   const {
@@ -114,13 +110,13 @@ export function Header() {
           aria-label="Toggle sidebar"
           aria-expanded={narrow ? drawerOpen : railOpen}
           aria-controls="app-rail"
-          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
+          className="tap-44 inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
       )}
 
-      <Link to="/" className="text-xl font-bold tracking-tight text-gray-900">
+      <Link to="/" className="tap-44 text-xl font-bold tracking-tight text-gray-900">
         Addi<span className="text-primary-ink">App</span>
       </Link>
 
@@ -149,7 +145,7 @@ export function Header() {
                 to={to}
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
+                className={`tap-44 inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
                   active ? 'bg-primary-tint text-primary-ink' : 'text-gray-700 hover:bg-page'
                 }`}
               >
@@ -162,7 +158,7 @@ export function Header() {
               to="/stats"
               aria-label="Your stats"
               aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
-              className={`inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
+              className={`tap-44 inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
                 pathname.startsWith('/stats')
                   ? 'bg-primary-tint text-primary-ink'
                   : 'text-gray-700 hover:bg-page'
@@ -196,7 +192,7 @@ export function Header() {
               onClick={() => setMenuOpen((v) => !v)}
               aria-label="Account menu"
               aria-expanded={menuOpen}
-              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
+              className="tap-44 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
             >
               {showGravatar ? (
                 <img
@@ -224,32 +220,16 @@ export function Header() {
                 <Link
                   to="/settings"
                   onClick={() => setMenuOpen(false)}
-                  className="flex h-9 w-full items-center rounded-lg px-3 text-sm text-gray-700 hover:bg-page"
+                  className="flex h-11 w-full items-center rounded-lg px-3 text-sm text-gray-700 hover:bg-page sm:h-9"
                 >
                   Account settings
                 </Link>
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="flex h-9 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page"
+                  className="flex h-11 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page sm:h-9"
                 >
                   Sign out
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    void logoutOtherDevices().then(() =>
-                      showToast({
-                        message: 'Signed out on your other devices',
-                        icon: CircleCheck,
-                        tone: 'success',
-                      }),
-                    )
-                  }}
-                  className="flex h-9 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page"
-                >
-                  Sign out other devices
                 </button>
               </div>
             )}

@@ -25,7 +25,7 @@ export function ResetPassword() {
           <h1 className="mb-2 text-xl font-bold">Invalid reset link</h1>
           <p className="text-sm text-muted">This link is missing its reset token.</p>
           <p className="mt-4 text-sm">
-            <Link to="/forgot-password" className="text-primary-ink underline">
+            <Link to="/forgot-password" className="tap-44 text-primary-ink underline">
               Request a new link
             </Link>
           </p>
@@ -103,7 +103,7 @@ export function ResetPassword() {
           </button>
         </form>
         <p className="mt-4 text-center text-sm">
-          <Link to="/login" className="text-primary-ink underline">
+          <Link to="/login" className="tap-44 text-primary-ink underline">
             Back to sign in
           </Link>
         </p>

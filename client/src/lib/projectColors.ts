@@ -9,19 +9,20 @@
 export type ProjectColor = { name: string; pole: string; darkCheck?: boolean }
 
 export const PROJECT_COLORS: ProjectColor[] = [
-  // A sliding scale through the spectrum (#256 review): 17 hues in even 18°
+  // A sliding scale through the spectrum (#256 review): 16 hues in even 18°
   // steps (HSL, lightness tuned per band so yellows/greens hold up as poles) —
   // the near-duplicate Jade/Blue/Magenta steps were dropped to make room for
-  // the three neutrals at the end (still 20 slots; PALETTE_SIZE unchanged).
-  // Projects store INDICES — this reshuffle recolours existing slots ≥7; any
-  // future change must append or swap in place, never reshuffle.
+  // the three neutrals at the end. Projects store INDICES — never reshuffle
+  // without migrating the data: #308 removed the near-duplicate Green (old
+  // slot 6) WITH migration 016 shifting stored indices ≥7 down one (20 → 19
+  // slots; PALETTE_SIZE bumped alongside). Any future change must append,
+  // swap in place, or bring its own index migration like that one.
   { name: 'Red', pole: 'bg-[#d11a1a]' },
   { name: 'Vermilion', pole: 'bg-[#d1511a]' },
   { name: 'Orange', pole: 'bg-[#d1881a]' },
   { name: 'Amber', pole: 'bg-[#bfae18]' },
   { name: 'Chartreuse', pole: 'bg-[#9dbf18]' },
   { name: 'Lime', pole: 'bg-[#66b616]' },
-  { name: 'Green', pole: 'bg-[#36b616]' },
   { name: 'Emerald', pole: 'bg-[#16b656]' },
   { name: 'Mint', pole: 'bg-[#18bf8d]' },
   { name: 'Cyan', pole: 'bg-[#18bfbf]' },
@@ -42,4 +43,13 @@ export const PROJECT_COLORS: ProjectColor[] = [
 /** Pole class for a palette index, tolerant of out-of-range values. */
 export function projectPole(color: number | undefined): string {
   return (PROJECT_COLORS[color ?? 0] ?? PROJECT_COLORS[0]).pole
+}
+
+/** The leading spectrum hues (slots 0–15); Black/Grey/White sit after them. */
+export const SPECTRUM_SLOTS = 16
+
+/** Roll a concrete palette index for the picker's "Random" cell (#308) — from
+ *  the spectrum hues only, so the neutrals stay deliberate choices. */
+export function randomSpectrumColor(): number {
+  return Math.floor(Math.random() * SPECTRUM_SLOTS)
 }

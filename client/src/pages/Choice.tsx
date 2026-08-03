@@ -1,9 +1,10 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Layers, Mountain, Play, Zap } from 'lucide-react'
+import { EmptyState } from '@/components/EmptyState'
 import { Mascot } from '@/components/Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
-import type { WinSize } from '@/lib/tasks'
+import { fetchTaskAvailability, type TaskAvailability, type WinSize } from '@/lib/tasks'
 
 /** Time-available presets (minutes). null = "any amount of time". */
 const TIME_OPTIONS: { label: string; minutes: number | null }[] = [
@@ -39,6 +40,23 @@ export function Choice() {
   const [minutes, setMinutes] = useState<number | null>(null)
   const [heading] = useState(() => HEADINGS[Math.floor(Math.random() * HEADINGS.length)])
 
+  // #306: hide options with zero possible candidates (at ANY time — the time
+  // filter is deliberately not part of this). While loading, render all three
+  // as before: no pop-in for the common all-available case, and a dead-end
+  // click during that window still lands on the #32 empty state.
+  const [avail, setAvail] = useState<TaskAvailability | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetchTaskAvailability()
+      .then((a) => {
+        if (!cancelled) setAvail(a)
+      })
+      .catch(() => {}) // best-effort: on failure keep showing every option
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function go(size: WinSize) {
     const params = new URLSearchParams({ size })
     if (minutes != null) params.set('minutes', String(minutes))
@@ -70,6 +88,17 @@ export function Choice() {
     pillRefs.current[next]?.focus()
   }
 
+  const showSmall = avail?.small ?? true
+  const showBig = avail?.big ?? true
+  const showProjects = avail?.projects ?? true
+
+  // #306: with nothing to offer at all (empty backlog), the choice card gives
+  // way to the shared nothing-here treatment instead of three dead options.
+  // No re-pick link — it would loop straight back here.
+  if (avail !== null && !showSmall && !showBig && !showProjects) {
+    return <EmptyState repick={false} />
+  }
+
   return (
     // #264 (epic #256 D): one prototype-style choice card — mascot half-out on
     // top, three full-width option rows, time chips inside the card. Solo mode
@@ -85,7 +114,7 @@ export function Choice() {
         {activeTask && (
           <Link
             to={`/play/progress/${activeTask.id}`}
-            className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-tint px-5 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+            className="mb-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent-tint px-5 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 sm:min-h-0"
           >
             <Play className="h-4 w-4 shrink-0" fill="currentColor" strokeWidth={0} aria-hidden />
             Resume: <span className="max-w-[14rem] truncate">{activeTask.title}</span>
@@ -96,6 +125,7 @@ export function Choice() {
           {heading}
         </h1>
 
+        {showSmall && (
         <button
           type="button"
           onClick={() => go('small')}
@@ -111,7 +141,9 @@ export function Choice() {
             <span className="mt-0.5 block text-xs text-muted">A quick, low-effort win</span>
           </span>
         </button>
+        )}
 
+        {showBig && (
         <button
           type="button"
           onClick={() => go('big')}
@@ -129,9 +161,11 @@ export function Choice() {
             </span>
           </span>
         </button>
+        )}
 
         {/* Third path (#238): a MODE, not a size — win-type is ignored, only the
             time filter carries. */}
+        {showProjects && (
         <button
           type="button"
           onClick={goProjects}
@@ -148,6 +182,7 @@ export function Choice() {
             Auto-picked
           </span>
         </button>
+        )}
 
         <p id="time-label" className="mb-2.5 mt-5 text-center text-xs text-muted">
           How much time do you have?
@@ -171,7 +206,7 @@ export function Choice() {
                 tabIndex={active ? 0 : -1}
                 onClick={() => setMinutes(opt.minutes)}
                 onKeyDown={(e) => onPillKeyDown(e, i)}
-                className={`h-8 cursor-pointer rounded-lg px-3.5 text-[13px] transition ${
+                className={`tap-44 h-8 cursor-pointer rounded-lg px-3.5 text-[13px] transition ${
                   active
                     ? 'bg-primary-deep font-semibold text-white'
                     : 'bg-page/70 text-gray-700 hover:bg-field'

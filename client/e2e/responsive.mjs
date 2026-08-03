@@ -1,12 +1,33 @@
-// Responsive checks (#270, absorbing #98's hard requirements): 375px phone
-// viewport — no horizontal scroll, ≥44px touch targets, the rail drawer, and
-// points always reachable.
+// Responsive checks (#270, absorbing #98's hard requirements; #116 touch
+// targets outside the Dashboard): 375px phone viewport — no horizontal scroll,
+// ≥44px touch targets, the rail drawer, and points always reachable.
 import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
 const browser = await launch()
 const page = await browser.newPage()
 await page.setViewport({ width: 375, height: 720 })
+
+// Effective touch-box height: the rect plus any `.tap-44` halo (#116) — the
+// invisible ::after extends the hit area, so measure its negative offsets too.
+const hitHeight = (sel) =>
+  page.evaluate((s) => {
+    const el = document.querySelector(s)
+    if (!el) return 0
+    const r = el.getBoundingClientRect()
+    const after = getComputedStyle(el, '::after')
+    const t = parseFloat(after.top) || 0
+    const b = parseFloat(after.bottom) || 0
+    return r.height + (t < 0 ? -t : 0) + (b < 0 ? -b : 0)
+  }, sel)
+
+// --- #116: auth-page inline links are ≥44px touch targets (before login) ---
+await page.goto(`${BASE}/login`, { waitUntil: 'networkidle0' })
+const loginLink = await hitHeight('a[href="/register"]')
+ok(loginLink >= 44, `#116: login "Register" link hit area ≥44px (${loginLink}px)`)
+const forgotLink = await hitHeight('a[href="/forgot-password"]')
+ok(forgotLink >= 44, `#116: login "Forgot password" link hit area ≥44px (${forgotLink}px)`)
+
 await login(page)
 await seedTask(page, 'Responsive probe with a longish title that must truncate')
 
@@ -28,17 +49,22 @@ await page.waitForSelector('ul[aria-label="Tasks"]')
 await noHScroll('the dashboard')
 ok((await page.$('#app-rail')) === null, '#270: no static rail below sm')
 
-// Row + pager touch targets ≥44px.
+// Row + pager touch targets ≥44px. The pager only renders past one page of
+// tasks — data-dependent, so assert it only when present.
 const targets = await page.evaluate(() => {
   const row = document.querySelector('ul[aria-label="Tasks"] button[aria-label^="Open "]')
   const pager = document.querySelector('button[aria-label="Next page"]')
   return {
     row: row?.getBoundingClientRect().height ?? 0,
-    pager: pager?.getBoundingClientRect().height ?? 0,
+    pager: pager ? pager.getBoundingClientRect().height : null,
   }
 })
 ok(targets.row >= 44, `#270: task row is a ≥44px target (${targets.row}px)`)
-ok(targets.pager >= 44, `#270: pager button is a ≥44px target (${targets.pager}px)`)
+if (targets.pager !== null) {
+  ok(targets.pager >= 44, `#270: pager button is a ≥44px target (${targets.pager}px)`)
+} else {
+  console.log('SKIP  #270: pager not rendered (single page of tasks)')
+}
 
 // Points reachable: the Stats icon is in the header (no column at 375px).
 ok(
@@ -96,8 +122,37 @@ await noHScroll('the task view')
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
 await noHScroll('the Play choice card')
 
+// --- #116: chrome + Play touch targets at 375px ---
+const navIcon = await hitHeight('a[aria-label="Play"]')
+ok(navIcon >= 44, `#116: header nav icon hit area ≥44px (${navIcon}px)`)
+const avatar = await hitHeight('button[aria-label="Account menu"]')
+ok(avatar >= 44, `#116: avatar trigger hit area ≥44px (${avatar}px)`)
+const pill = await hitHeight('[role="radio"]')
+ok(pill >= 44, `#116: Choice time pill hit area ≥44px (${pill}px)`)
+
+// Avatar menu rows are real 44px rows on mobile (stacked — no halo overlap).
+await page.click('button[aria-label="Account menu"]')
+await sleep(150)
+const menuRow = await page.evaluate(
+  () =>
+    [...document.querySelectorAll('button')]
+      .find((b) => /^sign out$/i.test(b.textContent?.trim() || ''))
+      ?.getBoundingClientRect().height ?? 0,
+)
+ok(menuRow >= 44, `#116: avatar menu rows are ≥44px on mobile (${menuRow}px)`)
+await page.keyboard.press('Escape')
+
 await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
 await noHScroll('settings')
+
+// --- #116: the shared Button md size rises to 44px below sm ---
+const saveBtn = await page.evaluate(
+  () =>
+    [...document.querySelectorAll('button')]
+      .find((b) => /save profile/i.test(b.textContent || ''))
+      ?.getBoundingClientRect().height ?? 0,
+)
+ok(saveBtn >= 44, `#116: Settings "Save profile" (Button md) is ≥44px on mobile (${saveBtn}px)`)
 
 await browser.close()
 process.exit(done())

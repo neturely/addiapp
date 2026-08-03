@@ -9,8 +9,9 @@ use App\Http\Request;
 
 /**
  * Tier-2 coverage (#128) for DB-backed sessions — the auth source of truth
- * (decision #1). Verifies token minting, cookie-based resolution, expiry, and
- * single/bulk revocation (logout and the password-reset "revoke all" path).
+ * (decision #1). Verifies token minting, cookie-based resolution, expiry,
+ * single/bulk revocation (logout and the password-reset "revoke all" path),
+ * and the #246 sliding window (extend + throttle + lifetime cap + login GC).
  */
 final class SessionsTest extends DbTestCase
 {
@@ -111,5 +112,84 @@ final class SessionsTest extends DbTestCase
 
         self::assertNotNull(Sessions::currentUser($this->requestWithSid($keep)));
         self::assertNull(Sessions::currentUser($this->requestWithSid($other)));
+    }
+
+    // --- sliding expiry (#246) ---
+
+    /** Hours from NOW() to the session's expiry, via the DB clock. */
+    private function hoursRemaining(string $sid): int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT TIMESTAMPDIFF(HOUR, NOW(), expires_at) FROM sessions WHERE id = ?',
+        );
+        $stmt->execute([$sid]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function testValidatedRequestExtendsExpiryWhenBelowThreshold(): void
+    {
+        $userId = $this->makeUser('sess-slide@test.local');
+        $sid = Sessions::create($userId);
+        // Simulate a session last extended days ago: 2 days of TTL left.
+        $this->pdo
+            ->prepare('UPDATE sessions SET expires_at = DATE_ADD(NOW(), INTERVAL 2 DAY) WHERE id = ?')
+            ->execute([$sid]);
+
+        self::assertNotNull(Sessions::currentUser($this->requestWithSid($sid)));
+
+        // Rolled forward to a full ~7-day window.
+        self::assertGreaterThan(166, $this->hoursRemaining($sid));
+    }
+
+    public function testExtensionIsThrottledForFreshSessions(): void
+    {
+        $userId = $this->makeUser('sess-throttle@test.local');
+        $sid = Sessions::create($userId);
+        $before = $this->pdo->query('SELECT expires_at FROM sessions WHERE id = ' . $this->pdo->quote($sid))->fetchColumn();
+
+        // A fresh session has ~7 days left — above the 6-day extend threshold,
+        // so a request must NOT touch the row (the ≤once/day throttle).
+        self::assertNotNull(Sessions::currentUser($this->requestWithSid($sid)));
+
+        $after = $this->pdo->query('SELECT expires_at FROM sessions WHERE id = ' . $this->pdo->quote($sid))->fetchColumn();
+        self::assertSame($before, $after);
+    }
+
+    public function testAbsoluteLifetimeCapsTheExtension(): void
+    {
+        $userId = $this->makeUser('sess-cap@test.local');
+        $sid = Sessions::create($userId);
+        // A long-lived active session: created 56 days ago, 2 days of TTL left.
+        // The 60-day cap allows only ~4 more days — not the full 7.
+        $this->pdo
+            ->prepare(
+                'UPDATE sessions SET created_at = DATE_SUB(NOW(), INTERVAL 56 DAY),
+                        expires_at = DATE_ADD(NOW(), INTERVAL 2 DAY) WHERE id = ?',
+            )
+            ->execute([$sid]);
+
+        self::assertNotNull(Sessions::currentUser($this->requestWithSid($sid)));
+
+        $hours = $this->hoursRemaining($sid);
+        self::assertGreaterThan(93, $hours);
+        self::assertLessThanOrEqual(96, $hours);
+    }
+
+    public function testPurgeExpiredDropsOnlyLapsedRows(): void
+    {
+        $userId = $this->makeUser('sess-purge@test.local');
+        $live = Sessions::create($userId);
+        $stale = bin2hex(random_bytes(32));
+        $this->pdo
+            ->prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, DATE_SUB(NOW(), INTERVAL 1 HOUR))')
+            ->execute([$stale, $userId]);
+
+        Sessions::purgeExpired(); // the login-path GC (#246)
+
+        $count = fn (string $id): int => (int) $this->pdo
+            ->query('SELECT COUNT(*) FROM sessions WHERE id = ' . $this->pdo->quote($id))
+            ->fetchColumn();
+        self::assertSame(0, $count($stale));
+        self::assertSame(1, $count($live));
     }
 }

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-03
+### Fixed
+- Avatar menu no longer flickers closed/reopen when the click lands on the avatar image/initials — the outside-click check now uses `contains()` like the panel check ([#301](https://github.com/neturely/addiapp/issues/301))
+### Changed
+- Project colour picker: drop the near-duplicate green + a "Random" default swatch ([#308](https://github.com/neturely/addiapp/issues/308))
+- Play Choice: hide win-type / project options that have no matching tasks ([#306](https://github.com/neturely/addiapp/issues/306))
+- "Sign out other devices" moved out of the avatar menu into a Settings "Sign out everywhere" danger section — it now ends the current session too ([#304](https://github.com/neturely/addiapp/issues/304))
+- Doc sync — PROJECT_SPEC.md for the #256 GUI-refresh epic (2.0.0) + changelog entry for #301 ([#302](https://github.com/neturely/addiapp/issues/302))
+- Sliding session expiry (rolling 7-day TTL) + expired-row cleanup on login ([#246](https://github.com/neturely/addiapp/issues/246))
+- All interactive controls on mobile screens outside the Dashboard (header chrome, auth links, Play controls, Settings buttons) now have ≥44px touch targets ([#116](https://github.com/neturely/addiapp/issues/116))
+### Added
+- Project lifecycle: automatic "Done" status when every task completes (reversible), assigning to a done/archived project reactivates it, and archived projects can be permanently deleted (their tasks are kept and moved to Unassigned) ([#310](https://github.com/neturely/addiapp/issues/310))
+
 ## [2.0.0] - 2026-07-30
 ### Added
 - GUI refresh (epic [#256](https://github.com/neturely/addiapp/issues/256)) — a full app-shell redesign: header with search + icon nav, collapsible rail (task filters + per-project entries with live counts), right column with the Play card and Today/All-time stats ([#260](https://github.com/neturely/addiapp/issues/260))
@@ -117,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/neturely/addiapp/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/neturely/addiapp/compare/v1.7.0...v1.8.0

@@ -94,6 +94,10 @@ ok(
   await page.evaluate(() => /sign out/i.test(document.body.textContent || '')),
   '#260: avatar menu opens with Sign out',
 )
+ok(
+  await page.evaluate(() => !/sign out other devices/i.test(document.body.textContent || '')),
+  '#304: avatar menu no longer offers Sign out other devices (moved to Settings)',
+)
 await page.keyboard.press('Escape')
 await sleep(100)
 ok(

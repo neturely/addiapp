@@ -59,9 +59,16 @@ the old app was never in real use.
   statement can't leave a partial state. `CREATE TABLE/INDEX IF NOT EXISTS` is fine
   (both engines support it).
 - Auth: custom, self-rolled — **DB-backed server-side sessions** (opaque random
-  token in an httpOnly `sid` cookie, 7-day TTL; the `sessions` row is the source
-  of truth, so logout/expiry revoke access immediately) + **bcrypt** via PHP's
+  token in an httpOnly `sid` cookie; the `sessions` row is the source of truth,
+  so logout/expiry revoke access immediately) + **bcrypt** via PHP's
   `password_hash`/`password_verify`. Sessions, **not JWT**. Not Supabase Auth.
+  The 7-day TTL is **SLIDING (#246)**: a validated request rolls `expires_at`
+  forward (+ re-issues the cookie), throttled to ~once/day (only when remaining
+  TTL < 6 days) and capped at a **60-day absolute lifetime** from creation
+  (constants in `Sessions`; no migration — `sessions.created_at` predates it).
+  Idle sessions still lapse after 7 idle days; login GCs expired rows
+  (`Sessions::purgeExpired`). Decided (#246): NO 24h idle logout — it fights
+  the daily-habit loop for negligible security value at this threat model.
 - Styling: Tailwind CSS v4 (utility classes, no config file; coral brand accents
   as arbitrary values like `bg-[#D85A30]`).
 - Transactional email: **Resend** (direct curl from PHP; `RESEND_API_KEY`) for
@@ -184,8 +191,8 @@ to the old Node API.
   the keyset query (InnoDB appends the PK → no filesort).
 - **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
   (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
-  `status enum('active','archived')`, archive = the terminal "completed" state — no
-  archived-browsing view in v1; the visibility + unarchive gap is filed as **#248**) + a nullable **`tasks.project_id`** FK (migrations 008/009,
+  `status enum('active','done','archived')` since migration 017 — see the #310 Lifecycle
+  block below; archived browsing + unarchive shipped via #248 → #260) + a nullable **`tasks.project_id`** FK (migrations 008/009,
   `ON DELETE SET NULL` → deleting a project unassigns its tasks) + a `(user_id, project_id)`
   index (010). `GET /api/projects` lists **active** projects with **remaining + total** task
   counts (one grouped `LEFT JOIN`; "X of Y remaining", remaining = `status <> 'done'`);
@@ -218,17 +225,45 @@ to the old Node API.
   (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
   → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
+  **Availability pruning (#306):** `GET /api/tasks/availability` → `{ small, big, projects }` (one grouped
+  LEFT-JOIN pass over the caller's backlog; pools from `WIN_TYPE_COMPLEXITY`; `projects` = a backlog task in
+  an ACTIVE project; the **time filter is deliberately excluded** — "nothing matched your time" stays the
+  empty state's job). Choice fetches on mount (`fetchTaskAvailability`), shows all three while loading (no
+  pop-in; best-effort — fetch failure keeps every option), hides zero-candidate options on resolve; **all
+  three unavailable → the shared `EmptyState` replaces the card** (`repick={false}` hides its self-looping
+  re-pick link).
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
-  **Colours (#268, GUI-refresh epic #256 F):** `projects.color` (migration 014, `TINYINT NOT NULL DEFAULT 0`)
-  is a **palette INDEX, not a hex** — the fixed **20-slot** palette lives in `client/src/lib/projectColors.ts`
-  (`projectPole()` helper; #256 review rounds grew it 8→20 then re-cut it): a **17-hue spectrum slide**
-  (even 18° HSL steps, per-band lightness) + **Black/Grey/White neutrals** at slots 17–19. White's pole
-  class carries an inset ring (visible on white/cream) and a `darkCheck` flag (the picker's check goes
-  dark on it). Reordering recolours stored indices — append or swap in place only (noted in-file). The
-  server only bounds it (`ProjectsController::PALETTE_SIZE = 20` — bump BOTH when
-  adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
-  roving-tabindex swatch radiogroup (two rows of 10); poles render in the rail, project cards, and task rows. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
+  **Lifecycle (#310):** `projects.status` = `enum('active','done','archived')` (migration 017). **'done' is
+  AUTOMATIC + reversible** — `App\Projects\Lifecycle::sync` (≥1 task, none unfinished ⇒ 'done'; an
+  unfinished task reverts to 'active'; never touches 'archived') runs on every task mutation that can
+  change a project's tallies (complete, reopen, create-into, assign/unassign, delete). PATCH
+  `/api/projects` still accepts only the MANUAL states (active/archived) — the client never writes 'done';
+  unarchiving a fully-done project settles on 'done' via sync. **Assigning to a done/archived project
+  reactivates it** (the old #234/#236 active-only 400 is GONE): `Lifecycle::reactivate` flips
+  archived→active — in the task PATCH it runs BEFORE the award so completing straight into an archived
+  project can still pay the #240 bonus (which requires 'active') — then sync settles the auto state.
+  Pickers list every status, grouped/labelled Active/Done/Archived (TaskView `<optgroup>`s; the
+  AssignControl disclosure shows group headings only when a non-active group exists). **Permanent delete —
+  Archived ONLY:** `DELETE /api/projects/{id}` (owned + archived, else 400; foreign id 404 per #129) —
+  tasks are NEVER deleted (`ON DELETE SET NULL` → Unassigned; the response's `unassignedTasks` feeds the
+  toast; an earned #240 bonus survives via points_log's SET NULL). Client: a **Done pool** in the rail +
+  ProjectsView (`?view=projects&status=done`; done projects hidden from the rail's default entries like
+  archived; done cards = active cards + a "Done" chip), and archived cards gain a danger **Delete** →
+  confirm `Modal` (states the kept-tasks consequence) → success toast ("N tasks moved to Unassigned").
+  Locked by ProjectsTest's #310 tests + the tasklist.mjs lifecycle block.
+  **Colours (#268, GUI-refresh epic #256 F; re-cut #308):** `projects.color` (migration 014,
+  `TINYINT NOT NULL DEFAULT 0`) is a **palette INDEX, not a hex** — the fixed **19-slot** palette lives in
+  `client/src/lib/projectColors.ts` (`projectPole()` helper): a **16-hue spectrum slide** (even 18° HSL
+  steps, per-band lightness; #308 dropped the near-duplicate Green WITH **migration 016** shifting stored
+  indices ≥7 down one — old-Green lands on Emerald) + **Black/Grey/White neutrals** at slots 16–18. White's
+  pole class carries an inset ring (visible on white/cream) and a `darkCheck` flag (the picker's check goes
+  dark on it). Reordering recolours stored indices — append, swap in place, or bring an index migration
+  like 016 (noted in-file). The server only bounds it (`ProjectsController::PALETTE_SIZE = 19` — bump BOTH
+  when adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
+  roving-tabindex swatch radiogroup (two rows of 10: a leading **"Random" dice cell (#308)** — the default
+  on New project, rolls one of the **16 spectrum hues only** at save time, picker-only affordance, nothing
+  new stored — + the 19 swatches); poles render in the rail, project cards, and task rows. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
   so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
@@ -300,14 +335,16 @@ to the old Node API.
   header Stats icon (shown when the right column isn't rendered — which on /stats
   itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
-  (Profile / Email / Password / **Play** / **Delete account**, hairline dividers —
-  replaced the three FormCards). `AccountController`:
+  (Profile / Email / Password / **Play** / **Sign out everywhere** / **Delete
+  account**, hairline dividers — replaced the three FormCards). `AccountController`:
   `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
   `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
   register) + `POST /api/account/password` (needs current password, keeps this
   session and revokes the rest via `Sessions::deleteUserSessionsExcept`) +
-  **`POST /api/auth/logout-others`** (#266 — the avatar menu's "Sign out other
-  devices") + **`DELETE /api/account`** (#266 — permanent deletion: password
+  **`POST /api/auth/logout-others`** (#266; since **#304** surfaced ONLY by the
+  Settings **"Sign out everywhere"** danger section — revoke others, then the
+  normal logout ends THIS session too → `/login`; no confirm modal, no backend
+  change) + **`DELETE /api/account`** (#266 — permanent deletion: password
   re-auth, rate-limited; one `DELETE FROM users` cascades every owned table
   (all FKs are `ON DELETE CASCADE`), plus an explicit sweep of email-keyed
   `rate_limits` buckets (`action:sha1(email)`, no FK there); best-effort Resend
@@ -393,7 +430,9 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   + icon nav (**Play + Dashboard + Settings** — that order (#256 review), then the
   conditional Stats icon; `bg-primary-tint` active state) +
   right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
-  Account settings + **Sign out**; logout moved here from the Footer). The old
+  Account settings + **Sign out**; logout moved here from the Footer; the #266
+  "Sign out other devices" item moved OUT to Settings as "Sign out everywhere",
+  #304). The old
   header "Add task" CTA moved to the rail's Tasks plus. A **Stats icon appears
   ONLY when the right column isn't rendered** (narrow viewport, toggled off, or
   solo mode) — the epic acceptance that points are never invisible; the
@@ -588,7 +627,15 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   `title=` tooltips** (removed sitewide in #181 — they render an ugly OS box for mouse
   users and duplicate the `aria-label`); label with `aria-label` only. Any CSS motion
   accent (e.g. the timer chip's `animate-pulse-dot`, the Completion confetti) must be
-  disabled under `prefers-reduced-motion` in `index.css`. Don't add ARIA
+  disabled under `prefers-reduced-motion` in `index.css`.
+  **Touch targets ≥44px (#116, RESP-6):** small standalone controls (header icons,
+  inline text links, pills) take the **`tap-44`** utility (`index.css`) — an invisible
+  centred `::after` halo that tops the hit box up to 44px without changing the visual
+  box; tightly **stacked** rows instead get a real mobile-only height bump
+  (`h-11 sm:h-9` / `min-h-11 sm:min-h-0` — halos would overlap and mis-tap), and the
+  shared Button md/lg sizes already rise to 44px below `sm`. New small controls should
+  follow one of those two patterns; `responsive.mjs` has a halo-aware hit-area helper.
+  Don't add ARIA
   without verifying the SR/keyboard interaction it produces — use the
   `client/e2e/` harness (`npm run e2e:a11y -w client`, #170): puppeteer-core drives
   the real app in system Chrome and asserts focus/keyboard/ARIA behavior. It's the

@@ -82,6 +82,7 @@ $router->get('/api/auth/me', [$auth, 'me'], true);
 // Tasks — all require auth. `/next` is registered before `/{id}` so it wins.
 $router->get('/api/tasks', [$tasks, 'index'], true);
 $router->get('/api/tasks/next', [$tasks, 'next'], true);
+$router->get('/api/tasks/availability', [$tasks, 'availability'], true);
 $router->post('/api/tasks', [$tasks, 'create'], true);
 $router->get('/api/tasks/{id}', [$tasks, 'show'], true);
 $router->patch('/api/tasks/{id}', [$tasks, 'update'], true);
@@ -94,6 +95,7 @@ $router->get('/api/points/stats', [$points, 'stats'], true);
 $router->get('/api/projects', [$projects, 'index'], true);
 $router->post('/api/projects', [$projects, 'create'], true);
 $router->patch('/api/projects/{id}', [$projects, 'update'], true);
+$router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
 
 // Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);

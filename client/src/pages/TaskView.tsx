@@ -114,12 +114,14 @@ export function TaskView() {
 
     if (creating) {
       const preselect = Number(searchParams.get('project'))
-      Promise.all([fetchProjects(), fetchPoints()])
+      // 'all' (#310): done/archived projects are assignable too — picking one
+      // reactivates it server-side, so the select lists every owned project.
+      Promise.all([fetchProjects('all'), fetchPoints()])
         .then(([p, pts]) => {
           if (cancelled) return
           setProjects(p)
           setPoints(pts)
-          // Pre-assign only when the id resolves to an active project.
+          // Pre-assign only when the id resolves to an owned project.
           if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
         })
         .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
@@ -135,7 +137,7 @@ export function TaskView() {
       setLoading(false)
       return
     }
-    Promise.all([getTask(taskId), fetchProjects(), fetchPoints()])
+    Promise.all([getTask(taskId), fetchProjects('all'), fetchPoints()])
       .then(([t, p, pts]) => {
         if (cancelled) return
         setTask(t)
@@ -318,6 +320,8 @@ export function TaskView() {
               <label htmlFor="task-project" className={FIELD_LABEL}>
                 Project
               </label>
+              {/* Grouped Active / Done / Archived (#310) — picking a non-active
+                  project is a deliberate reactivation, so it's labelled. */}
               <select
                 id="task-project"
                 value={projectId}
@@ -325,11 +329,23 @@ export function TaskView() {
                 className={FIELD}
               >
                 <option value="">No project</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+                {(
+                  [
+                    ['Active', projects.filter((p) => p.status === 'active')],
+                    ['Done', projects.filter((p) => p.status === 'done')],
+                    ['Archived', projects.filter((p) => p.status === 'archived')],
+                  ] as const
+                )
+                  .filter(([, group]) => group.length > 0)
+                  .map(([label, group]) => (
+                    <optgroup key={label} label={label}>
+                      {group.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
               </select>
             </div>
 

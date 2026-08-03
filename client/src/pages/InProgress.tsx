@@ -153,7 +153,7 @@ export function InProgress() {
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
         <Mascot expression="idle" />
         <p className="text-gray-700">{error}</p>
-        <Link to="/play" className="text-sm text-muted underline hover:text-gray-700">
+        <Link to="/play" className="tap-44 text-sm text-muted underline hover:text-gray-700">
           Back to Play
         </Link>
       </main>
@@ -317,7 +317,7 @@ function AlsoRunning({ currentId }: { currentId: number }) {
           type="button"
           onClick={() => navigate(`/play/progress/${t.id}${qs ? `?${qs}` : ''}`)}
           aria-label={`Switch to ${t.title}`}
-          className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page"
+          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page sm:min-h-0"
         >
           <span className="min-w-0 truncate font-medium text-gray-800">{t.title}</span>
           <span className="flex-none font-mono text-xs tabular-nums text-muted">

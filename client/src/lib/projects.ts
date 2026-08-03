@@ -1,6 +1,9 @@
 import { apiRequest } from './api'
 
-export type ProjectStatus = 'active' | 'archived'
+/** 'done' (#310) is automatic and reversible — set server-side when every task
+ *  is done, cleared when an unfinished task appears. Only 'active'/'archived'
+ *  are ever PATCHed by the client. */
+export type ProjectStatus = 'active' | 'done' | 'archived'
 
 /**
  * A user's project (#234) — a grouping of tasks. `totalCount` / `remainingCount`
@@ -39,13 +42,16 @@ function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /**
- * Fired on window after any project mutation (#268) so passive listeners (the
- * shell rail) can refetch without polling — modal create/archive doesn't
- * navigate, so a route-change refresh alone would go stale.
+ * Fired on window after any mutation that can change project state (#268) so
+ * passive listeners (the shell rail) can refetch without polling — a modal
+ * create/archive or an in-place task mutation doesn't navigate, so a
+ * route-change refresh alone would go stale. Exported for lib/tasks: task
+ * mutations move projects too (#310 — completing the last task marks its
+ * project done; adding/assigning an unfinished one reverts it).
  */
 export const PROJECTS_CHANGED_EVENT = 'addiapp:projects-changed'
 
-function notifyProjectsChanged() {
+export function notifyProjectsChanged() {
   window.dispatchEvent(new Event(PROJECTS_CHANGED_EVENT))
 }
 
@@ -73,7 +79,7 @@ export async function createProject(input: ProjectInput): Promise<Project> {
 /** Patch a project's name/description/colour and/or status (Archive = 'archived'). */
 export async function updateProject(
   id: number,
-  patch: Partial<ProjectInput> & { status?: ProjectStatus },
+  patch: Partial<ProjectInput> & { status?: 'active' | 'archived' },
 ): Promise<Project> {
   const { project } = await requestJson<{ project: Project }>(`/projects/${id}`, {
     method: 'PATCH',
@@ -81,4 +87,17 @@ export async function updateProject(
   })
   notifyProjectsChanged()
   return project
+}
+
+/**
+ * Permanently delete an ARCHIVED project (#310) — the server enforces the
+ * archived-only rule. Tasks are never deleted; they return to Unassigned, and
+ * the response carries how many did (for the confirmation toast).
+ */
+export async function deleteProject(id: number): Promise<{ unassignedTasks: number }> {
+  const res = await requestJson<{ unassignedTasks: number }>(`/projects/${id}`, {
+    method: 'DELETE',
+  })
+  notifyProjectsChanged()
+  return res
 }

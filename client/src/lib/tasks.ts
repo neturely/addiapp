@@ -1,4 +1,5 @@
 import { apiRequest } from './api'
+import { notifyProjectsChanged } from './projects'
 
 export type TaskComplexity = 'low' | 'medium' | 'high'
 export type TaskStatus = 'backlog' | 'in_progress' | 'done'
@@ -67,6 +68,13 @@ export type NextTaskFilters = {
   mode?: PlayMode
 }
 
+/** Which Play Choice options can produce a task at any time (#306). */
+export type TaskAvailability = {
+  small: boolean
+  big: boolean
+  projects: boolean
+}
+
 /**
  * Thin alias over the shared `apiRequest` wrapper (issue #101). Delegating here
  * gives every task call status-preserving `ApiError`s and the global 401 handler
@@ -77,12 +85,19 @@ function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return apiRequest<T>(path, init)
 }
 
+/** Can each Choice option yield a task (#306)? Time filter deliberately absent. */
+export function fetchTaskAvailability(): Promise<TaskAvailability> {
+  return requestJson<TaskAvailability>('/tasks/availability')
+}
+
 /** Create a task (issue #35 add-task form → the #27 POST /api/tasks endpoint). */
 export async function createTask(input: NewTaskInput): Promise<Task> {
   const { task } = await requestJson<{ task: Task }>('/tasks', {
     method: 'POST',
     body: JSON.stringify(input),
   })
+  // Creating into a project can revert a done one to active (#310).
+  if (input.projectId != null) notifyProjectsChanged()
   return task
 }
 
@@ -154,12 +169,17 @@ export async function updateTask(
     method: 'PATCH',
     body: JSON.stringify(patch),
   })
+  // A status change or (re)assignment can move the task's project between
+  // active ⇄ done and shift its remaining count (#310) — ping the rail.
+  if ('status' in patch || 'projectId' in patch) notifyProjectsChanged()
   return task
 }
 
 /** Delete a task (issue #36 → #27 DELETE, 204). */
 export async function deleteTask(id: number): Promise<void> {
   await requestJson<void>(`/tasks/${id}`, { method: 'DELETE' })
+  // Removing the last unfinished task can complete its project (#310).
+  notifyProjectsChanged()
 }
 
 /**
@@ -172,6 +192,9 @@ export async function assignTaskToProject(id: number, projectId: number | null):
     method: 'PATCH',
     body: JSON.stringify({ projectId }),
   })
+  // Assignment can reactivate a done/archived project (#310) and always
+  // shifts remaining counts — ping the rail.
+  notifyProjectsChanged()
   return task
 }
 
@@ -214,7 +237,7 @@ export type ProjectCompletion = { projectId: number; name: string; bonus: number
 export async function completeTask(
   id: number,
 ): Promise<{ task: Task; pointsAwarded?: AwardResult; projectCompleted?: ProjectCompletion }> {
-  return requestJson<{
+  const res = await requestJson<{
     task: Task
     pointsAwarded?: AwardResult
     projectCompleted?: ProjectCompletion
@@ -222,4 +245,7 @@ export async function completeTask(
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),
   })
+  // Completing the last task auto-marks its project done (#310) — ping the rail.
+  notifyProjectsChanged()
+  return res
 }
