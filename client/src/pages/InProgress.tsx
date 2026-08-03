@@ -166,6 +166,7 @@ export function InProgress() {
     return (
       <Completion
         title={task?.title ?? 'Task complete'}
+        taskId={task?.id}
         totalPoints={awarded?.totalPoints}
         multiplier={awarded?.multiplier}
         size={size}

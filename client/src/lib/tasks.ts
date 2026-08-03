@@ -25,6 +25,8 @@ export type Task = {
   earnedPoints?: number | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
+  /** ISO timestamp when the task was filed away (#312); null = not archived. */
+  archivedAt?: string | null
   /** ISO creation timestamp — the task view's "added N days ago" line (#262). */
   createdAt?: string
 }
@@ -126,6 +128,8 @@ export type TaskCounts = {
   in_progress: number
   done: number
   unassigned: number
+  /** Filed-away done tasks (#312) — outside every other figure. */
+  archived: number
 }
 
 /** One page of the dashboard task list (#262 — offset pagination, superseding
@@ -151,6 +155,8 @@ export async function fetchTasksPage(opts: {
   projectId?: number
   /** #276 rail per-category filter — same rules as projectId. */
   categoryId?: number
+  /** #312 archive view: only filed-away tasks (default lists exclude them). */
+  archived?: boolean
   limit: number
   offset?: number
   /** Row order: 'asc' (oldest first, the default) or 'desc' (newest first). */
@@ -161,6 +167,7 @@ export async function fetchTasksPage(opts: {
   if (opts.unassigned) params.set('unassigned', '1')
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   if (opts.categoryId != null) params.set('categoryId', String(opts.categoryId))
+  if (opts.archived) params.set('archived', '1')
   params.set('limit', String(opts.limit))
   if (opts.offset) params.set('offset', String(opts.offset))
   if (opts.order === 'desc') params.set('order', 'desc')
@@ -207,6 +214,20 @@ export async function assignTaskToProject(id: number, projectId: number | null):
   })
   // Assignment can reactivate a done/archived project (#310) and always
   // shifts remaining counts — ping the rail.
+  notifyProjectsChanged()
+  return task
+}
+
+/**
+ * Archive or unarchive a DONE task (#312) — a flag beside status, not a status
+ * transition (the server rejects archiving a non-done task). Pings the rail so
+ * the Done/Archived counts move without a navigation.
+ */
+export async function archiveTask(id: number, archived: boolean): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived }),
+  })
   notifyProjectsChanged()
   return task
 }

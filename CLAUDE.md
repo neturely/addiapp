@@ -308,6 +308,26 @@ to the old Node API.
   (TaskPresented → InProgress → Completion "Keep going"). **`ColorSwatchPicker`**
   (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
   CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
+- **Task archiving (#312)**: an **Archived AXIS on tasks** (`tasks.archived_at`
+  datetime NULL, migration 026 — a flag beside status, NOT a status value),
+  completing the #310 lifecycle symmetry: done first, then archive from done, in
+  both rail sections. `PATCH /api/tasks/{id}` takes **`archived: true|false`**
+  (true requires the task to be — or become in the same PATCH — 'done', else
+  400; false unarchives; IFNULL keeps the original filing time on re-archive).
+  **Invariant: archived ⇒ done** — a status transition leaving 'done' clears
+  `archived_at`, so a filed task can never re-enter the Play backlog pool.
+  Default lists/tabs **including All tasks** exclude archived; `GET
+  /api/tasks?archived=1` is the archive view (ordered by `archived_at`,
+  newest-filed first under the default desc); `counts` excludes archived from
+  every status figure ("Done" = done-not-filed) and gains an **`archived`** key.
+  No points effect. Client: `archiveTask(id, archived)` in `lib/tasks` (pings the
+  rail), a rail Tasks **"Archived" entry** below Done (`?tab=archived`), the
+  archived tab's **Unarchive** trailing row action (server-authoritative refetch,
+  the assign pattern), and a Play **Completion archive shortcut** — an `Archive`
+  icon button beside "Keep going" (`aria-label="Archive this task"`, flips to a
+  check + "Archived", no navigation). The Done-tab one-click Archive row button is
+  **#321's** (its spec refines this issue's original bullet). Locked by
+  `tests/Db/TaskArchiveTest.php` + the #312 blocks in tasklist.mjs/play.mjs.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
@@ -483,7 +503,8 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
   (All tasks / Ready / Started / Unassigned / Done → the Dashboard's `?tab=`
-  filters, counts from the server `counts`) + **Categories section (#276** —
+  filters, counts from the server `counts`; **+ Archived**, the #312 task-archive
+  axis → `?tab=archived`) + **Categories section (#276** —
   per-category entries → `?category=ID` with remaining counts; plus →
   `?newCategory=1`**)** + Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with

@@ -253,5 +253,65 @@ ok(
   '#310: the project’s tasks survive deletion in Unassigned',
 )
 
+// --- Task archiving (#312): rail entry, archive tab, unarchive ---
+const archTask = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: `e2e archive probe ${Date.now()}`, complexity: 'low', estimatedMinutes: 5 }),
+  })
+  const { task } = await r.json()
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'done' }),
+  })
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ archived: true }),
+  })
+  return task.id
+})
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+const archRail = await page.evaluate(() => {
+  const link = [...document.querySelectorAll('#app-rail a')].find(
+    (a) => a.getAttribute('href') === '/dashboard?tab=archived',
+  )
+  return link ? (link.querySelector('span.tabular-nums')?.textContent?.trim() ?? '') : null
+})
+ok(archRail !== null && Number(archRail) >= 1, `#312: rail Archived entry with count (${archRail})`)
+// The archived row is out of the default list but on the archived tab.
+ok(
+  await page.evaluate(() => !/e2e archive probe/i.test(document.body.textContent || '')),
+  '#312: archived task is excluded from All tasks',
+)
+await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
+ok(
+  await page.evaluate(() => /e2e archive probe/i.test(document.body.textContent || '')),
+  '#312: archived tab lists the filed task',
+)
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => /^unarchive/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
+)
+await page.waitForFunction(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || ''), {
+  timeout: 5000,
+})
+const unarchived = await page.evaluate(async (tid) => {
+  const r = await fetch(`/api/tasks/${tid}`, { credentials: 'include' })
+  const { task } = await r.json()
+  return task.archivedAt === null && task.status === 'done'
+}, archTask)
+ok(unarchived, '#312: Unarchive restores the row to plain Done')
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  archTask,
+)
+
 await browser.close()
 process.exit(done())

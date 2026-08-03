@@ -131,5 +131,34 @@ await page.waitForFunction(
 )
 ok(true, '#264: mirror reverts to the idle Play card after the celebration')
 
+// --- Completion archive shortcut (#312) ---
+const archProbe = await seedTask(page, 'Archive shortcut probe', 'low', 10)
+await page.evaluate(
+  (tid) =>
+    fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'in_progress' }),
+    }),
+  archProbe,
+)
+await page.goto(`${BASE}/play/progress/${archProbe}`, { waitUntil: 'networkidle0' })
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => /mark done/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForSelector('button[aria-label="Archive this task"]', { timeout: 8000 })
+ok(true, '#312: Completion shows the archive shortcut beside "Keep going"')
+await page.click('button[aria-label="Archive this task"]')
+await page.waitForSelector('button[aria-label="Archived"]', { timeout: 5000 })
+const archived = await page.evaluate(async (tid) => {
+  const r = await fetch(`/api/tasks/${tid}`, { credentials: 'include' })
+  const { task } = await r.json()
+  return task.archivedAt !== null
+}, archProbe)
+ok(archived, '#312: the shortcut files the just-completed task away (archivedAt set)')
+
 await browser.close()
 process.exit(done())
