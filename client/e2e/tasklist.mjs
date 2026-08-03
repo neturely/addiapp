@@ -1,5 +1,7 @@
 // Task-list behaviour checks (#262): offset pagination (prev/next + exact
 // range), ready count, row → open-in-place view round-trip, delete flow.
+// Plus the #310 project lifecycle block at the end: auto done ⇄ active and the
+// archived-view permanent delete (confirm dialog + toast + tasks → Unassigned).
 import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -149,6 +151,106 @@ await page.goto(`${BASE}/tasks/${anyId}/edit`, { waitUntil: 'networkidle0' })
 ok(
   (await page.$('input[aria-label="Title"]')) !== null,
   '#262: legacy /tasks/:id/edit deep link lands on the task view',
+)
+
+// --- #310: project lifecycle — auto done ⇄ active, then delete from Archived ---
+const probe = await page.evaluate(async () => {
+  const post = (path, body) =>
+    fetch(`/api${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => r.json())
+  const patch = (path, body) =>
+    fetch(`/api${path}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then((r) => r.json())
+  const statusOf = async (id) => {
+    const { projects } = await fetch('/api/projects?status=all', { credentials: 'include' }).then(
+      (r) => r.json(),
+    )
+    return projects.find((p) => p.id === id)?.status ?? 'GONE'
+  }
+
+  const { project } = await post('/projects', { name: `Lifecycle probe ${Date.now()}` })
+  const { task } = await post('/tasks', {
+    title: 'Lifecycle task',
+    complexity: 'low',
+    estimatedMinutes: 5,
+    projectId: project.id,
+  })
+
+  await patch(`/tasks/${task.id}`, { status: 'done' })
+  const afterComplete = await statusOf(project.id)
+
+  // Revert-on-assign: a fresh unfinished task assigned to the done project.
+  const { task: second } = await post('/tasks', {
+    title: 'Lifecycle revive',
+    complexity: 'low',
+    estimatedMinutes: 5,
+  })
+  await patch(`/tasks/${second.id}`, { projectId: project.id })
+  const afterAssign = await statusOf(project.id)
+
+  // Park it in Archived for the UI delete below (leave one task assigned).
+  await patch(`/projects/${project.id}`, { status: 'archived' })
+  return { id: project.id, name: project.name, afterComplete, afterAssign }
+})
+ok(probe.afterComplete === 'done', `#310: completing every task auto-marks the project done (${probe.afterComplete})`)
+ok(probe.afterAssign === 'active', `#310: assigning an unfinished task reverts done → active (${probe.afterAssign})`)
+
+// Archived grid: Delete → confirm dialog (states the kept-tasks consequence) → toast.
+await page.goto(`${BASE}/dashboard?view=projects&archived=1`, { waitUntil: 'networkidle0' })
+await page.waitForFunction(
+  (n) => document.body.textContent?.includes(n),
+  { timeout: 5000 },
+  probe.name,
+)
+await page.evaluate((n) => {
+  const card = [...document.querySelectorAll('div')].find(
+    (d) => d.querySelector('h3')?.textContent === n,
+  )
+  ;[...card.querySelectorAll('button')].find((b) => /delete/i.test(b.textContent || ''))?.click()
+}, probe.name)
+await page.waitForSelector('[role=dialog]', { timeout: 3000 })
+ok(
+  await page.evaluate(() =>
+    /kept and moved to unassigned/i.test(
+      document.querySelector('[role=dialog]')?.textContent || '',
+    ),
+  ),
+  '#310: delete confirm states the tasks-kept consequence',
+)
+await page.evaluate(() =>
+  [...document.querySelectorAll('[role=dialog] button')]
+    .find((b) => /delete project/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () =>
+    [...document.querySelectorAll('[role=status]')].some((t) =>
+      /moved to unassigned/i.test(t.textContent || ''),
+    ),
+  { timeout: 5000 },
+)
+ok(true, '#310: delete fires the "moved to Unassigned" toast')
+ok(
+  await page.evaluate((n) => !document.body.textContent?.includes(n), probe.name),
+  '#310: the deleted project is gone from the archived grid',
+)
+// The assigned tasks survived, back in Unassigned.
+ok(
+  (await page.evaluate(async (pid) => {
+    const { tasks } = await fetch('/api/tasks?unassigned=1&limit=100', {
+      credentials: 'include',
+    }).then((r) => r.json())
+    return tasks.some((t) => /lifecycle/i.test(t.title)) && pid
+  }, probe.id)) !== false,
+  '#310: the project’s tasks survive deletion in Unassigned',
 )
 
 await browser.close()

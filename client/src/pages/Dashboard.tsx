@@ -130,13 +130,14 @@ export function Dashboard() {
       .catch(() => undefined) // rows degrade to no points column
   }, [])
 
-  // Active projects: the Unassigned tab's assign picker + ride-along resolution
-  // (#236) and the project-filter banner's name/pole (#260).
+  // Projects ('all', #310): the Unassigned tab's assign picker lists every
+  // status (assigning to done/archived reactivates server-side), ride-along
+  // resolution (#236), and the project-filter banner's name/pole (#260).
   const [projects, setProjects] = useState<Project[]>([])
   useEffect(() => {
     if (filter !== 'unassigned' && projectFilterId === null) return
     let cancelled = false
-    fetchProjects()
+    fetchProjects('all')
       .then((p) => !cancelled && setProjects(p))
       .catch(() => undefined)
     return () => {
@@ -546,25 +547,45 @@ function AssignControl({
           className="absolute right-0 z-10 mt-1 max-h-64 w-52 overflow-y-auto rounded-lg bg-surface py-1 ring-1 ring-field-hover"
         >
           {projects.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-muted">No active projects yet.</p>
+            <p className="px-3 py-2 text-xs text-muted">No projects yet.</p>
           ) : (
-            projects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => {
-                  setOpen(false)
-                  onAssign(p)
-                }}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-page"
-              >
-                <span
-                  className={`h-2 w-2 flex-none rounded-[3px] ${projectPole(p.color)}`}
-                  aria-hidden
-                />
-                <span className="truncate">{p.name}</span>
-              </button>
-            ))
+            // Grouped Active / Done / Archived (#310): a non-active pick is a
+            // deliberate reactivation, so the groups are labelled (headings
+            // only when a non-active group exists).
+            (
+              [
+                ['Active', projects.filter((p) => p.status === 'active')],
+                ['Done', projects.filter((p) => p.status === 'done')],
+                ['Archived', projects.filter((p) => p.status === 'archived')],
+              ] as const
+            )
+              .filter(([, group]) => group.length > 0)
+              .map(([label, group], _i, groups) => (
+                <div key={label}>
+                  {groups.length > 1 && (
+                    <p className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                      {label}
+                    </p>
+                  )}
+                  {group.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setOpen(false)
+                        onAssign(p)
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-page"
+                    >
+                      <span
+                        className={`h-2 w-2 flex-none rounded-[3px] ${projectPole(p.color)}`}
+                        aria-hidden
+                      />
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ))
           )}
         </div>
       )}

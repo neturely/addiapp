@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Db;
 use App\Http\Request;
 use App\Http\Response;
+use App\Projects\Lifecycle;
 use App\Support\Timestamps;
 use PDO;
 
@@ -18,6 +19,11 @@ use PDO;
  */
 final class ProjectsController
 {
+    /**
+     * PATCHable statuses — the MANUAL states only. 'done' exists in the enum
+     * (#310, migration 017) but is set/cleared exclusively by Lifecycle::sync,
+     * never by the client.
+     */
     private const STATUS = ['active', 'archived'];
 
     /**
@@ -29,17 +35,18 @@ final class ProjectsController
     public const PALETTE_SIZE = 19;
 
     /**
-     * GET /api/projects[?status=active|archived|all] — the user's projects, each
-     * with remaining + total task counts for the "3 of 7 remaining" sub-label.
-     * total = every task in the project; remaining = status <> 'done'. One
-     * grouped query (LEFT JOIN so a project with no tasks still returns 0/0).
-     * Default stays ACTIVE-only (pre-#260 callers unaffected); `archived`/`all`
-     * are the opt-in for the archived-browsing view (#248 → #260).
+     * GET /api/projects[?status=active|done|archived|all] — the user's projects,
+     * each with remaining + total task counts for the "3 of 7 remaining"
+     * sub-label. total = every task in the project; remaining = status <>
+     * 'done'. One grouped query (LEFT JOIN so a project with no tasks still
+     * returns 0/0). Default stays ACTIVE-only (pre-#260 callers unaffected);
+     * `archived`/`all` opt in to the archived-browsing view (#248 → #260) and
+     * `done` to the #310 Done grouping.
      */
     public function index(Request $req, array $params): void
     {
         $filter = $req->query('status') ?? 'active';
-        if (!in_array($filter, ['active', 'archived', 'all'], true)) {
+        if (!in_array($filter, ['active', 'done', 'archived', 'all'], true)) {
             Response::error('Invalid status filter', 400);
             return;
         }
@@ -173,12 +180,56 @@ final class ProjectsController
         $pdo->prepare('UPDATE projects SET ' . implode(', ', $sets) . ' WHERE id = ? AND user_id = ?')
             ->execute($args);
 
+        // Unarchiving a fully-done project settles on 'done', not 'active'
+        // (#310) — the auto state is recomputed, never trusted from the client.
+        if (($status ?? null) === 'active') {
+            Lifecycle::sync($id, (int) $req->userId);
+        }
+
         $updated = self::loadWithCounts($pdo, $id, (int) $req->userId);
         if ($updated === null) {
             Response::error('Project not found', 404);
             return;
         }
         Response::json(['project' => self::mapProject($updated)]);
+    }
+
+    /**
+     * DELETE /api/projects/{id} — permanent delete, from the Archived state
+     * ONLY (#310 §3): archive stays the single removal path out of the working
+     * set, so a delete is always a two-step, deliberate act. Owned + archived
+     * required — non-archived → 400, foreign/unknown → 404 (non-enumerating,
+     * #129). Tasks are never deleted: the tasks.project_id FK is ON DELETE SET
+     * NULL (migration 009), so they return to Unassigned — the count rides the
+     * response for the client's toast. An earned #240 bonus survives too
+     * (points_log.project_id is ON DELETE SET NULL, migration 013).
+     */
+    public function destroy(Request $req, array $params): void
+    {
+        $id = self::parseId($params['id']);
+        if ($id === null) {
+            Response::error('Invalid project id', 400);
+            return;
+        }
+
+        $pdo = Db::pdo();
+        $project = self::findOwnedProject($pdo, $id, (int) $req->userId);
+        if ($project === null) {
+            Response::error('Project not found', 404);
+            return;
+        }
+        if ($project['status'] !== 'archived') {
+            Response::error('Only archived projects can be deleted', 400);
+            return;
+        }
+
+        $count = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE project_id = ? AND user_id = ?');
+        $count->execute([$id, $req->userId]);
+        $unassigned = (int) $count->fetchColumn();
+
+        $pdo->prepare('DELETE FROM projects WHERE id = ? AND user_id = ?')->execute([$id, $req->userId]);
+
+        Response::json(['unassignedTasks' => $unassigned]);
     }
 
     // --- helpers ---

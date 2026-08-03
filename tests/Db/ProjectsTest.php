@@ -29,6 +29,7 @@ final class ProjectsTest extends DbTestCase
         $router->get('/api/projects', [$projects, 'index'], true);
         $router->post('/api/projects', [$projects, 'create'], true);
         $router->patch('/api/projects/{id}', [$projects, 'update'], true);
+        $router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
         $router->get('/api/tasks', [$tasks, 'index'], true);
         $router->get('/api/tasks/next', [$tasks, 'next'], true);
         $router->post('/api/tasks', [$tasks, 'create'], true);
@@ -157,7 +158,8 @@ final class ProjectsTest extends DbTestCase
         self::assertSame(400, $status);
     }
 
-    public function testCreateTaskRejectsArchivedProject(): void
+    /** #310 §2 reversed the old #234 rule: an archived target now REACTIVATES. */
+    public function testCreateTaskIntoArchivedProjectReactivatesIt(): void
     {
         $userId = $this->makeUser('task-proj-archived@test.local');
         $sid = Sessions::create($userId);
@@ -165,13 +167,15 @@ final class ProjectsTest extends DbTestCase
         $projectId = (int) $body['project']['id'];
         $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'archived']);
 
-        [$status] = $this->dispatch('POST', '/api/tasks', $sid, [
-            'title' => 'Too late',
+        [$status, $task] = $this->dispatch('POST', '/api/tasks', $sid, [
+            'title' => 'Back to life',
             'complexity' => 'low',
             'estimatedMinutes' => 5,
             'projectId' => $projectId,
         ]);
-        self::assertSame(400, $status);
+        self::assertSame(201, $status);
+        self::assertSame($projectId, $task['task']['projectId']);
+        self::assertSame('active', $this->projectStatus($projectId));
     }
 
     // --- #236 (B): Unassigned filter + assign/unassign via PATCH ---
@@ -240,7 +244,8 @@ final class ProjectsTest extends DbTestCase
         self::assertSame(400, $status);
     }
 
-    public function testAssignViaPatchRejectsArchivedProject(): void
+    /** #310 §2 reversed the old #236 rule: assigning to archived reactivates. */
+    public function testAssignViaPatchToArchivedProjectReactivatesIt(): void
     {
         $userId = $this->makeUser('assign-archived@test.local');
         $sid = Sessions::create($userId);
@@ -249,8 +254,10 @@ final class ProjectsTest extends DbTestCase
         $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'archived']);
         $taskId = $this->makeTask($userId, 'low', 5);
 
-        [$status] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['projectId' => $projectId]);
-        self::assertSame(400, $status);
+        [$status, $res] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['projectId' => $projectId]);
+        self::assertSame(200, $status);
+        self::assertSame($projectId, $res['task']['projectId']);
+        self::assertSame('active', $this->projectStatus($projectId));
     }
 
     // --- #238 (C): Focus-on-projects endpoint (mode=projects) ---
@@ -361,6 +368,116 @@ final class ProjectsTest extends DbTestCase
         // One undone task → still no bonus.
         $this->assignTask($this->makeTask($userId, 'low', 5), $projectId);
         self::assertNull(Award::awardProjectCompletion($projectId, $userId));
+    }
+
+    // --- #310: auto 'done' lifecycle + permanent delete from Archived ---
+
+    public function testProjectAutoDoneOnAllTasksCompleteAndRevertOnReopen(): void
+    {
+        $userId = $this->makeUser('lifecycle-done@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Finishable']);
+        $projectId = (int) $body['project']['id'];
+        $a = $this->makeTask($userId, 'low', 5);
+        $b = $this->makeTask($userId, 'low', 5);
+        $this->assignTask($a, $projectId);
+        $this->assignTask($b, $projectId);
+
+        $this->dispatch('PATCH', "/api/tasks/{$a}", $sid, ['status' => 'done']);
+        self::assertSame('active', $this->projectStatus($projectId)); // one still open
+
+        $this->dispatch('PATCH', "/api/tasks/{$b}", $sid, ['status' => 'done']);
+        self::assertSame('done', $this->projectStatus($projectId)); // all done → auto 'done'
+
+        // The Done grouping serves it; the default active list does not.
+        [, $done] = $this->dispatch('GET', '/api/projects', $sid, [], ['status' => 'done']);
+        self::assertContains($projectId, array_column($done['projects'], 'id'));
+        [, $active] = $this->dispatch('GET', '/api/projects', $sid);
+        self::assertNotContains($projectId, array_column($active['projects'], 'id'));
+
+        // Reopening a task reverts the project to active.
+        $this->dispatch('PATCH', "/api/tasks/{$a}", $sid, ['status' => 'backlog']);
+        self::assertSame('active', $this->projectStatus($projectId));
+    }
+
+    public function testDoneProjectRevertsWhenUnfinishedTaskAssigned(): void
+    {
+        $userId = $this->makeUser('lifecycle-assign@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Done then not']);
+        $projectId = (int) $body['project']['id'];
+        $t = $this->makeTask($userId, 'low', 5);
+        $this->assignTask($t, $projectId);
+        $this->dispatch('PATCH', "/api/tasks/{$t}", $sid, ['status' => 'done']);
+        self::assertSame('done', $this->projectStatus($projectId));
+
+        $unfinished = $this->makeTask($userId, 'low', 5);
+        $this->dispatch('PATCH', "/api/tasks/{$unfinished}", $sid, ['projectId' => $projectId]);
+        self::assertSame('active', $this->projectStatus($projectId));
+    }
+
+    public function testDeleteProjectRequiresArchivedAndIsNonEnumerating(): void
+    {
+        $userId = $this->makeUser('delete-guard@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Still active']);
+        $projectId = (int) $body['project']['id'];
+
+        // Active → 400 (archive stays the only removal path from the working set).
+        [$status] = $this->dispatch('DELETE', "/api/projects/{$projectId}", $sid);
+        self::assertSame(400, $status);
+
+        // Foreign id → 404, not 403 (#129).
+        $otherSid = Sessions::create($this->makeUser('delete-thief@test.local'));
+        $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'archived']);
+        [$foreign] = $this->dispatch('DELETE', "/api/projects/{$projectId}", $otherSid);
+        self::assertSame(404, $foreign);
+    }
+
+    public function testDeleteArchivedProjectUnassignsTasksAndReportsCount(): void
+    {
+        $userId = $this->makeUser('delete-unassign@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Doomed']);
+        $projectId = (int) $body['project']['id'];
+        $a = $this->makeTask($userId, 'low', 5);
+        $b = $this->makeTask($userId, 'medium', 10);
+        $this->assignTask($a, $projectId);
+        $this->assignTask($b, $projectId);
+        $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'archived']);
+
+        [$status, $res] = $this->dispatch('DELETE', "/api/projects/{$projectId}", $sid);
+        self::assertSame(200, $status);
+        self::assertSame(2, $res['unassignedTasks']);
+
+        // Tasks survive, back in Unassigned; the project is gone everywhere.
+        [, $page] = $this->dispatch('GET', '/api/tasks', $sid, [], ['unassigned' => '1', 'limit' => '25']);
+        self::assertCount(2, $page['tasks']);
+        [, $all] = $this->dispatch('GET', '/api/projects', $sid, [], ['status' => 'all']);
+        self::assertNotContains($projectId, array_column($all['projects'], 'id'));
+    }
+
+    /** Unarchiving a fully-done project settles on 'done', not 'active' (#310). */
+    public function testUnarchiveFullyDoneProjectSettlesOnDone(): void
+    {
+        $userId = $this->makeUser('unarchive-done@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Complete then archived']);
+        $projectId = (int) $body['project']['id'];
+        $t = $this->makeTask($userId, 'low', 5);
+        $this->assignTask($t, $projectId);
+        $this->dispatch('PATCH', "/api/tasks/{$t}", $sid, ['status' => 'done']);
+        $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'archived']);
+
+        $this->dispatch('PATCH', "/api/projects/{$projectId}", $sid, ['status' => 'active']);
+        self::assertSame('done', $this->projectStatus($projectId));
+    }
+
+    private function projectStatus(int $projectId): string
+    {
+        $stmt = $this->pdo->prepare('SELECT status FROM projects WHERE id = ?');
+        $stmt->execute([$projectId]);
+        return (string) $stmt->fetchColumn();
     }
 
     private function assignTask(int $taskId, int $projectId): void

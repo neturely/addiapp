@@ -1,6 +1,9 @@
 import { apiRequest } from './api'
 
-export type ProjectStatus = 'active' | 'archived'
+/** 'done' (#310) is automatic and reversible — set server-side when every task
+ *  is done, cleared when an unfinished task appears. Only 'active'/'archived'
+ *  are ever PATCHed by the client. */
+export type ProjectStatus = 'active' | 'done' | 'archived'
 
 /**
  * A user's project (#234) — a grouping of tasks. `totalCount` / `remainingCount`
@@ -73,7 +76,7 @@ export async function createProject(input: ProjectInput): Promise<Project> {
 /** Patch a project's name/description/colour and/or status (Archive = 'archived'). */
 export async function updateProject(
   id: number,
-  patch: Partial<ProjectInput> & { status?: ProjectStatus },
+  patch: Partial<ProjectInput> & { status?: 'active' | 'archived' },
 ): Promise<Project> {
   const { project } = await requestJson<{ project: Project }>(`/projects/${id}`, {
     method: 'PATCH',
@@ -81,4 +84,17 @@ export async function updateProject(
   })
   notifyProjectsChanged()
   return project
+}
+
+/**
+ * Permanently delete an ARCHIVED project (#310) — the server enforces the
+ * archived-only rule. Tasks are never deleted; they return to Unassigned, and
+ * the response carries how many did (for the confirmation toast).
+ */
+export async function deleteProject(id: number): Promise<{ unassignedTasks: number }> {
+  const res = await requestJson<{ unassignedTasks: number }>(`/projects/${id}`, {
+    method: 'DELETE',
+  })
+  notifyProjectsChanged()
+  return res
 }

@@ -47,18 +47,23 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
     }
   }, [location.pathname, location.search, refresh])
 
+  // Done projects (#310) are hidden from the default entries, like archived —
+  // they surface through their own pool link below.
   const activeProjects = projects.filter((p) => p.status === 'active')
-  const archivedCount = projects.length - activeProjects.length
+  const doneCount = projects.filter((p) => p.status === 'done').length
+  const archivedCount = projects.filter((p) => p.status === 'archived').length
 
   const onDashboard = location.pathname === '/dashboard'
   const tab = searchParams.get('tab')
   const view = searchParams.get('view')
   const archived = searchParams.get('archived') === '1'
+  const statusParam = searchParams.get('status')
   const projectParam = Number(searchParams.get('project'))
 
   const isAll = onDashboard && !tab && view !== 'projects' && !projectParam
   const isTab = (t: string) => onDashboard && tab === t
   const isArchived = onDashboard && view === 'projects' && archived
+  const isDone = onDashboard && view === 'projects' && !archived && statusParam === 'done'
   const activeProjectId =
     onDashboard && view !== 'projects' && tab !== 'unassigned' && projectParam > 0
       ? projectParam
@@ -127,7 +132,7 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
           gone): both open the Projects grid; entries below are the active ones. */}
       <RailLink
         to="/dashboard?view=projects"
-        active={onDashboard && view === 'projects' && !archived}
+        active={onDashboard && view === 'projects' && !archived && !isDone}
         pole="bg-success"
         label="Active"
         count={activeProjects.length}
@@ -142,6 +147,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
           count={p.remainingCount}
         />
       ))}
+      {/* The Done pool (#310) sits above Archived: auto-completed projects,
+          hidden from the entries above like archived ones. */}
+      <RailLink
+        to="/dashboard?view=projects&status=done"
+        active={isDone}
+        pole="bg-success-tint"
+        label="Done"
+        count={doneCount}
+      />
       {/* Archived always sits at the bottom of the section (#256 review). */}
       <RailLink
         to="/dashboard?view=projects&archived=1"

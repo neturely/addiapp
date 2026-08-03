@@ -191,8 +191,8 @@ to the old Node API.
   the keyset query (InnoDB appends the PK → no filesort).
 - **Projects (#234, epic #233 — A of A/B/C/D)**: user-scoped `GET/POST/PATCH /api/projects`
   (`ProjectsController`). A **project** groups tasks: `projects` table (migration 007;
-  `status enum('active','archived')`, archive = the terminal "completed" state — no
-  archived-browsing view in v1; the visibility + unarchive gap is filed as **#248**) + a nullable **`tasks.project_id`** FK (migrations 008/009,
+  `status enum('active','done','archived')` since migration 017 — see the #310 Lifecycle
+  block below; archived browsing + unarchive shipped via #248 → #260) + a nullable **`tasks.project_id`** FK (migrations 008/009,
   `ON DELETE SET NULL` → deleting a project unassigns its tasks) + a `(user_id, project_id)`
   index (010). `GET /api/projects` lists **active** projects with **remaining + total** task
   counts (one grouped `LEFT JOIN`; "X of Y remaining", remaining = `status <> 'done'`);
@@ -234,6 +234,24 @@ to the old Node API.
   re-pick link).
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
+  **Lifecycle (#310):** `projects.status` = `enum('active','done','archived')` (migration 017). **'done' is
+  AUTOMATIC + reversible** — `App\Projects\Lifecycle::sync` (≥1 task, none unfinished ⇒ 'done'; an
+  unfinished task reverts to 'active'; never touches 'archived') runs on every task mutation that can
+  change a project's tallies (complete, reopen, create-into, assign/unassign, delete). PATCH
+  `/api/projects` still accepts only the MANUAL states (active/archived) — the client never writes 'done';
+  unarchiving a fully-done project settles on 'done' via sync. **Assigning to a done/archived project
+  reactivates it** (the old #234/#236 active-only 400 is GONE): `Lifecycle::reactivate` flips
+  archived→active — in the task PATCH it runs BEFORE the award so completing straight into an archived
+  project can still pay the #240 bonus (which requires 'active') — then sync settles the auto state.
+  Pickers list every status, grouped/labelled Active/Done/Archived (TaskView `<optgroup>`s; the
+  AssignControl disclosure shows group headings only when a non-active group exists). **Permanent delete —
+  Archived ONLY:** `DELETE /api/projects/{id}` (owned + archived, else 400; foreign id 404 per #129) —
+  tasks are NEVER deleted (`ON DELETE SET NULL` → Unassigned; the response's `unassignedTasks` feeds the
+  toast; an earned #240 bonus survives via points_log's SET NULL). Client: a **Done pool** in the rail +
+  ProjectsView (`?view=projects&status=done`; done projects hidden from the rail's default entries like
+  archived; done cards = active cards + a "Done" chip), and archived cards gain a danger **Delete** →
+  confirm `Modal` (states the kept-tasks consequence) → success toast ("N tasks moved to Unassigned").
+  Locked by ProjectsTest's #310 tests + the tasklist.mjs lifecycle block.
   **Colours (#268, GUI-refresh epic #256 F; re-cut #308):** `projects.color` (migration 014,
   `TINYINT NOT NULL DEFAULT 0`) is a **palette INDEX, not a hex** — the fixed **19-slot** palette lives in
   `client/src/lib/projectColors.ts` (`projectPole()` helper): a **16-hue spectrum slide** (even 18° HSL

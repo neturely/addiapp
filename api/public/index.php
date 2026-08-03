@@ -95,6 +95,7 @@ $router->get('/api/points/stats', [$points, 'stats'], true);
 $router->get('/api/projects', [$projects, 'index'], true);
 $router->post('/api/projects', [$projects, 'create'], true);
 $router->patch('/api/projects/{id}', [$projects, 'update'], true);
+$router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
 
 // Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);

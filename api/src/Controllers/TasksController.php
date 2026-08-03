@@ -9,6 +9,7 @@ use App\Http\Request;
 use App\Http\Response;
 use App\Points\Award;
 use App\Points\PointsConfig;
+use App\Projects\Lifecycle;
 use App\Support\Timestamps;
 use App\Tasks\Selection;
 use PDO;
@@ -326,8 +327,9 @@ final class TasksController
             }
         }
 
-        // Optional project (#234): a task may be created directly into an active
-        // project the caller owns; anything else (bad shape, foreign/archived id) → 400.
+        // Optional project (#234, widened #310): a task may be created directly
+        // into ANY project the caller owns — a done/archived target reactivates
+        // (Lifecycle below). Bad shape or a foreign id → 400.
         $projectId = null;
         if (array_key_exists('projectId', $req->body)) {
             $projectId = self::positiveIntValue($req->input('projectId'));
@@ -338,14 +340,22 @@ final class TasksController
         }
 
         $pdo = Db::pdo();
-        if ($projectId !== null && !self::isActiveOwnedProject($pdo, $projectId, (int) $req->userId)) {
+        if ($projectId !== null && ProjectsController::findOwnedProject($pdo, $projectId, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
         $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id) VALUES (?, ?, ?, ?, ?, ?)')
             ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId]);
+        $taskId = (int) $pdo->lastInsertId(); // before Lifecycle's writes clobber it
 
-        $created = self::findOwned($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
+        // #310: assignment reactivates an archived target, and the new
+        // (unfinished) task reverts a done project to active.
+        if ($projectId !== null) {
+            Lifecycle::reactivate($projectId, (int) $req->userId);
+            Lifecycle::sync($projectId, (int) $req->userId);
+        }
+
+        $created = self::findOwned($pdo, $taskId, (int) $req->userId);
         if ($created === null) {
             Response::error('Failed to load created task', 500);
             return;
@@ -458,9 +468,10 @@ final class TasksController
             return;
         }
 
-        // A non-null project assignment must reference an active project the caller
-        // owns (a foreign/archived id → 400, not a silent write).
-        if (is_int($assign) && !self::isActiveOwnedProject($pdo, $assign, (int) $req->userId)) {
+        // A non-null project assignment must reference a project the caller owns
+        // (a foreign id → 400, not a silent write). Any status is assignable
+        // (#310) — a done/archived target reactivates after the write below.
+        if (is_int($assign) && ProjectsController::findOwnedProject($pdo, $assign, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
@@ -501,6 +512,13 @@ final class TasksController
             return;
         }
 
+        // #310: an explicit assignment reactivates an archived target BEFORE the
+        // award below, so completing a task straight into it can still pay the
+        // #240 bonus (which requires an active project).
+        if (is_int($assign)) {
+            Lifecycle::reactivate($assign, (int) $req->userId);
+        }
+
         $pointsAwarded = null;
         $projectCompleted = null;
         if ($completing) {
@@ -519,6 +537,18 @@ final class TasksController
                     (int) $updated['user_id'],
                 );
             }
+        }
+
+        // #310: settle 'done' ⇄ 'active' for every project this PATCH touched —
+        // the one the task left (unassign/reassign may complete it) and the one
+        // it's in now (complete → done; reopen/new unfinished task → active).
+        // After the award on purpose: awardProjectCompletion requires 'active'.
+        $touched = array_unique(array_filter([
+            $existing['project_id'] !== null ? (int) $existing['project_id'] : null,
+            $updated['project_id'] !== null ? (int) $updated['project_id'] : null,
+        ]));
+        foreach ($touched as $projectId) {
+            Lifecycle::sync($projectId, (int) $req->userId);
         }
 
         $body = ['task' => self::mapTask($updated)];
@@ -540,11 +570,16 @@ final class TasksController
             return;
         }
         $pdo = Db::pdo();
-        if (self::findOwned($pdo, $id, (int) $req->userId) === null) {
+        $existing = self::findOwned($pdo, $id, (int) $req->userId);
+        if ($existing === null) {
             Response::error('Task not found', 404);
             return;
         }
         $pdo->prepare('DELETE FROM tasks WHERE id = ? AND user_id = ?')->execute([$id, $req->userId]);
+        // #310: removing the last unfinished task can complete its project.
+        if ($existing['project_id'] !== null) {
+            Lifecycle::sync((int) $existing['project_id'], (int) $req->userId);
+        }
         Response::noContent();
     }
 
@@ -614,14 +649,6 @@ final class TasksController
     private static function positiveIntValue(mixed $v): ?int
     {
         return is_int($v) && $v > 0 ? $v : null;
-    }
-
-    /** True if $id is an active project owned by $userId (for task assignment). */
-    private static function isActiveOwnedProject(PDO $pdo, int $id, int $userId): bool
-    {
-        $stmt = $pdo->prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ? AND status = 'active' LIMIT 1");
-        $stmt->execute([$id, $userId]);
-        return $stmt->fetch() !== false;
     }
 
     private static function title(mixed $v): ?string
