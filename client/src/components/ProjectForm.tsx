@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Dices } from 'lucide-react'
 import { Button } from '@/components/Button'
-import { PROJECT_COLORS } from '@/lib/projectColors'
+import { PROJECT_COLORS, randomSpectrumColor } from '@/lib/projectColors'
 
 // Mirror the server's validation (#234) so we fail fast client-side.
 const MAX_NAME = 255
@@ -38,24 +38,33 @@ export function ProjectForm({
 }: ProjectFormProps) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [color, setColor] = useState(initial?.color ?? 0)
+  // 'random' is the Random cell (#308) — the default on New project; edits
+  // start on the project's stored colour. Picker-only: it resolves to a
+  // concrete index on save, nothing new is stored server-side.
+  const [color, setColor] = useState<number | 'random'>(initial?.color ?? 'random')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Roving-tabindex radiogroup for the colour swatches (#268), matching the
   // TaskForm effort-tile pattern (#197): only the checked swatch is tabbable;
   // arrow keys move selection + focus together (WAI-ARIA radio pattern).
+  // Cell 0 is the Random cell (#308); cell i+1 is palette index i.
+  const cellCount = PROJECT_COLORS.length + 1
+  const checkedCell = color === 'random' ? 0 : color + 1
   const swatchRefs = useRef<(HTMLButtonElement | null)[]>([])
-  function onSwatchKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const last = PROJECT_COLORS.length - 1
-    let next = index
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
+  function selectCell(cell: number) {
+    setColor(cell === 0 ? 'random' : cell - 1)
+  }
+  function onSwatchKeyDown(e: KeyboardEvent<HTMLButtonElement>, cell: number) {
+    const last = cellCount - 1
+    let next = cell
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = cell === last ? 0 : cell + 1
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cell === 0 ? last : cell - 1
     else if (e.key === 'Home') next = 0
     else if (e.key === 'End') next = last
     else return
     e.preventDefault()
-    setColor(next)
+    selectCell(next)
     swatchRefs.current[next]?.focus()
   }
 
@@ -71,7 +80,9 @@ export function ProjectForm({
 
     setSubmitting(true)
     try {
-      await onSubmit({ name: trimmed, description: description.trim(), color })
+      // Random resolves at save time (#308) — a fresh roll per submit.
+      const concrete = color === 'random' ? randomSpectrumColor() : color
+      await onSubmit({ name: trimmed, description: description.trim(), color: concrete })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
@@ -118,27 +129,47 @@ export function ProjectForm({
         <span id="project-color-label" className="mb-2 block text-sm font-medium text-gray-600">
           Colour
         </span>
-        {/* 20 swatches in two rows of 10 (#256 review). */}
+        {/* Random + 19 swatches = 20 cells in two rows of 10 (#256 review, #308). */}
         <div
           role="radiogroup"
           aria-labelledby="project-color-label"
           className="grid grid-cols-10 gap-2"
         >
+          <button
+            ref={(el) => {
+              swatchRefs.current[0] = el
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checkedCell === 0}
+            aria-label="Random colour"
+            tabIndex={checkedCell === 0 ? 0 : -1}
+            onClick={() => selectCell(0)}
+            onKeyDown={(e) => onSwatchKeyDown(e, 0)}
+            className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-field text-gray-700 transition ${
+              checkedCell === 0
+                ? 'ring-2 ring-gray-800 ring-offset-2'
+                : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
+            }`}
+          >
+            <Dices className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </button>
           {PROJECT_COLORS.map((c, i) => {
-            const checked = color === i
+            const cell = i + 1
+            const checked = checkedCell === cell
             return (
               <button
                 key={c.name}
                 ref={(el) => {
-                  swatchRefs.current[i] = el
+                  swatchRefs.current[cell] = el
                 }}
                 type="button"
                 role="radio"
                 aria-checked={checked}
                 aria-label={c.name}
                 tabIndex={checked ? 0 : -1}
-                onClick={() => setColor(i)}
-                onKeyDown={(e) => onSwatchKeyDown(e, i)}
+                onClick={() => selectCell(cell)}
+                onKeyDown={(e) => onSwatchKeyDown(e, cell)}
                 className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ${c.pole} transition ${
                   checked ? 'ring-2 ring-gray-800 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
                 }`}
