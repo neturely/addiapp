@@ -23,9 +23,10 @@ final class ProjectsController
     /**
      * Palette size (#268): `projects.color` is an index into the client's fixed
      * palette (client/src/lib/projectColors.ts) — the server only bounds it.
-     * Bump BOTH when adding slots.
+     * Bump BOTH when adding slots. 20 → 19 in #308 (Green removed; stored
+     * indices shifted down by migration 016).
      */
-    public const PALETTE_SIZE = 20;
+    public const PALETTE_SIZE = 19;
 
     /**
      * GET /api/projects[?status=active|archived|all] — the user's projects, each
