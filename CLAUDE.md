@@ -300,14 +300,16 @@ to the old Node API.
   header Stats icon (shown when the right column isn't rendered — which on /stats
   itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
-  (Profile / Email / Password / **Play** / **Delete account**, hairline dividers —
-  replaced the three FormCards). `AccountController`:
+  (Profile / Email / Password / **Play** / **Sign out everywhere** / **Delete
+  account**, hairline dividers — replaced the three FormCards). `AccountController`:
   `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
   `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
   register) + `POST /api/account/password` (needs current password, keeps this
   session and revokes the rest via `Sessions::deleteUserSessionsExcept`) +
-  **`POST /api/auth/logout-others`** (#266 — the avatar menu's "Sign out other
-  devices") + **`DELETE /api/account`** (#266 — permanent deletion: password
+  **`POST /api/auth/logout-others`** (#266; since **#304** surfaced ONLY by the
+  Settings **"Sign out everywhere"** danger section — revoke others, then the
+  normal logout ends THIS session too → `/login`; no confirm modal, no backend
+  change) + **`DELETE /api/account`** (#266 — permanent deletion: password
   re-auth, rate-limited; one `DELETE FROM users` cascades every owned table
   (all FKs are `ON DELETE CASCADE`), plus an explicit sweep of email-keyed
   `rate_limits` buckets (`action:sha1(email)`, no FK there); best-effort Resend
@@ -393,7 +395,9 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   + icon nav (**Play + Dashboard + Settings** — that order (#256 review), then the
   conditional Stats icon; `bg-primary-tint` active state) +
   right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
-  Account settings + **Sign out**; logout moved here from the Footer). The old
+  Account settings + **Sign out**; logout moved here from the Footer; the #266
+  "Sign out other devices" item moved OUT to Settings as "Sign out everywhere",
+  #304). The old
   header "Add task" CTA moved to the rail's Tasks plus. A **Stats icon appears
   ONLY when the right column isn't rendered** (narrow viewport, toggled off, or
   solo mode) — the epic acceptance that points are never invisible; the

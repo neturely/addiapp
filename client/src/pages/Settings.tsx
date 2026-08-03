@@ -4,14 +4,22 @@ import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/toast/useToast'
 import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
-import { changePassword, deleteAccount, requestEmailChange, updateAccount } from '@/lib/account'
+import {
+  changePassword,
+  deleteAccount,
+  logoutOtherDevices,
+  requestEmailChange,
+  updateAccount,
+} from '@/lib/account'
 
 /**
  * Account settings (#266, consolidating #187/#200): one sectioned surface —
- * Profile / Email / Password / Play / Delete account, divider-separated (the
- * prototype's settings view; replaces the three FormCards). The Play section
- * finally wires the Selection::strategies() preference; Delete account is the
- * #266 danger zone (type-to-confirm + password re-auth).
+ * Profile / Email / Password / Play / Sign out everywhere / Delete account,
+ * divider-separated (the prototype's settings view; replaces the three
+ * FormCards). The Play section finally wires the Selection::strategies()
+ * preference; the danger area holds Sign out everywhere (#304, relocated from
+ * the avatar menu) and Delete account (#266, type-to-confirm + password
+ * re-auth) as the final, heaviest item.
  */
 
 /**
@@ -52,7 +60,7 @@ function Section({
 }
 
 export function Settings() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, logout } = useAuth()
   const { showToast } = useToast()
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
@@ -71,6 +79,8 @@ export function Settings() {
 
   const [strategy, setStrategy] = useState(user?.selectionStrategy ?? 'weightedByAge')
   const [savingStrategy, setSavingStrategy] = useState(false)
+
+  const [signingOutAll, setSigningOutAll] = useState(false)
 
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleteText, setDeleteText] = useState('')
@@ -142,6 +152,23 @@ export function Settings() {
     } finally {
       setSavingStrategy(false)
     }
+  }
+
+  /**
+   * "Everywhere" includes THIS device (#304): revoke every other session, then
+   * end this one through the normal logout path — ProtectedRoute redirects to
+   * /login. Disruptive but fully recoverable, so no confirm modal.
+   */
+  async function signOutEverywhere() {
+    setSigningOutAll(true)
+    try {
+      await logoutOtherDevices()
+    } catch {
+      showToast({ message: 'Could not sign out everywhere.', icon: CircleCheck, tone: 'neutral' })
+      setSigningOutAll(false)
+      return
+    }
+    await logout()
   }
 
   async function confirmDelete(e: FormEvent) {
@@ -321,6 +348,21 @@ export function Settings() {
                 “Focus on projects” stays a per-play choice on the Play screen — it isn’t a
                 stored default.
               </p>
+            </div>
+          </Section>
+
+          <Section
+            title="Sign out everywhere"
+            lede="Ends your session on every device, including this one. You'll just need to sign back in."
+          >
+            <div>
+              <Button
+                variant="danger"
+                disabled={signingOutAll}
+                onClick={() => void signOutEverywhere()}
+              >
+                {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
+              </Button>
             </div>
           </Section>
 
