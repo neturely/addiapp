@@ -1,5 +1,7 @@
 // Play refresh checks (#264): the Choice card structure, and the right-column
-// running mirror (live clock + Mark done from the column).
+// running mirror (live clock + Mark done from the column). Plus #306: options
+// with zero possible candidates are hidden — asserted by driving the projects
+// option through a deterministic hidden → shown transition.
 import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -8,22 +10,71 @@ const page = await browser.newPage()
 await page.setViewport({ width: 1400, height: 900 })
 await login(page)
 
-// --- Choice card ---
+// #306 seeded state: a backlog task in each pool exists (seed a medium — sits
+// in both), and NO backlog task in an ACTIVE project (archive every active
+// project; suites recreate their own, so this residue is disposable).
+await seedTask(page, 'Choice availability probe', 'medium', 10)
+await page.evaluate(async () => {
+  const r = await fetch('/api/projects', { credentials: 'include' })
+  const { projects } = await r.json()
+  for (const p of projects) {
+    await fetch(`/api/projects/${p.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' }),
+    })
+  }
+})
+
+// --- Choice card (projects option hidden — no active-project backlog task) ---
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
+await page.waitForFunction(() => /get small tasks done/i.test(document.body.textContent || ''))
+await sleep(300) // let the availability fetch resolve and prune
 const choice = await page.evaluate(() => {
   const text = document.body.textContent || ''
   return {
     small: /get small tasks done/i.test(text),
     big: /take on bigger issues/i.test(text),
     projects: /focus on projects/i.test(text),
-    auto: /auto-picked/i.test(text),
     time: /how much time do you have/i.test(text),
     radios: document.querySelectorAll('[role=radio]').length,
   }
 })
-ok(choice.small && choice.big && choice.projects, '#264: three choice options render')
-ok(choice.auto, '#264: "Auto-picked" tag on the projects option')
+ok(choice.small && choice.big, '#264: both win-type options render')
+ok(!choice.projects, '#306: "Focus on projects" hidden with no active-project backlog task')
 ok(choice.time && choice.radios === 5, '#264: time chips are the 5-radio radiogroup')
+
+// Seed an active project WITH a backlog task → the option comes back.
+await page.evaluate(async () => {
+  const r = await fetch('/api/projects', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: `Availability probe ${Date.now()}` }),
+  })
+  const { project } = await r.json()
+  await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Project availability probe',
+      complexity: 'low',
+      estimatedMinutes: 5,
+      projectId: project.id,
+    }),
+  })
+})
+await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
+await page.waitForFunction(() => /focus on projects/i.test(document.body.textContent || ''), {
+  timeout: 5000,
+})
+ok(true, '#306: "Focus on projects" reappears once a backlog task joins an active project')
+ok(
+  await page.evaluate(() => /auto-picked/i.test(document.body.textContent || '')),
+  '#264: "Auto-picked" tag on the projects option',
+)
 
 // --- running mirror ---
 const id = await seedTask(page, 'Mirror probe', 'medium', 30)

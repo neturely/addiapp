@@ -227,6 +227,43 @@ final class TasksController
         Response::json(['task' => Selection::pick($candidates, self::userStrategy((int) $req->userId))]);
     }
 
+    /**
+     * GET /api/tasks/availability (#306): can each Play Choice option produce a
+     * task at ANY time? One grouped pass over the caller's backlog: per-
+     * complexity counts (the win-type pools reuse WIN_TYPE_COMPLEXITY, so the
+     * client never re-encodes the mapping) + whether any backlog task sits in
+     * an ACTIVE project (project existence alone isn't enough). The time filter
+     * is deliberately NOT part of this — "nothing matched your time" stays the
+     * empty state's job.
+     */
+    public function availability(Request $req, array $params): void
+    {
+        $stmt = Db::pdo()->prepare(
+            "SELECT t.complexity, COUNT(*) AS c,
+                    SUM(CASE WHEN p.id IS NOT NULL THEN 1 ELSE 0 END) AS in_active_project
+             FROM tasks t
+             LEFT JOIN projects p ON p.id = t.project_id AND p.user_id = t.user_id AND p.status = 'active'
+             WHERE t.user_id = ? AND t.status = 'backlog'
+             GROUP BY t.complexity",
+        );
+        $stmt->execute([$req->userId]);
+
+        $byComplexity = ['low' => 0, 'medium' => 0, 'high' => 0];
+        $inProjects = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $byComplexity[$row['complexity']] = (int) $row['c'];
+            $inProjects += (int) $row['in_active_project'];
+        }
+        $hasAny = static fn (array $pool): bool =>
+            array_sum(array_map(static fn (string $c): int => $byComplexity[$c], $pool)) > 0;
+
+        Response::json([
+            'small' => $hasAny(self::WIN_TYPE_COMPLEXITY['small']),
+            'big' => $hasAny(self::WIN_TYPE_COMPLEXITY['big']),
+            'projects' => $inProjects > 0,
+        ]);
+    }
+
     /** The user's stored Play selection strategy (#266); defaults server-side. */
     private static function userStrategy(int $userId): string
     {
