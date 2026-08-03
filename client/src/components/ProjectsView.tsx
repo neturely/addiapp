@@ -5,15 +5,21 @@ import {
   ArchiveRestore,
   ChevronLeft,
   ChevronRight,
+  CircleCheck,
   MoreVertical,
   Pencil,
   Plus,
+  Trash2,
 } from 'lucide-react'
 import { projectPole } from '@/lib/projectColors'
-import { fetchProjects, updateProject, type Project } from '@/lib/projects'
+import { deleteProject, fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
+import { Button } from './Button'
+import { Modal } from './Modal'
 import { ProjectModal } from './ProjectModal'
+
+const DELETE_TITLE_ID = 'project-delete-title'
 
 /**
  * Dashboard Projects view (#234): the grid of projects reached via the
@@ -22,15 +28,21 @@ import { ProjectModal } from './ProjectModal'
  * Assign task). New project opens the shared Modal (also via `?new=1`, the
  * rail's plus, #260).
  *
+ * Done mode (#310): `?status=done` — the auto-completed pool (every task done),
+ * same cards as active (Edit/Archive still apply; adding a task reverts the
+ * project to active server-side) with a "Done" chip.
+ *
  * Archived mode (#248 → #260): `?archived=1` (the rail's Archived entry, plus
  * the toggle pill here) swaps the grid to archived projects — visually muted,
- * kebab replaced by a single Unarchive action (PATCH status:'active').
+ * kebab replaced by Unarchive plus the #310 danger Delete (permanent; confirm
+ * dialog states that tasks are kept and move to Unassigned).
  */
 export function ProjectsView() {
   const { showToast } = useToast()
   const { search } = useShell()
   const [searchParams, setSearchParams] = useSearchParams()
   const archived = searchParams.get('archived') === '1'
+  const done = !archived && searchParams.get('status') === 'done'
 
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,12 +52,15 @@ export function ProjectsView() {
     searchParams.get('new') === '1' ? null : undefined,
   )
   const [openMenuId, setOpenMenuId] = useState<number | null>(null)
+  // #310: the archived card's Delete arms this; the Modal confirms it.
+  const [confirmDelete, setConfirmDelete] = useState<Project | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchProjects(archived ? 'archived' : 'active')
+    fetchProjects(archived ? 'archived' : done ? 'done' : 'active')
       .then((p) => !cancelled && setProjects(p))
       .catch(
         (e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load projects'),
@@ -54,7 +69,7 @@ export function ProjectsView() {
     return () => {
       cancelled = true
     }
-  }, [archived])
+  }, [archived, done])
 
   // The rail's "New project" plus deep-links with ?new=1 — honour it arriving
   // after mount too, then drop the param so refresh/back don't re-open the modal.
@@ -113,6 +128,30 @@ export function ProjectsView() {
     }
   }
 
+  // #310: permanent delete, archived grid only. Tasks are never deleted — the
+  // FK unassigns them; the server reports how many for the toast.
+  async function onDeleteConfirmed(project: Project) {
+    setDeleting(true)
+    setProjects((prev) => prev.filter((p) => p.id !== project.id))
+    try {
+      const { unassignedTasks } = await deleteProject(project.id)
+      showToast({
+        message:
+          unassignedTasks > 0
+            ? `Project deleted — ${unassignedTasks} ${unassignedTasks === 1 ? 'task' : 'tasks'} moved to Unassigned`
+            : 'Project deleted',
+        icon: CircleCheck,
+        tone: 'success',
+      })
+    } catch (e) {
+      setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
+      setError(e instanceof Error ? e.message : 'Could not delete that project.')
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(null)
+    }
+  }
+
   // Toolbar state (#256 review — mirrors the task list): newest-first default
   // with a `?sort=oldest` toggle, plus client-side paging (the projects
   // endpoint is unpaginated; a page of 24 divides the 2/3-column grid evenly).
@@ -125,7 +164,7 @@ export function ProjectsView() {
   }
   const PAGE_SIZE = 24
   const [offset, setOffset] = useState(0)
-  useEffect(() => setOffset(0), [archived, newestFirst])
+  useEffect(() => setOffset(0), [archived, done, newestFirst])
 
   const q = search.trim().toLowerCase()
   const matched = q === '' ? projects : projects.filter((p) => p.name.toLowerCase().includes(q))
@@ -136,7 +175,9 @@ export function ProjectsView() {
   const last = Math.min(offset + PAGE_SIZE, total)
   const countLabel = archived
     ? `${total} archived ${total === 1 ? 'project' : 'projects'}`
-    : `${total} ${total === 1 ? 'project' : 'projects'} ready to work on`
+    : done
+      ? `${total} completed ${total === 1 ? 'project' : 'projects'}`
+      : `${total} ${total === 1 ? 'project' : 'projects'} ready to work on`
 
   return (
     <section>
@@ -145,7 +186,7 @@ export function ProjectsView() {
           the New-project plus live in the rail's Projects section. */}
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
         <span className="flex items-center gap-1">
-          {archived ? 'Archived' : 'Active'} ·{' '}
+          {archived ? 'Archived' : done ? 'Done' : 'Active'} ·{' '}
           <button
             type="button"
             onClick={toggleSort}
@@ -196,9 +237,13 @@ export function ProjectsView() {
         <p role="status" className="p-8 text-center text-muted">
           Loading…
         </p>
-      ) : archived && visible.length === 0 ? (
+      ) : (archived || done) && visible.length === 0 ? (
         <p className="rounded-2xl bg-surface p-10 text-center text-muted">
-          {q !== '' ? 'Nothing matches your search.' : 'No archived projects.'}
+          {q !== ''
+            ? 'Nothing matches your search.'
+            : archived
+              ? 'No archived projects.'
+              : 'No completed projects yet — finish every task in a project and it lands here.'}
         </p>
       ) : (
         // Three-up on wide viewports (#256 review; 77.5rem = the app's 1240px
@@ -211,6 +256,7 @@ export function ProjectsView() {
                 key={project.id}
                 project={project}
                 onUnarchive={() => void onUnarchive(project)}
+                onDelete={() => setConfirmDelete(project)}
               />
             ) : (
               <ProjectCard
@@ -229,7 +275,7 @@ export function ProjectsView() {
 
           {/* Dashed "New project" card — always the last grid cell, so the empty
               state is just this invitation. Active grid only. */}
-          {!archived && (
+          {!archived && !done && (
             <button
               type="button"
               onClick={() => setModal(null)}
@@ -248,6 +294,34 @@ export function ProjectsView() {
           onClose={() => setModal(undefined)}
           onSaved={onSaved}
         />
+      )}
+
+      {/* #310: delete confirmation — states the task consequence when N > 0. */}
+      {confirmDelete && (
+        <Modal titleId={DELETE_TITLE_ID} onClose={() => !deleting && setConfirmDelete(null)}>
+          <h2 id={DELETE_TITLE_ID} className="mb-3 text-xl font-bold text-gray-800">
+            Delete “{confirmDelete.name}”?
+          </h2>
+          <p className="mb-5 text-sm leading-relaxed text-muted">
+            {confirmDelete.totalCount > 0
+              ? `This can't be undone. Its ${confirmDelete.totalCount} ${
+                  confirmDelete.totalCount === 1 ? 'task' : 'tasks'
+                } will be kept and moved to Unassigned.`
+              : "This can't be undone. The project has no tasks."}
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={deleting} onClick={() => setConfirmDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={deleting}
+              onClick={() => void onDeleteConfirmed(confirmDelete)}
+            >
+              {deleting ? 'Deleting…' : 'Delete project'}
+            </Button>
+          </div>
+        </Modal>
       )}
     </section>
   )
@@ -275,6 +349,12 @@ function ProjectCard({
             aria-hidden
           />
           <h3 className="min-w-0 truncate font-bold text-gray-800">{project.name}</h3>
+          {/* #310: the auto 'done' state — every task complete. */}
+          {project.status === 'done' && (
+            <span className="flex-none rounded-full bg-success-tint px-2 py-0.5 text-[11px] font-semibold text-success-ink">
+              Done
+            </span>
+          )}
         </div>
         <div
           className="relative shrink-0"
@@ -359,13 +439,16 @@ function ProjectCard({
   )
 }
 
-/** Archived card (#248): muted, read-only apart from Unarchive. */
+/** Archived card (#248): muted, read-only apart from Unarchive — and the #310
+ *  permanent Delete (danger-styled; the grid owns the confirm dialog). */
 function ArchivedProjectCard({
   project,
   onUnarchive,
+  onDelete,
 }: {
   project: Project
   onUnarchive: () => void
+  onDelete: () => void
 }) {
   return (
     <div className="flex flex-col rounded-2xl bg-surface p-5 opacity-80">
@@ -389,7 +472,7 @@ function ArchivedProjectCard({
           ? 'No tasks'
           : `${project.remainingCount} of ${project.totalCount} remaining`}
       </p>
-      <div className="mt-auto pt-4">
+      <div className="mt-auto flex items-center justify-between gap-2 pt-4">
         <button
           type="button"
           onClick={onUnarchive}
@@ -397,6 +480,14 @@ function ArchivedProjectCard({
         >
           <ArchiveRestore className="h-4 w-4" aria-hidden />
           Unarchive
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-danger-tint px-3 py-1.5 text-sm font-semibold text-danger-ink transition hover:opacity-80"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden />
+          Delete
         </button>
       </div>
     </div>
