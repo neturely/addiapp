@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   BarChart3,
-  CircleCheck,
   LayoutGrid,
   Menu,
   PanelRight,
@@ -13,9 +12,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useInProgress } from '@/inprogress/useInProgress'
-import { logoutOtherDevices } from '@/lib/account'
 import { useShell } from '@/shell/useShell'
-import { useToast } from '@/toast/useToast'
 import { TimerChip } from './TimerChip'
 import type { AuthUser } from '@/auth/authContext'
 
@@ -50,7 +47,6 @@ const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => 
  */
 export function Header() {
   const { user, logout } = useAuth()
-  const { showToast } = useToast()
   const { pathname } = useLocation()
   const { activeTask, activeTasks } = useInProgress()
   const {
@@ -234,22 +230,6 @@ export function Header() {
                   className="flex h-9 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page"
                 >
                   Sign out
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    void logoutOtherDevices().then(() =>
-                      showToast({
-                        message: 'Signed out on your other devices',
-                        icon: CircleCheck,
-                        tone: 'success',
-                      }),
-                    )
-                  }}
-                  className="flex h-9 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page"
-                >
-                  Sign out other devices
                 </button>
               </div>
             )}

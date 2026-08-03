@@ -1,7 +1,8 @@
-// Settings checks (#266): the consolidated sectioned page, the Play selection
-// preference round-trip, sign-out-other-devices, and the delete-account modal's
-// type-to-confirm gating (the actual deletion is covered by the PHPUnit Db test
-// — deleting the shared dev user here would break every other suite).
+// Settings checks (#266/#304): the consolidated sectioned page, the Play
+// selection preference round-trip, the delete-account modal's type-to-confirm
+// gating (the actual deletion is covered by the PHPUnit Db test — deleting the
+// shared dev user here would break every other suite), and — LAST, because it
+// ends the session — the #304 "Sign out everywhere" danger action.
 import { launch, login, reporter, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -15,8 +16,10 @@ const sections = await page.evaluate(() =>
   [...document.querySelectorAll('main h2')].map((h) => h.textContent?.trim()),
 )
 ok(
-  ['Profile', 'Email', 'Password', 'Play', 'Delete account'].every((s) => sections.includes(s)),
-  `#266: all five sections render (${sections.join(', ')})`,
+  ['Profile', 'Email', 'Password', 'Play', 'Sign out everywhere', 'Delete account'].every((s) =>
+    sections.includes(s),
+  ),
+  `#266/#304: all six sections render (${sections.join(', ')})`,
 )
 
 // Selection preference round-trip: change → toast → survives a reload.
@@ -36,29 +39,6 @@ ok(nextOk, '#266: /api/tasks/next works under the stored strategy')
 await page.select('#selectionStrategy', 'weightedByAge') // restore the default
 await sleep(400)
 
-// Sign out other devices from the avatar menu.
-await page.click('button[aria-label="Account menu"]')
-await sleep(150)
-await page.evaluate(() =>
-  [...document.querySelectorAll('button')]
-    .find((b) => /sign out other devices/i.test(b.textContent || ''))
-    ?.click(),
-)
-// Toasts STACK now — scan every pill, not just the first.
-await page.waitForFunction(
-  () =>
-    [...document.querySelectorAll('[role=status]')].some((t) =>
-      /other devices/i.test(t.textContent || ''),
-    ),
-  { timeout: 5000 },
-)
-ok(true, '#266: sign-out-other-devices fires its confirmation toast')
-// This session survived it.
-ok(
-  await page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).ok),
-  '#266: the current session survives sign-out-other-devices',
-)
-
 // Delete-account modal: gated until "delete" + a password are entered.
 await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
 await page.evaluate(() =>
@@ -77,6 +57,22 @@ ok(!gate2, '#266: typing “delete” + a password arms the confirm button')
 await page.keyboard.press('Escape')
 await sleep(200)
 ok((await page.$('[role=dialog]')) === null, '#266: Escape closes the delete dialog')
+
+// #304: "Sign out everywhere" — a danger section above Delete account. It ends
+// THIS session too (revoke others + normal logout → /login), so it runs last.
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => /sign out everywhere/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(() => window.location.pathname === '/login', { timeout: 8000 })
+ok(true, '#304: Sign out everywhere lands on /login')
+ok(
+  (await page.evaluate(
+    async () => (await fetch('/api/auth/me', { credentials: 'include' })).status,
+  )) === 401,
+  '#304: the current session is revoked too — "everywhere" includes this device',
+)
 
 await browser.close()
 process.exit(done())
