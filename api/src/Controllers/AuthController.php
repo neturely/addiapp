@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\BackupCodes;
 use App\Auth\EmailTokens;
 use App\Auth\Passwords;
 use App\Auth\Sessions;
+use App\Auth\Totp;
 use App\Db;
 use App\Email\Mailer;
 use App\Email\Templates;
@@ -126,11 +128,82 @@ final class AuthController
             return;
         }
 
+        // TOTP 2FA (#319): a correct password does NOT mint a session when 2FA
+        // is armed — the client gets a short-lived single-use challenge handle
+        // and finishes on /auth/verify-otp. Issued only after the password check,
+        // so the challenge itself leaks nothing.
+        if ((int) ($user['totp_enabled'] ?? 0) === 1) {
+            Response::json([
+                'error' => 'totp_required',
+                'message' => 'Enter the code from your authenticator app.',
+                'challenge' => EmailTokens::create((int) $user['id'], 'totp_challenge'),
+            ], 403);
+            return;
+        }
+
         // Opportunistic GC (#246): expired rows are filtered by every session
         // query but were never deleted — sweep them on the login path.
         Sessions::purgeExpired();
 
         Sessions::setCookie(Sessions::create((int) $user['id']));
+        Response::json(['user' => self::publicUser($user)]);
+    }
+
+    /**
+     * POST /verify-otp (#319) — second login step when TOTP is enabled: the
+     * challenge token from login + a 6-digit authenticator code (or a backup
+     * code). Success consumes the challenge and mints the session exactly like
+     * login. Tightly rate-limited: 6 digits inside a 5-minute challenge window
+     * must be infeasible to brute-force.
+     */
+    public function verifyOtp(Request $req, array $params): void
+    {
+        $challenge = $req->input('challenge');
+        $code = $req->input('code');
+        if (!is_string($challenge) || $challenge === '' || !is_string($code) || trim($code) === '') {
+            Response::error('Invalid input', 400);
+            return;
+        }
+
+        if (
+            !RateLimit::check('verify-otp-challenge', $challenge, 10)
+            || !RateLimit::check('verify-otp-ip', $req->clientIp(), 30)
+        ) {
+            Response::error('Too many attempts, please try again later.', 429);
+            return;
+        }
+
+        $userId = EmailTokens::peek($challenge, 'totp_challenge');
+        if ($userId === null) {
+            Response::error('totp_challenge_expired', 401, 'Your sign-in expired — please enter your password again.');
+            return;
+        }
+
+        $stmt = Db::pdo()->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        if ($user === false || (int) ($user['totp_enabled'] ?? 0) !== 1 || $user['totp_secret'] === null) {
+            Response::error('totp_challenge_expired', 401, 'Your sign-in expired — please enter your password again.');
+            return;
+        }
+
+        // A 6-digit entry is an authenticator code; anything else is tried as a
+        // backup code (single-use — consume marks it spent).
+        $code = trim($code);
+        $ok = preg_match('/^\d{6}$/', $code) === 1
+            ? Totp::verify((string) $user['totp_secret'], $code)
+            : BackupCodes::consume($userId, $code);
+        if (!$ok) {
+            Response::error('Invalid code', 401);
+            return;
+        }
+
+        // Consume the challenge only on success — a typo shouldn't force a
+        // password re-entry. (peek() validated it; this marks it used.)
+        EmailTokens::consume($challenge, 'totp_challenge');
+
+        Sessions::purgeExpired();
+        Sessions::setCookie(Sessions::create($userId));
         Response::json(['user' => self::publicUser($user)]);
     }
 
@@ -337,13 +410,16 @@ final class AuthController
         return $t;
     }
 
-    /** @return array{id:int,email:string,displayName:?string,gravatarHash:string,selectionStrategy:string} */
+    /** @return array{id:int,email:string,displayName:?string,gravatarHash:string,selectionStrategy:string,totpEnabled:bool} */
     public static function publicUser(array $row): array
     {
         return [
             'id' => (int) $row['id'],
             'email' => $row['email'],
             'displayName' => $row['display_name'],
+            // TOTP 2FA status (#319) — Settings renders On/Off from this;
+            // coalesced so narrow SELECTs that predate the column stay valid.
+            'totpEnabled' => (int) ($row['totp_enabled'] ?? 0) === 1,
             // Gravatar hash (#174): MD5 of the normalized email, per Gravatar's
             // scheme. Computed once here so the client renders the avatar without
             // any crypto/deps; the client falls back to initials on a 404 (d=404).
