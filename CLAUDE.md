@@ -227,15 +227,18 @@ to the old Node API.
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
   **D (#240) — project-completion bonus:** see the Points/gamification section (a once-ever bonus when a
   project's tasks are all done). **The Projects epic (#233) is COMPLETE — A/B/C/D all shipped to develop.**
-  **Colours (#268, GUI-refresh epic #256 F):** `projects.color` (migration 014, `TINYINT NOT NULL DEFAULT 0`)
-  is a **palette INDEX, not a hex** — the fixed **20-slot** palette lives in `client/src/lib/projectColors.ts`
-  (`projectPole()` helper; #256 review rounds grew it 8→20 then re-cut it): a **17-hue spectrum slide**
-  (even 18° HSL steps, per-band lightness) + **Black/Grey/White neutrals** at slots 17–19. White's pole
-  class carries an inset ring (visible on white/cream) and a `darkCheck` flag (the picker's check goes
-  dark on it). Reordering recolours stored indices — append or swap in place only (noted in-file). The
-  server only bounds it (`ProjectsController::PALETTE_SIZE = 20` — bump BOTH when
-  adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
-  roving-tabindex swatch radiogroup (two rows of 10); poles render in the rail, project cards, and task rows. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
+  **Colours (#268, GUI-refresh epic #256 F; re-cut #308):** `projects.color` (migration 014,
+  `TINYINT NOT NULL DEFAULT 0`) is a **palette INDEX, not a hex** — the fixed **19-slot** palette lives in
+  `client/src/lib/projectColors.ts` (`projectPole()` helper): a **16-hue spectrum slide** (even 18° HSL
+  steps, per-band lightness; #308 dropped the near-duplicate Green WITH **migration 016** shifting stored
+  indices ≥7 down one — old-Green lands on Emerald) + **Black/Grey/White neutrals** at slots 16–18. White's
+  pole class carries an inset ring (visible on white/cream) and a `darkCheck` flag (the picker's check goes
+  dark on it). Reordering recolours stored indices — append, swap in place, or bring an index migration
+  like 016 (noted in-file). The server only bounds it (`ProjectsController::PALETTE_SIZE = 19` — bump BOTH
+  when adding slots). POST/PATCH `/api/projects` accept `color` (out-of-range → 400); `ProjectForm` has a
+  roving-tabindex swatch radiogroup (two rows of 10: a leading **"Random" dice cell (#308)** — the default
+  on New project, rolls one of the **16 spectrum hues only** at save time, picker-only affordance, nothing
+  new stored — + the 19 swatches); poles render in the rail, project cards, and task rows. **`GET /api/tasks` (list only) LEFT JOINs the project** and ships `task.project = { name, color } | null`
   so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
