@@ -1,2 +1,2 @@
 <!-- okffs:type=Changed -->
-- Move session sign-out out of the avatar menu — "Sign out everywhere" in the Settings danger area ([#304](https://github.com/neturely/addiapp/issues/304))
+- "Sign out other devices" moved out of the avatar menu into a Settings "Sign out everywhere" danger section — it now ends the current session too ([#304](https://github.com/neturely/addiapp/issues/304))
