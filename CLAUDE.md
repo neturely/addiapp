@@ -325,9 +325,13 @@ to the old Node API.
   archived tab's **Unarchive** trailing row action (server-authoritative refetch,
   the assign pattern), and a Play **Completion archive shortcut** — an `Archive`
   icon button beside "Keep going" (`aria-label="Archive this task"`, flips to a
-  check + "Archived", no navigation). The Done-tab one-click Archive row button is
-  **#321's** (its spec refines this issue's original bullet). Locked by
-  `tests/Db/TaskArchiveTest.php` + the #312 blocks in tasklist.mjs/play.mjs.
+  check + "Archived", no navigation). **One-click Archive on the Done views
+  (#321):** done task rows (`?tab=done`) carry a trailing **Archive** button in
+  the AssignControl style/placement (archives + refetches, the assign pattern),
+  and **done project cards** swap the footer's "Assign task" slot for a visible
+  **Archive** button (assigning would just revert a done project; Add task + the
+  kebab keep that path) — active cards unchanged. Locked by
+  `tests/Db/TaskArchiveTest.php` + the #312/#321 blocks in tasklist.mjs/play.mjs.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
