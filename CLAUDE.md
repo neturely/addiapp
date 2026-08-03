@@ -286,6 +286,28 @@ to the old Node API.
   so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
+- **Task categories (#276)**: user-defined custom lists in the rail — a **second
+  task axis beside status** (like the project axis; statuses/points/Play machinery
+  untouched), **one category per task** (nullable `tasks.category_id`, FK
+  `ON DELETE SET NULL` → deleting a category only unlabels; migrations 022–025,
+  incl. a `(user_id, category_id)` index). Decided over #179's tags (closed as
+  dupe): list-like, not multi-label. `task_categories` shares the **#268 palette**
+  (`color` = palette index, same `PALETTE_SIZE` bound). API: `GET/POST/PATCH/DELETE
+  /api/categories` (`CategoriesController` — ProjectsController's shape minus
+  lifecycle; counts = remaining/total; 404-not-403 #129; DELETE returns
+  `unlabelledTasks` for the toast), `GET /api/tasks?categoryId=` filter, the LIST
+  join ships `task.category = { name, color } | null`, POST/PATCH tasks accept
+  `categoryId` (null unlabels), and **`GET /api/tasks/next?category=N`** scopes the
+  Play pick (composes with size/time AND `mode=projects`). Client: `lib/categories.ts`
+  (+ `CATEGORIES_CHANGED_EVENT` rail signal), a rail **Categories section** (entries
+  → `?category=ID` with remaining counts; plus → `?newCategory=1` modal),
+  Dashboard category filter with toolbar **Edit/Delete** (confirm modal states the
+  tasks-survive consequence), a row **category chip**, a TaskView **Category
+  select** (+ `?category=` pre-assign on create), and a Play Choice **"From"
+  select** (renders only when categories exist) carried through the whole chain
+  (TaskPresented → InProgress → Completion "Keep going"). **`ColorSwatchPicker`**
+  (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
+  CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
@@ -461,7 +483,9 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
   (All tasks / Ready / Started / Unassigned / Done → the Dashboard's `?tab=`
-  filters, counts from the server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
+  filters, counts from the server `counts`) + **Categories section (#276** —
+  per-category entries → `?category=ID` with remaining counts; plus →
+  `?newCategory=1`**)** + Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
 - **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in

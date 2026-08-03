@@ -81,12 +81,32 @@ final class TasksController
             $args[] = $projectId;
         }
 
-        // The list ships each row's project name + colour (#268) and, for done
-        // tasks, the points actually earned (#256 review — points_log join;
-        // UNIQUE(task_id) keeps it 1:1) — no N+1 either way.
+        // Per-category filter (#276): the rail's custom-list entries — same
+        // shape and non-enumeration rules as the project axis above.
+        $categoryParam = $req->query('categoryId');
+        if ($categoryParam !== null) {
+            $categoryId = self::positiveInt($categoryParam);
+            if ($categoryId === null) {
+                Response::error('Invalid category filter', 400);
+                return;
+            }
+            if (CategoriesController::findOwnedCategory(Db::pdo(), $categoryId, (int) $req->userId) === null) {
+                Response::error('Category not found', 404);
+                return;
+            }
+            $conditions[] = 't.category_id = ?';
+            $args[] = $categoryId;
+        }
+
+        // The list ships each row's project name + colour (#268), its category
+        // name + colour (#276), and, for done tasks, the points actually earned
+        // (#256 review — points_log join; UNIQUE(task_id) keeps it 1:1) — no
+        // N+1 any way round.
         $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color,
+                    c.name AS category_name, c.color AS category_color,
                     pl.total_points AS earned_points
              FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+             LEFT JOIN task_categories c ON c.id = t.category_id
              LEFT JOIN points_log pl ON pl.task_id = t.id';
 
         $paginated = $req->query('limit') !== null;
@@ -174,7 +194,7 @@ final class TasksController
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&category=3 */
     public function next(Request $req, array $params): void
     {
         $mode = $req->query('mode');
@@ -193,10 +213,25 @@ final class TasksController
             return;
         }
 
+        // Category filter (#276): scope the pick to one owned custom list. An
+        // independent axis, so it composes with win-type/time AND projects mode.
+        $category = null;
+        if ($req->query('category') !== null) {
+            $category = self::positiveInt($req->query('category'));
+            if ($category === null) {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            if (CategoriesController::findOwnedCategory(Db::pdo(), $category, (int) $req->userId) === null) {
+                Response::error('Category not found', 404);
+                return;
+            }
+        }
+
         // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
         // the active project closest to done, respecting the time filter.
         if ($mode === 'projects') {
-            $this->nextInProjects($req, $minutes, $exclude);
+            $this->nextInProjects($req, $minutes, $exclude, $category);
             return;
         }
 
@@ -220,6 +255,10 @@ final class TasksController
         if ($exclude !== null) {
             $conditions[] = 'id <> ?';
             $args[] = $exclude;
+        }
+        if ($category !== null) {
+            $conditions[] = 'category_id = ?';
+            $args[] = $category;
         }
 
         $stmt = Db::pdo()->prepare('SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions));
@@ -281,7 +320,7 @@ final class TasksController
      * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
      * shape as the default mode, so TaskPresented → InProgress is unchanged.
      */
-    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude): void
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null): void
     {
         $conditions = ['t.user_id = ?', "t.status = 'backlog'"];
         $args = [$req->userId];
@@ -292,6 +331,10 @@ final class TasksController
         if ($exclude !== null) {
             $conditions[] = 't.id <> ?';
             $args[] = $exclude;
+        }
+        if ($category !== null) {
+            $conditions[] = 't.category_id = ?';
+            $args[] = $category;
         }
 
         $stmt = Db::pdo()->prepare(
@@ -339,13 +382,27 @@ final class TasksController
             }
         }
 
+        // Optional category (#276) — must be a category the caller owns.
+        $categoryId = null;
+        if (array_key_exists('categoryId', $req->body)) {
+            $categoryId = self::positiveIntValue($req->input('categoryId'));
+            if ($req->input('categoryId') !== null && $categoryId === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+
         $pdo = Db::pdo();
         if ($projectId !== null && ProjectsController::findOwnedProject($pdo, $projectId, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
-        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id) VALUES (?, ?, ?, ?, ?, ?)')
-            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId]);
+        if ($categoryId !== null && CategoriesController::findOwnedCategory($pdo, $categoryId, (int) $req->userId) === null) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId, $categoryId]);
         $taskId = (int) $pdo->lastInsertId(); // before Lifecycle's writes clobber it
 
         // #310: assignment reactivates an archived target, and the new
@@ -447,6 +504,24 @@ final class TasksController
             $args[] = $assign;
         }
 
+        // Assign / clear a category (#276): same null-vs-absent semantics as
+        // projectId — `false` = key absent, null = "unlabel", int = assign.
+        $assignCategory = false;
+        if (array_key_exists('categoryId', $req->body)) {
+            $raw = $req->input('categoryId');
+            if ($raw === null) {
+                $assignCategory = null;
+            } else {
+                $assignCategory = self::positiveIntValue($raw);
+                if ($assignCategory === null) {
+                    Response::error('Invalid input', 400);
+                    return;
+                }
+            }
+            $sets[] = 'category_id = ?';
+            $args[] = $assignCategory;
+        }
+
         $newStatus = null;
         if (array_key_exists('status', $req->body)) {
             $newStatus = self::enum($req->input('status'), self::STATUS);
@@ -472,6 +547,10 @@ final class TasksController
         // (a foreign id → 400, not a silent write). Any status is assignable
         // (#310) — a done/archived target reactivates after the write below.
         if (is_int($assign) && ProjectsController::findOwnedProject($pdo, $assign, (int) $req->userId) === null) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        if (is_int($assignCategory) && CategoriesController::findOwnedCategory($pdo, $assignCategory, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
@@ -604,6 +683,7 @@ final class TasksController
             'estimatedMinutes' => (int) $r['estimated_minutes'],
             'status' => $r['status'],
             'projectId' => $r['project_id'] !== null ? (int) $r['project_id'] : null,
+            'categoryId' => ($r['category_id'] ?? null) !== null ? (int) $r['category_id'] : null,
             'startedAt' => Timestamps::iso($r['started_at']),
             'completedAt' => Timestamps::iso($r['completed_at']),
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
@@ -615,6 +695,14 @@ final class TasksController
                 ? [
                     'project' => $r['project_name'] !== null
                         ? ['name' => $r['project_name'], 'color' => (int) $r['project_color']]
+                        : null,
+                ]
+                : []),
+            // Joined category name + colour (#276) — list only, like project.
+            ...(array_key_exists('category_name', $r)
+                ? [
+                    'category' => $r['category_name'] !== null
+                        ? ['name' => $r['category_name'], 'color' => (int) $r['category_color']]
                         : null,
                 ]
                 : []),

@@ -15,6 +15,7 @@ import { Modal } from '@/components/Modal'
 import { ApiError } from '@/lib/apiError'
 import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
+import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, type Project } from '@/lib/projects'
 import {
   createTask,
@@ -93,6 +94,7 @@ export function TaskView() {
 
   const [task, setTask] = useState<Task | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [points, setPoints] = useState<PointsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -103,6 +105,7 @@ export function TaskView() {
   const [status, setStatus] = useState<TaskStatus>('backlog')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState<number | ''>('')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
 
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -114,15 +117,18 @@ export function TaskView() {
 
     if (creating) {
       const preselect = Number(searchParams.get('project'))
+      const preselectCategory = Number(searchParams.get('category'))
       // 'all' (#310): done/archived projects are assignable too — picking one
       // reactivates it server-side, so the select lists every owned project.
-      Promise.all([fetchProjects('all'), fetchPoints()])
-        .then(([p, pts]) => {
+      Promise.all([fetchProjects('all'), fetchCategories(), fetchPoints()])
+        .then(([p, cats, pts]) => {
           if (cancelled) return
           setProjects(p)
+          setCategories(cats)
           setPoints(pts)
-          // Pre-assign only when the id resolves to an owned project.
+          // Pre-assign only when the id resolves to an owned project/category.
           if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
+          if (cats.some((c) => c.id === preselectCategory)) setCategoryId(preselectCategory)
         })
         .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
         .finally(() => !cancelled && setLoading(false))
@@ -137,11 +143,12 @@ export function TaskView() {
       setLoading(false)
       return
     }
-    Promise.all([getTask(taskId), fetchProjects('all'), fetchPoints()])
-      .then(([t, p, pts]) => {
+    Promise.all([getTask(taskId), fetchProjects('all'), fetchCategories(), fetchPoints()])
+      .then(([t, p, cats, pts]) => {
         if (cancelled) return
         setTask(t)
         setProjects(p)
+        setCategories(cats)
         setPoints(pts)
         setTitle(t.title)
         setComplexity(t.complexity)
@@ -149,6 +156,7 @@ export function TaskView() {
         setStatus(t.status)
         setDescription(t.description ?? '')
         setProjectId(t.projectId ?? '')
+        setCategoryId(t.categoryId ?? '')
       })
       .catch((e) => {
         if (cancelled) return
@@ -200,6 +208,7 @@ export function TaskView() {
           estimatedMinutes: mins,
           description: description.trim(),
           ...(projectId !== '' ? { projectId } : {}),
+          ...(categoryId !== '' ? { categoryId } : {}),
         })
         showToast({ message: `Task added: ${trimmed}`, icon: CircleCheck, tone: 'success' })
         // Create always lands on the dashboard (#256 review) — the Back button
@@ -215,6 +224,8 @@ export function TaskView() {
         description: description.trim(),
         // #236 semantics: an int assigns to an active owned project; null unassigns.
         projectId: projectId === '' ? null : projectId,
+        // #276: same null-unlabels semantics for the category axis.
+        categoryId: categoryId === '' ? null : categoryId,
       })
       setTask({ ...task!, ...updated })
       setStatus(updated.status)
@@ -346,6 +357,26 @@ export function TaskView() {
                       ))}
                     </optgroup>
                   ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="task-category" className={FIELD_LABEL}>
+                Category
+              </label>
+              {/* User-defined lists (#276) — flat set, no lifecycle groups. */}
+              <select
+                id="task-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
+                className={FIELD}
+              >
+                <option value="">No category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
 

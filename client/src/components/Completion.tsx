@@ -18,6 +18,8 @@ type CompletionProps = {
   minutes?: number
   /** "Focus on projects" mode (#238) — carried so "Keep going" stays in projects mode. */
   mode?: PlayMode
+  /** Category scope (#276) — carried so "Keep going" stays in the same list. */
+  category?: number
   /** Project-completion bonus (#240) when this task finished its project. */
   projectBonus?: ProjectCompletion | null
 }
@@ -40,12 +42,14 @@ export function Completion({
   size,
   minutes,
   mode,
+  category,
   projectBonus,
 }: CompletionProps) {
   const params = new URLSearchParams()
   if (mode) params.set('mode', mode)
   else if (size) params.set('size', size)
   if (minutes != null) params.set('minutes', String(minutes))
+  if (category != null) params.set('category', String(category))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
 
   // Streak for the context line — post-completion, so it reflects this task (#181).
