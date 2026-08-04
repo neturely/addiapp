@@ -9,17 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.2.0] - 2026-08-04
 ### Added
-- Rail: category entries move into the Tasks section under Ready (Categories section removed) + "New category" row ([#334](https://github.com/neturely/addiapp/issues/334))
-- User-defined task categories in the rail — create/manage custom task lists like projects ([#276](https://github.com/neturely/addiapp/issues/276))
+- Optional two-factor authentication — 6-digit authenticator-app codes (TOTP) with single-use backup codes; enable and disable from Settings, no third-party service involved ([#319](https://github.com/neturely/addiapp/issues/319))
+- Task categories — your own custom task lists beside projects: rail entries under Ready with live counts, a per-category task view with edit/delete, a Category field on every task, a category chip on task rows, and a "From" scope on the Play choice screen ([#276](https://github.com/neturely/addiapp/issues/276), placement refined in [#334](https://github.com/neturely/addiapp/issues/334))
+- Task archiving — file done tasks away: a one-tap archive shortcut on the Play completion screen, one-click Archive on done task rows and done project cards, an Archived rail view with permanent delete, and an "Archived" state on the task view's Status field to bring a task back ([#312](https://github.com/neturely/addiapp/issues/312), [#321](https://github.com/neturely/addiapp/issues/321), [#330](https://github.com/neturely/addiapp/issues/330))
 ### Changed
-- Settings "Account" heading + archived tasks visible in All tasks with the "Archived" pill (list + edit-page indicator) ([#332](https://github.com/neturely/addiapp/issues/332))
-- Bump transitive postcss to 8.5.18 (Dependabot alert — GHSA-r28c-9q8g-f849) ([#325](https://github.com/neturely/addiapp/issues/325))
-- All-tasks view: row pill shows status (Ready/Started/Done) instead of difficulty ([#322](https://github.com/neturely/addiapp/issues/322))
-- Done views: one-click Archive action on done task rows + done project cards ([#321](https://github.com/neturely/addiapp/issues/321))
-- Optional TOTP 2FA (authenticator-app OTP) — enroll/verify/disable + backup codes, dependency-free RFC 6238 ([#319](https://github.com/neturely/addiapp/issues/319))
-- Task archiving: archive icon on the Play Completion screen + archived tasks axis (schema, API, archive view) ([#312](https://github.com/neturely/addiapp/issues/312))
-### Removed
-- Post-batch UI feedback: consolidated sign-out/delete section, TaskView status placement, archived rows get Delete +… ([#330](https://github.com/neturely/addiapp/issues/330))
+- The All-tasks list's row pill now shows each task's status (Ready/Started/Done/Archived) instead of its difficulty; the status-filtered tabs keep the difficulty pill ([#322](https://github.com/neturely/addiapp/issues/322))
+- Archived tasks stay visible in All tasks with an "Archived" pill (and an indicator on the task view), while the Ready/Started/Done tabs remain working lists without them ([#332](https://github.com/neturely/addiapp/issues/332))
+- Settings: the sign-out and delete-account sections are consolidated into one "Account" section, and the task view's Status field moved beside the Estimate ([#330](https://github.com/neturely/addiapp/issues/330), [#332](https://github.com/neturely/addiapp/issues/332))
+### Security
+- Bumped the transitive postcss dependency past GHSA-r28c-9q8g-f849 (source-map path traversal); the react-router RSC advisory was triaged as not applicable (no RSC code paths) ([#325](https://github.com/neturely/addiapp/issues/325))
 
 ## [2.1.0] - 2026-08-03
 ### Fixed
