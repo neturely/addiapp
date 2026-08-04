@@ -26,6 +26,7 @@ import {
   getTask,
   startTask,
   updateTask,
+  type Recurrence,
   type Task,
   type TaskComplexity,
   type TaskStatus,
@@ -71,6 +72,24 @@ const FIELD =
   'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
 const FIELD_LABEL = 'text-xs font-semibold uppercase tracking-wider text-muted'
 const DELETE_TITLE_ID = 'task-delete-title'
+
+/** The Repeat select's presets (#250); '' = not recurring. */
+type RepeatPreset = '' | 'daily' | 'weekly' | 'biweekly' | 'monthly-day' | 'custom'
+
+/** Task recurrence → the Repeat control's state (preset + sub-inputs). */
+function repeatStateFrom(rec: Recurrence | null | undefined): {
+  repeat: RepeatPreset
+  domDay?: string
+  customN?: string
+  customUnit?: 'day' | 'week' | 'month'
+} {
+  if (!rec) return { repeat: '' }
+  if ('dayOfMonth' in rec) return { repeat: 'monthly-day', domDay: String(rec.dayOfMonth) }
+  if (rec.unit === 'day' && rec.interval === 1) return { repeat: 'daily' }
+  if (rec.unit === 'week' && rec.interval === 1) return { repeat: 'weekly' }
+  if (rec.unit === 'week' && rec.interval === 2) return { repeat: 'biweekly' }
+  return { repeat: 'custom', customN: String(rec.interval), customUnit: rec.unit }
+}
 
 /** The label-row plus (#341) — rail-plus styling, tap-44 for the touch target. */
 function FieldPlusButton({ label, onClick }: { label: string; onClick: () => void }) {
@@ -126,6 +145,13 @@ export function TaskView() {
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState<number | ''>('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
+  // #250: snooze date ('' = available now) + the Repeat control's state — a
+  // preset select plus the sub-inputs the two non-preset choices need.
+  const [availableFrom, setAvailableFrom] = useState('')
+  const [repeat, setRepeat] = useState<RepeatPreset>('')
+  const [domDay, setDomDay] = useState('25')
+  const [customN, setCustomN] = useState('3')
+  const [customUnit, setCustomUnit] = useState<'day' | 'week' | 'month'>('day')
 
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -180,6 +206,12 @@ export function TaskView() {
         setDescription(t.description ?? '')
         setProjectId(t.projectId ?? '')
         setCategoryId(t.categoryId ?? '')
+        setAvailableFrom(t.availableFrom ?? '')
+        const rep = repeatStateFrom(t.recurrence)
+        setRepeat(rep.repeat)
+        if (rep.domDay) setDomDay(rep.domDay)
+        if (rep.customN) setCustomN(rep.customN)
+        if (rep.customUnit) setCustomUnit(rep.customUnit)
       })
       .catch((e) => {
         if (cancelled) return
@@ -222,6 +254,26 @@ export function TaskView() {
       setError('Estimated time must be a whole number of minutes (at least 1).')
       return
     }
+    // #250: Repeat state → the API recurrence object (null = not recurring).
+    let recurrence: Recurrence | null = null
+    if (repeat === 'daily') recurrence = { unit: 'day', interval: 1 }
+    else if (repeat === 'weekly') recurrence = { unit: 'week', interval: 1 }
+    else if (repeat === 'biweekly') recurrence = { unit: 'week', interval: 2 }
+    else if (repeat === 'monthly-day') {
+      const d = Number(domDay)
+      if (!Number.isInteger(d) || d < 1 || d > 31) {
+        setError('Pick a day of the month between 1 and 31.')
+        return
+      }
+      recurrence = { dayOfMonth: d }
+    } else if (repeat === 'custom') {
+      const n = Number(customN)
+      if (!Number.isInteger(n) || n < 1 || n > 365) {
+        setError('The repeat interval must be a whole number (at least 1).')
+        return
+      }
+      recurrence = { unit: customUnit, interval: n }
+    }
     setSaving(true)
     try {
       if (creating) {
@@ -232,6 +284,8 @@ export function TaskView() {
           description: description.trim(),
           ...(projectId !== '' ? { projectId } : {}),
           ...(categoryId !== '' ? { categoryId } : {}),
+          ...(availableFrom !== '' ? { availableFrom } : {}),
+          ...(recurrence !== null ? { recurrence } : {}),
         })
         showToast({ message: `Task added: ${trimmed}`, icon: CircleCheck, tone: 'success' })
         // Create always lands on the dashboard (#256 review) — the Back button
@@ -255,6 +309,9 @@ export function TaskView() {
         projectId: projectId === '' ? null : projectId,
         // #276: same null-unlabels semantics for the category axis.
         categoryId: categoryId === '' ? null : categoryId,
+        // #250: null clears the snooze / stops the recurrence.
+        availableFrom: availableFrom === '' ? null : availableFrom,
+        recurrence,
       })
       setTask({ ...task!, ...updated })
       setStatus(updated.archivedAt ? 'archived' : updated.status)
@@ -457,6 +514,86 @@ export function TaskView() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Repeat + Snooze (#250) — the grid cells the epic-#256 field grid
+                was designed to absorb. Repeat is a preset select; the two
+                non-preset choices reveal their sub-inputs inside the cell. */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="task-repeat" className={FIELD_LABEL}>
+                Repeat
+              </label>
+              <select
+                id="task-repeat"
+                value={repeat}
+                onChange={(e) => setRepeat(e.target.value as RepeatPreset)}
+                className={FIELD}
+              >
+                <option value="">None</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every 2 weeks</option>
+                <option value="monthly-day">Monthly on a day</option>
+                <option value="custom">Custom…</option>
+              </select>
+              {repeat === 'monthly-day' && (
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <label htmlFor="task-repeat-day" className="text-muted">
+                    on day
+                  </label>
+                  <input
+                    id="task-repeat-day"
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={domDay}
+                    onChange={(e) => setDomDay(e.target.value)}
+                    className={`${FIELD} w-24`}
+                  />
+                </div>
+              )}
+              {repeat === 'custom' && (
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <label htmlFor="task-repeat-n" className="text-muted">
+                    every
+                  </label>
+                  <input
+                    id="task-repeat-n"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={customN}
+                    onChange={(e) => setCustomN(e.target.value)}
+                    className={`${FIELD} w-24`}
+                  />
+                  <select
+                    aria-label="Repeat unit"
+                    value={customUnit}
+                    onChange={(e) => setCustomUnit(e.target.value as 'day' | 'week' | 'month')}
+                    className={`${FIELD} w-auto`}
+                  >
+                    <option value="day">days</option>
+                    <option value="week">weeks</option>
+                    <option value="month">months</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="task-available-from" className={FIELD_LABEL}>
+                Snooze until
+              </label>
+              <input
+                id="task-available-from"
+                type="date"
+                value={availableFrom}
+                onChange={(e) => setAvailableFrom(e.target.value)}
+                className={FIELD}
+              />
+              <p className="text-xs text-muted">
+                Play won’t suggest this task before then. Leave empty for “available now”.
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5 sm:col-span-2">

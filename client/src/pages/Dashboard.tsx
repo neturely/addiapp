@@ -8,6 +8,7 @@ import {
   FolderPlus,
   Play,
   Plus,
+  Repeat,
   Trash2,
   X,
 } from 'lucide-react'
@@ -66,6 +67,17 @@ const STATUS_TAG: Record<TaskStatus, { label: string; className: string }> = {
 const ARCHIVED_TAG = { label: 'Archived', className: 'bg-field text-muted' }
 
 const PAGE_SIZE = 25 // offset page size (#262)
+
+/** Future-dated ("snoozed", #250)? Compares Y-m-d strings in local time. */
+function isSnoozed(availableFrom: string | null | undefined): boolean {
+  if (!availableFrom) return false
+  return availableFrom > new Date().toLocaleDateString('sv-SE')
+}
+
+/** '2026-08-25' → 'Aug 25' for the snooze chip (#250). */
+function shortDate(ymd: string): string {
+  return new Date(`${ymd}T00:00:00`).toLocaleDateString('en', { month: 'short', day: 'numeric' })
+}
 
 // Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
 function filterFromTab(tab: string | null): Filter {
@@ -593,6 +605,19 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
+                      {/* Recurring badge (#250) — rule-carrying rows repeat. */}
+                      {task.recurrence && (
+                        <span className="flex-none text-muted" aria-label="Repeats">
+                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                        </span>
+                      )}
+                      {/* Snooze chip (#250): future-dated rows stay visible but
+                          distinct (hiding them repeats the #248 mistake). */}
+                      {isSnoozed(task.availableFrom) && task.status === 'backlog' && (
+                        <span className="hidden flex-none rounded-full bg-field px-2.5 py-0.5 text-[11px] font-medium text-muted sm:inline">
+                          from {shortDate(task.availableFrom!)}
+                        </span>
+                      )}
                       {/* Category chip (#276) — the custom-list label, pole dot
                           + name; hidden below sm where the row is tight. */}
                       {task.category && (
