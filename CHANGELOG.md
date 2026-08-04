@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-04
+### Added
+- Rail: category entries move into the Tasks section under Ready (Categories section removed) + "New category" row ([#334](https://github.com/neturely/addiapp/issues/334))
+- User-defined task categories in the rail — create/manage custom task lists like projects ([#276](https://github.com/neturely/addiapp/issues/276))
+### Changed
+- Settings "Account" heading + archived tasks visible in All tasks with the "Archived" pill (list + edit-page indicator) ([#332](https://github.com/neturely/addiapp/issues/332))
+- Bump transitive postcss to 8.5.18 (Dependabot alert — GHSA-r28c-9q8g-f849) ([#325](https://github.com/neturely/addiapp/issues/325))
+- All-tasks view: row pill shows status (Ready/Started/Done) instead of difficulty ([#322](https://github.com/neturely/addiapp/issues/322))
+- Done views: one-click Archive action on done task rows + done project cards ([#321](https://github.com/neturely/addiapp/issues/321))
+- Optional TOTP 2FA (authenticator-app OTP) — enroll/verify/disable + backup codes, dependency-free RFC 6238 ([#319](https://github.com/neturely/addiapp/issues/319))
+- Task archiving: archive icon on the Play Completion screen + archived tasks axis (schema, API, archive view) ([#312](https://github.com/neturely/addiapp/issues/312))
+### Removed
+- Post-batch UI feedback: consolidated sign-out/delete section, TaskView status placement, archived rows get Delete +… ([#330](https://github.com/neturely/addiapp/issues/330))
+
 ## [2.1.0] - 2026-08-03
 ### Fixed
 - Avatar menu no longer flickers closed/reopen when the click lands on the avatar image/initials — the outside-click check now uses `contains()` like the panel check ([#301](https://github.com/neturely/addiapp/issues/301))
@@ -130,7 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/neturely/addiapp/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/neturely/addiapp/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0
