@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-04
+### Added
+- Display names now pass a small profanity blocklist on register and account update ([#340](https://github.com/neturely/addiapp/issues/340))
+- Recurring tasks + "snooze until": tasks can repeat (every N days/weeks/months, or monthly on a day) — completing one spawns the next occurrence, dated and excluded from Play until then; any task can be snoozed to a future date ([#250](https://github.com/neturely/addiapp/issues/250))
+### Changed
+- Settings/TaskView/rail polish: Gravatar mentioned in the avatar helper text, 2FA section moved below Password, Play strategy list reordered with a Uniform-random descriptor, inline "+" to create a project/category from the task view, Projects "Done" rail pole now green ([#341](https://github.com/neturely/addiapp/issues/341))
+### Fixed
+- Password managers now recognize the login 2FA code field as a one-time-code input instead of a username box ([#343](https://github.com/neturely/addiapp/issues/343))
+
 ## [2.2.0] - 2026-08-04
 ### Added
 - Optional two-factor authentication — 6-digit authenticator-app codes (TOTP) with single-use backup codes; enable and disable from Settings, no third-party service involved ([#319](https://github.com/neturely/addiapp/issues/319))
@@ -142,7 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/neturely/addiapp/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/neturely/addiapp/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/neturely/addiapp/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
