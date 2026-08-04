@@ -35,7 +35,7 @@ final class AccountController
         if (array_key_exists('displayName', $req->body)) {
             $displayName = AuthController::displayName($req->input('displayName'));
             if ($displayName === false) {
-                Response::error('Invalid display name (up to 50 characters, no line breaks)', 400);
+                Response::error('Invalid display name (up to 50 characters, no line breaks, no offensive words)', 400);
                 return;
             }
             $sets[] = 'display_name = ?';

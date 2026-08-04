@@ -44,7 +44,7 @@ final class AuthController
             return;
         }
         if ($displayName === false) {
-            Response::error('Invalid display name (up to 50 characters, no line breaks)', 400);
+            Response::error('Invalid display name (up to 50 characters, no line breaks, no offensive words)', 400);
             return;
         }
 
@@ -405,6 +405,9 @@ final class AuthController
             return null;
         }
         if (preg_match('/[\x00-\x1F\x7F]/u', $t) || mb_strlen($t) > 50) {
+            return false;
+        }
+        if (!\App\Auth\DisplayNameBlocklist::isAllowed($t)) {
             return false;
         }
         return $t;
