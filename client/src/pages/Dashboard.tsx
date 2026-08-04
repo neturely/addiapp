@@ -611,12 +611,6 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
-                      {/* Recurring badge (#250) — rule-carrying rows repeat. */}
-                      {task.recurrence && (
-                        <span className="flex-none text-muted" aria-label="Repeats">
-                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-                        </span>
-                      )}
                       {/* Snooze chip (#250): future-dated rows stay visible but
                           distinct (hiding them repeats the #248 mistake). */}
                       {isSnoozed(task.availableFrom) && task.status === 'backlog' && (
@@ -656,6 +650,13 @@ export function Dashboard() {
                           </span>
                         ) : null}
                       </span>
+                      {/* Recurring badge (#250; review round 2: trailing, to
+                          the RIGHT of the time/points cell). */}
+                      {task.recurrence && (
+                        <span className="flex-none text-muted" aria-label="Repeats">
+                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                        </span>
+                      )}
                     </button>
                     {/* Below sm there's no hover for the pole swap, so ready
                         rows keep a trailing always-visible play button there. */}

@@ -523,15 +523,17 @@ export function TaskView() {
               <label htmlFor="task-available-from" className={FIELD_LABEL}>
                 Snooze
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              {/* Review round 2: the control takes the grid's LEFT half (the
+                  Project select's width); the right half is the description. */}
+              <div className="grid gap-2 sm:grid-cols-2 sm:items-center sm:gap-5">
                 <input
                   id="task-available-from"
                   type="date"
                   value={availableFrom}
                   onChange={(e) => setAvailableFrom(e.target.value)}
-                  className={`${FIELD} sm:w-56`}
+                  className={FIELD}
                 />
-                <p className="text-xs text-muted sm:flex-1">
+                <p className="text-xs text-muted">
                   Play won’t suggest this task before then. Leave empty for “available now”.
                 </p>
               </div>
@@ -541,12 +543,15 @@ export function TaskView() {
               <label htmlFor="task-repeat" className={FIELD_LABEL}>
                 Repeat
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              {/* Review round 2: same halves as Snooze — the preset select
+                  matches the Project select's width, the sub-inputs fill the
+                  other half. */}
+              <div className="grid gap-2 sm:grid-cols-2 sm:items-center sm:gap-5">
                 <select
                   id="task-repeat"
                   value={repeat}
                   onChange={(e) => setRepeat(e.target.value as RepeatPreset)}
-                  className={`${FIELD} sm:w-56`}
+                  className={FIELD}
                 >
                   <option value="">None</option>
                   <option value="daily">Daily</option>
@@ -557,7 +562,7 @@ export function TaskView() {
                 </select>
                 {repeat === 'monthly-day' && (
                   <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <label htmlFor="task-repeat-day" className="text-muted">
+                    <label htmlFor="task-repeat-day" className="flex-none text-muted">
                       on day
                     </label>
                     <input
@@ -567,13 +572,13 @@ export function TaskView() {
                       max={31}
                       value={domDay}
                       onChange={(e) => setDomDay(e.target.value)}
-                      className={`${FIELD} w-24`}
+                      className={FIELD}
                     />
                   </div>
                 )}
                 {repeat === 'custom' && (
                   <div className="flex items-center gap-2 text-sm text-gray-700">
-                    <label htmlFor="task-repeat-n" className="text-muted">
+                    <label htmlFor="task-repeat-n" className="flex-none text-muted">
                       every
                     </label>
                     <input
@@ -583,7 +588,7 @@ export function TaskView() {
                       max={365}
                       value={customN}
                       onChange={(e) => setCustomN(e.target.value)}
-                      className={`${FIELD} w-24`}
+                      className={FIELD}
                     />
                     <select
                       aria-label="Repeat unit"
