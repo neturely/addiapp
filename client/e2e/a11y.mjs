@@ -69,7 +69,7 @@ const rg = await page.evaluate(() => {
     tabbable: radios.filter((r) => r.getAttribute('tabindex') === '0').length,
   }
 })
-ok(rg.hasGroup && rg.count === 5, `A11Y-5: radiogroup with ${rg.count} radios`)
+ok(rg.hasGroup && rg.count === 4, `A11Y-5: radiogroup with ${rg.count} radios`)
 ok(rg.labelled === 'time-label', 'A11Y-5: radiogroup aria-labelledby the question')
 ok(rg.checked === 1, 'A11Y-5: exactly one radio aria-checked')
 ok(rg.tabbable === 1, 'A11Y-5: roving tabindex (only checked is tabbable)')

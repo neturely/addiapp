@@ -75,6 +75,17 @@ final class TasksController
             $conditions[] = 't.project_id IS NULL';
         }
 
+        // Recurring filter (2.3.0 review round): the rail's Recurring entry —
+        // the LIVE occurrence of every recurring chain (rule-carrying, not yet
+        // done, not filed). Done occurrences keep their rule columns after the
+        // #250 spawn, so without the status guard every past occurrence would
+        // pile up here.
+        if ($req->query('recurring') === '1') {
+            $conditions[] = '(t.recur_unit IS NOT NULL OR t.recur_day_of_month IS NOT NULL)';
+            $conditions[] = "t.status <> 'done'";
+            $conditions[] = 't.archived_at IS NULL';
+        }
+
         // Per-project filter (#260, the backend half of #245): all of one owned
         // project's tasks, any status. Non-enumerating — a project that isn't the
         // caller's own 404s just like the rest of the Projects API (#129). Same
@@ -218,6 +229,14 @@ final class TasksController
         $a->execute([$userId]);
         $counts['archived'] = (int) $a->fetchColumn();
         $counts['all'] += $counts['archived'];
+
+        // Live recurring chains (2.3.0 review round) — mirrors the recurring=1
+        // filter above, so the rail entry's count matches its list.
+        $r = $pdo->prepare(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (recur_unit IS NOT NULL OR recur_day_of_month IS NOT NULL) AND status <> 'done' AND archived_at IS NULL",
+        );
+        $r->execute([$userId]);
+        $counts['recurring'] = (int) $r->fetchColumn();
 
         return $counts;
     }

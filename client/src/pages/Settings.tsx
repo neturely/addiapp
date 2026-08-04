@@ -39,7 +39,7 @@ const STRATEGIES: { value: string; label: string }[] = [
 ]
 
 const FIELD =
-  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
+  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 focus:outline-none focus:bg-field-active focus-visible:ring-2 focus-visible:ring-accent'
 const LABEL = 'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted'
 const DELETE_TITLE_ID = 'account-delete-title'
 const TOTP_TITLE_ID = 'totp-enroll-title'

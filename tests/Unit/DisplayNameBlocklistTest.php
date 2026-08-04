@@ -24,6 +24,17 @@ final class DisplayNameBlocklistTest extends TestCase
             'digits as separators' => ['fu1ck'],
             'slur' => ['nigger'],
             'accepted Scunthorpe trade-off' => ['Scunthorpe'],
+            // Leetspeak substitutions (2.3.0 review round)
+            'leet: b1tch' => ['b1tch'],
+            'leet: sh1t' => ['Sh1thead'],
+            'leet: a55hole' => ['a55hole'],
+            'leet: wh0re' => ['wh0re'],
+            'leet: multiple substitutions' => ['b17ch'],
+            'leet: symbol substitution' => ['a$$hole'],
+            'vowel-swap variant: fvck' => ['fvck'],
+            'ph variant: phuck' => ['phuck'],
+            'expanded entry: cocksucker' => ['c0cksucker'],
+            'expanded entry: retard' => ['retard99'],
         ];
     }
 
@@ -46,6 +57,11 @@ final class DisplayNameBlocklistTest extends TestCase
             'substring traps avoided: therapist' => ['The Therapist'],
             'non-latin only (normalizes to empty)' => ['日本語の名前'],
             'emoji + name' => ['⭐ Star'],
+            // Leet map must not corrupt ordinary digit-carrying names
+            'digits in a normal name' => ['Elise2024'],
+            'leet-looking but clean' => ['S1mon 5venson'],
+            'substring traps avoided: Phuket' => ['Phuket Traveller'],
+            'substring traps avoided: FC initials' => ['FC Köln fan'],
         ];
     }
 

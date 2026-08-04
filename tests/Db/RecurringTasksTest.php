@@ -187,6 +187,29 @@ final class RecurringTasksTest extends DbTestCase
         self::assertSame(25, (int) $row['recur_day_of_month']);
     }
 
+    public function testRecurringListFilterShowsOnlyLiveChains(): void
+    {
+        $userId = $this->makeUser('recur-f@test.local');
+        $sid = Sessions::create($userId);
+        $plain = $this->makeTask($userId, 'low', 10);
+        $live = $this->makeTask($userId, 'low', 10);
+        $this->pdo->prepare("UPDATE tasks SET recur_unit = 'day', recur_interval = 1 WHERE id = ?")->execute([$live]);
+
+        // Completing the live occurrence spawns its clone; the DONE occurrence
+        // keeps its rule columns but must drop out of the recurring view — only
+        // the spawned clone (the new live occurrence) remains.
+        [$status] = $this->dispatch('PATCH', "/api/tasks/{$live}", $sid, ['status' => 'done']);
+        self::assertSame(200, $status);
+
+        [$status, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], ['recurring' => '1', 'limit' => '25']);
+        self::assertSame(200, $status);
+        $ids = array_column($body['tasks'], 'id');
+        self::assertCount(1, $ids);
+        self::assertNotContains($plain, $ids);
+        self::assertNotContains($live, $ids);
+        self::assertSame(1, $body['counts']['recurring']);
+    }
+
     public function testRecurringTaskExcludedFromProjectCompletion(): void
     {
         $userId = $this->makeUser('recur-e@test.local');
