@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-08-04
+### Added
+- Optional two-factor authentication — 6-digit authenticator-app codes (TOTP) with single-use backup codes; enable and disable from Settings, no third-party service involved ([#319](https://github.com/neturely/addiapp/issues/319))
+- Task categories — your own custom task lists beside projects: rail entries under Ready with live counts, a per-category task view with edit/delete, a Category field on every task, a category chip on task rows, and a "From" scope on the Play choice screen ([#276](https://github.com/neturely/addiapp/issues/276), placement refined in [#334](https://github.com/neturely/addiapp/issues/334))
+- Task archiving — file done tasks away: a one-tap archive shortcut on the Play completion screen, one-click Archive on done task rows and done project cards, an Archived rail view with permanent delete, and an "Archived" state on the task view's Status field to bring a task back ([#312](https://github.com/neturely/addiapp/issues/312), [#321](https://github.com/neturely/addiapp/issues/321), [#330](https://github.com/neturely/addiapp/issues/330))
+### Changed
+- The All-tasks list's row pill now shows each task's status (Ready/Started/Done/Archived) instead of its difficulty; the status-filtered tabs keep the difficulty pill ([#322](https://github.com/neturely/addiapp/issues/322))
+- Archived tasks stay visible in All tasks with an "Archived" pill (and an indicator on the task view), while the Ready/Started/Done tabs remain working lists without them ([#332](https://github.com/neturely/addiapp/issues/332))
+- Settings: the sign-out and delete-account sections are consolidated into one "Account" section, and the task view's Status field moved beside the Estimate ([#330](https://github.com/neturely/addiapp/issues/330), [#332](https://github.com/neturely/addiapp/issues/332))
+### Security
+- Bumped the transitive postcss dependency past GHSA-r28c-9q8g-f849 (source-map path traversal); the react-router RSC advisory was triaged as not applicable (no RSC code paths) ([#325](https://github.com/neturely/addiapp/issues/325))
+
 ## [2.1.0] - 2026-08-03
 ### Fixed
 - Avatar menu no longer flickers closed/reopen when the click lands on the avatar image/initials — the outside-click check now uses `contains()` like the panel check ([#301](https://github.com/neturely/addiapp/issues/301))
@@ -130,7 +142,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/neturely/addiapp/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/neturely/addiapp/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0
