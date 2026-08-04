@@ -1,2 +1,2 @@
-<!-- okffs:type=Changed -->
-- Profanity blocklist for display names (register + account update) ([#340](https://github.com/neturely/addiapp/issues/340))
+<!-- okffs:type=Added -->
+- Display names now pass a small profanity blocklist on register and account update ([#340](https://github.com/neturely/addiapp/issues/340))
