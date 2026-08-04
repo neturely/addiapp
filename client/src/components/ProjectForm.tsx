@@ -1,7 +1,7 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Check, Dices } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/Button'
-import { PROJECT_COLORS, randomSpectrumColor } from '@/lib/projectColors'
+import { ColorSwatchPicker } from '@/components/ColorSwatchPicker'
+import { randomSpectrumColor } from '@/lib/projectColors'
 
 // Mirror the server's validation (#234) so we fail fast client-side.
 const MAX_NAME = 255
@@ -44,29 +44,6 @@ export function ProjectForm({
   const [color, setColor] = useState<number | 'random'>(initial?.color ?? 'random')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  // Roving-tabindex radiogroup for the colour swatches (#268), matching the
-  // TaskForm effort-tile pattern (#197): only the checked swatch is tabbable;
-  // arrow keys move selection + focus together (WAI-ARIA radio pattern).
-  // Cell 0 is the Random cell (#308); cell i+1 is palette index i.
-  const cellCount = PROJECT_COLORS.length + 1
-  const checkedCell = color === 'random' ? 0 : color + 1
-  const swatchRefs = useRef<(HTMLButtonElement | null)[]>([])
-  function selectCell(cell: number) {
-    setColor(cell === 0 ? 'random' : cell - 1)
-  }
-  function onSwatchKeyDown(e: KeyboardEvent<HTMLButtonElement>, cell: number) {
-    const last = cellCount - 1
-    let next = cell
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = cell === last ? 0 : cell + 1
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = cell === 0 ? last : cell - 1
-    else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = last
-    else return
-    e.preventDefault()
-    selectCell(next)
-    swatchRefs.current[next]?.focus()
-  }
 
   async function handle(e: FormEvent) {
     e.preventDefault()
@@ -129,62 +106,9 @@ export function ProjectForm({
         <span id="project-color-label" className="mb-2 block text-sm font-medium text-gray-600">
           Colour
         </span>
-        {/* Random + 19 swatches = 20 cells in two rows of 10 (#256 review, #308). */}
-        <div
-          role="radiogroup"
-          aria-labelledby="project-color-label"
-          className="grid grid-cols-10 gap-2"
-        >
-          <button
-            ref={(el) => {
-              swatchRefs.current[0] = el
-            }}
-            type="button"
-            role="radio"
-            aria-checked={checkedCell === 0}
-            aria-label="Random colour"
-            tabIndex={checkedCell === 0 ? 0 : -1}
-            onClick={() => selectCell(0)}
-            onKeyDown={(e) => onSwatchKeyDown(e, 0)}
-            className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-field text-gray-700 transition ${
-              checkedCell === 0
-                ? 'ring-2 ring-gray-800 ring-offset-2'
-                : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
-            }`}
-          >
-            <Dices className="h-4 w-4" strokeWidth={2} aria-hidden />
-          </button>
-          {PROJECT_COLORS.map((c, i) => {
-            const cell = i + 1
-            const checked = checkedCell === cell
-            return (
-              <button
-                key={c.name}
-                ref={(el) => {
-                  swatchRefs.current[cell] = el
-                }}
-                type="button"
-                role="radio"
-                aria-checked={checked}
-                aria-label={c.name}
-                tabIndex={checked ? 0 : -1}
-                onClick={() => selectCell(cell)}
-                onKeyDown={(e) => onSwatchKeyDown(e, cell)}
-                className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ${c.pole} transition ${
-                  checked ? 'ring-2 ring-gray-800 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
-                }`}
-              >
-                {checked && (
-                  <Check
-                    className={`h-4 w-4 ${c.darkCheck ? 'text-gray-800' : 'text-white'}`}
-                    strokeWidth={3}
-                    aria-hidden
-                  />
-                )}
-              </button>
-            )
-          })}
-        </div>
+        {/* The shared swatch radiogroup (#276 extraction) — Random cell + 19
+            palette swatches, roving tabindex. */}
+        <ColorSwatchPicker value={color} onChange={setColor} labelledBy="project-color-label" />
       </div>
 
       {error && (

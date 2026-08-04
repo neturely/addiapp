@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { projectPole } from '@/lib/projectColors'
+import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
 import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
 
@@ -20,16 +21,22 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [counts, setCounts] = useState<TaskCounts | null>(null)
 
   // Refresh on route change (InProgressProvider's pattern — no polling) AND on
-  // the projects-changed signal: a modal create/archive doesn't navigate, so
-  // without it the rail would go stale until the next navigation (#268).
+  // the projects/categories-changed signals: a modal create/archive doesn't
+  // navigate, so without them the rail would go stale until the next
+  // navigation (#268, #276).
   const [refresh, setRefresh] = useState(0)
   useEffect(() => {
     const bump = () => setRefresh((n) => n + 1)
     window.addEventListener(PROJECTS_CHANGED_EVENT, bump)
-    return () => window.removeEventListener(PROJECTS_CHANGED_EVENT, bump)
+    window.addEventListener(CATEGORIES_CHANGED_EVENT, bump)
+    return () => {
+      window.removeEventListener(PROJECTS_CHANGED_EVENT, bump)
+      window.removeEventListener(CATEGORIES_CHANGED_EVENT, bump)
+    }
   }, [])
 
   useEffect(() => {
@@ -39,6 +46,9 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
     fetchProjects('all')
       .then((p) => !cancelled && setProjects(p))
       .catch(() => undefined) // the rail degrades to the fixed entries
+    fetchCategories()
+      .then((c) => !cancelled && setCategories(c))
+      .catch(() => undefined)
     fetchTasksPage({ limit: 1 })
       .then((page) => !cancelled && page.counts && setCounts(page.counts))
       .catch(() => undefined)
@@ -59,9 +69,12 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
   const archived = searchParams.get('archived') === '1'
   const statusParam = searchParams.get('status')
   const projectParam = Number(searchParams.get('project'))
+  const categoryParam = Number(searchParams.get('category'))
 
-  const isAll = onDashboard && !tab && view !== 'projects' && !projectParam
+  const isAll = onDashboard && !tab && view !== 'projects' && !projectParam && !categoryParam
   const isTab = (t: string) => onDashboard && tab === t
+  const activeCategoryId =
+    onDashboard && view !== 'projects' && categoryParam > 0 ? categoryParam : null
   const isArchived = onDashboard && view === 'projects' && archived
   const isDone = onDashboard && view === 'projects' && !archived && statusParam === 'done'
   const activeProjectId =
@@ -99,6 +112,27 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Ready"
         count={counts?.backlog}
       />
+      {/* Category entries live in the Tasks section, directly under Ready
+          (#334 — the way project entries sit under the Active pool; the
+          separate Categories section is gone). Edit/Delete stay on the
+          Dashboard toolbar when an entry's filter is active (#276). */}
+      {categories.map((c) => (
+        <RailLink
+          key={c.id}
+          to={`/dashboard?category=${c.id}`}
+          active={activeCategoryId === c.id}
+          pole={projectPole(c.color)}
+          label={c.name}
+          count={c.remainingCount}
+        />
+      ))}
+      <Link
+        to="/dashboard?newCategory=1"
+        className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
+      >
+        <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
+        <span>New category</span>
+      </Link>
       <RailLink
         to="/dashboard?tab=in_progress"
         active={isTab('in_progress')}
@@ -119,6 +153,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         pole="bg-success"
         label="Done"
         count={counts?.done}
+      />
+      {/* Filed-away done tasks (#312) — the Tasks mirror of the Projects
+          section's Archived entry. */}
+      <RailLink
+        to="/dashboard?tab=archived"
+        active={isTab('archived')}
+        pole="bg-gray-400"
+        label="Archived"
+        count={counts?.archived}
       />
 
       <RailHead

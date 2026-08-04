@@ -69,6 +69,25 @@ the old app was never in real use.
   Idle sessions still lapse after 7 idle days; login GCs expired rows
   (`Sessions::purgeExpired`). Decided (#246): NO 24h idle logout — it fights
   the daily-habit loop for negligible security value at this threat model.
+  **Optional TOTP 2FA (#319):** per-user, off by default — dependency-free RFC 6238
+  (`Auth/Totp.php`, HMAC-SHA1/6-digit/30s, ±1 step drift, pinned to the RFC Appendix B
+  vectors in `tests/Unit/TotpTest.php`). Enrollment is staged-then-armed:
+  `POST /api/account/totp/setup` (password re-auth) stores a secret with
+  `users.totp_enabled=0` (migrations 018/019) and returns secret + otpauth URI (NO
+  QR dep — manual entry, v1); `/confirm` needs one valid code to arm and returns
+  **10 single-use backup codes** (bcrypt-hashed in `backup_codes`, migration 020,
+  plaintext shown exactly once; `Auth/BackupCodes.php`); `/disable` needs password
+  + a TOTP/backup code (staged-only cancel needs just the password). With 2FA on,
+  login answers **403 `totp_required` + a 5-min single-use challenge** (an
+  `email_tokens` `totp_challenge` row, migration 021; `EmailTokens::peek` validates
+  without consuming so a typo doesn't burn it) and `POST /api/auth/verify-otp`
+  (challenge + 6-digit code OR backup code; rate-limited ~10/challenge) consumes it
+  and mints the session. Password reset does NOT bypass or clear TOTP; backup codes
+  ARE the recovery. Client: Settings "Two-factor authentication" section (enroll
+  modal + inline disable), Login swaps to a code screen (`ApiError.details` carries
+  the challenge). Deliberately out of v1: QR rendering, remember-this-device,
+  WebAuthn. Locked by `tests/Db/TotpFlowTest.php` + the settings.mjs TOTP cycle
+  (which always leaves the dev user 2FA-off).
 - Styling: Tailwind CSS v4 (utility classes, no config file; coral brand accents
   as arbitrary values like `bg-[#D85A30]`).
 - Transactional email: **Resend** (direct curl from PHP; `RESEND_API_KEY`) for
@@ -267,6 +286,61 @@ to the old Node API.
   so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
+- **Task categories (#276)**: user-defined custom lists in the rail — a **second
+  task axis beside status** (like the project axis; statuses/points/Play machinery
+  untouched), **one category per task** (nullable `tasks.category_id`, FK
+  `ON DELETE SET NULL` → deleting a category only unlabels; migrations 022–025,
+  incl. a `(user_id, category_id)` index). Decided over #179's tags (closed as
+  dupe): list-like, not multi-label. `task_categories` shares the **#268 palette**
+  (`color` = palette index, same `PALETTE_SIZE` bound). API: `GET/POST/PATCH/DELETE
+  /api/categories` (`CategoriesController` — ProjectsController's shape minus
+  lifecycle; counts = remaining/total; 404-not-403 #129; DELETE returns
+  `unlabelledTasks` for the toast), `GET /api/tasks?categoryId=` filter, the LIST
+  join ships `task.category = { name, color } | null`, POST/PATCH tasks accept
+  `categoryId` (null unlabels), and **`GET /api/tasks/next?category=N`** scopes the
+  Play pick (composes with size/time AND `mode=projects`). Client: `lib/categories.ts`
+  (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
+  the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
+  "New category" row → the `?newCategory=1` modal),
+  Dashboard category filter with toolbar **Edit/Delete** (confirm modal states the
+  tasks-survive consequence), a row **category chip**, a TaskView **Category
+  select** (+ `?category=` pre-assign on create), and a Play Choice **"From"
+  select** (renders only when categories exist) carried through the whole chain
+  (TaskPresented → InProgress → Completion "Keep going"). **`ColorSwatchPicker`**
+  (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
+  CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
+- **Task archiving (#312)**: an **Archived AXIS on tasks** (`tasks.archived_at`
+  datetime NULL, migration 026 — a flag beside status, NOT a status value),
+  completing the #310 lifecycle symmetry: done first, then archive from done, in
+  both rail sections. `PATCH /api/tasks/{id}` takes **`archived: true|false`**
+  (true requires the task to be — or become in the same PATCH — 'done', else
+  400; false unarchives; IFNULL keeps the original filing time on re-archive).
+  **Invariant: archived ⇒ done** — a status transition leaving 'done' clears
+  `archived_at`, so a filed task can never re-enter the Play backlog pool.
+  Visibility (**revised #332** — supersedes the original all-lists exclusion):
+  the **mixed "all" views (All tasks + per-project/category filters) INCLUDE
+  archived rows** ("All" means all — rendered with the "Archived" pill), while
+  the WORKING lists (status tabs + Unassigned) exclude them; `GET
+  /api/tasks?archived=1` is the archive-only view (ordered by `archived_at`,
+  newest-filed first under the default desc). `counts`: the status figures
+  exclude archived ("Done" = done-not-filed), **`all` includes them**, and an
+  **`archived`** key serves the tab.
+  No points effect. Client: `archiveTask(id, archived)` in `lib/tasks` (pings the
+  rail), a rail Tasks **"Archived" entry** below Done (`?tab=archived`), the
+  archived tab's trailing **Delete** row action (#330 — confirm modal; NOT
+  Unarchive: **un-filing is the task view's job** — its Status select shows
+  "Archived" for a filed task, picking Ready/Started un-files via the invariant
+  and picking Done sends explicit `archived:false`; archived rows' pill reads
+  **"Archived"**, never "Done", and TaskView's top bar carries an **"Archived"
+  chip**, #332), and a Play **Completion archive shortcut** — an `Archive`
+  icon button beside "Keep going" (`aria-label="Archive this task"`, flips to a
+  check + "Archived", no navigation). **One-click Archive on the Done views
+  (#321):** done task rows (`?tab=done`) carry a trailing **Archive** button in
+  the AssignControl style/placement (archives + refetches, the assign pattern),
+  and **done project cards** swap the footer's "Assign task" slot for a visible
+  **Archive** button (assigning would just revert a done project; Add task + the
+  kebab keep that path) — active cards unchanged. Locked by
+  `tests/Db/TaskArchiveTest.php` + the #312/#321 blocks in tasklist.mjs/play.mjs.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
@@ -293,7 +367,9 @@ to the old Node API.
   header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
-  name · effort tint pill · **title — description** (truncated) · ONE combined
+  name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
+  All tasks + the per-project/category filters; the homogeneous status tabs and
+  Unassigned/Archived keep the **effort** pill) · **title — description** (truncated) · ONE combined
   **"10 min / 5 pts"** cell (#256 review — minutes muted, points **gold**
   `text-warning-ink`, same size/weight; done rows show the EARNED "+N pts" in
   gold via the list's `points_log` join; base from `GET /api/points`). Ready
@@ -303,9 +379,10 @@ to the old Node API.
   (`pages/TaskView.tsx`) — THE one edit path**: the old inline row-swap edit, the
   #218 `EditTaskModal`, and the `EditTask` page are **deleted** (`/tasks/:id/edit`
   deep links land on the same view). The task view: back bar → borderless title
-  input → an **extensible field grid** (Project select / Estimate / Difficulty
-  roving-radiogroup / Status / Description — future fields like #250's recurring
-  rules slot in as more cells) → a served points-forecast panel (base + max speed
+  input → an **extensible field grid** (Project select / Category select (#276) /
+  Estimate / **Status beside Estimate** (#330; shows "Archived" for a filed task —
+  see the #312 block) / Difficulty roving-radiogroup / Description — future fields
+  like #250's recurring rules slot in as more cells) → a served points-forecast panel (base + max speed
   bonus + today's multiplier; `speedBonus` config now rides `GET /api/points`) →
   Save · Delete (shared-`Modal` **confirm dialog** — the undo-toast delete is
   retired) · Start now/Resume. **Status display labels: `backlog` = "Ready",
@@ -335,8 +412,10 @@ to the old Node API.
   header Stats icon (shown when the right column isn't rendered — which on /stats
   itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
-  (Profile / Email / Password / **Play** / **Sign out everywhere** / **Delete
-  account**, hairline dividers — replaced the three FormCards). `AccountController`:
+  (Profile / Email / Password / **Play** / **Two-factor authentication** (#319) /
+  **Account** (#330/#332 — ONE danger section, titled "Account", two same-size md
+  danger buttons: Sign out everywhere + Delete my account), hairline dividers —
+  replaced the three FormCards). `AccountController`:
   `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
   `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
   register) + `POST /api/account/password` (needs current password, keeps this
@@ -440,8 +519,14 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Rail** (`Rail.tsx`, `w-56`, collapsible; below `sm` it's an **overlay drawer**,
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
-  (All tasks / Ready / Started / Unassigned / Done → the Dashboard's `?tab=`
-  filters, counts from the server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
+  (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
+  the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
+  the #312 task-archive axis → `?tab=archived`). **Category entries (#276, placed
+  #334)** sit directly under Ready — the way project entries sit under Active; NO
+  separate Categories section — each → `?category=ID` with its remaining count,
+  followed by a muted **"+ New category" row** → the `?newCategory=1` modal
+  (Edit/Delete live on the Dashboard toolbar when a category filter is active).
+  Then the Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
 - **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in

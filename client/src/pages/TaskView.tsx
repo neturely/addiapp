@@ -15,6 +15,7 @@ import { Modal } from '@/components/Modal'
 import { ApiError } from '@/lib/apiError'
 import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
+import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, type Project } from '@/lib/projects'
 import {
   createTask,
@@ -93,6 +94,7 @@ export function TaskView() {
 
   const [task, setTask] = useState<Task | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [points, setPoints] = useState<PointsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -100,9 +102,13 @@ export function TaskView() {
   const [title, setTitle] = useState('')
   const [complexity, setComplexity] = useState<TaskComplexity>('medium')
   const [minutes, setMinutes] = useState('')
-  const [status, setStatus] = useState<TaskStatus>('backlog')
+  // 'archived' (#330) is the #312 axis presented AS a status: a filed task
+  // shows it; picking a real status un-files (the edit page IS the unarchive
+  // path — the archive tab only offers Delete).
+  const [status, setStatus] = useState<TaskStatus | 'archived'>('backlog')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState<number | ''>('')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
 
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -114,15 +120,18 @@ export function TaskView() {
 
     if (creating) {
       const preselect = Number(searchParams.get('project'))
+      const preselectCategory = Number(searchParams.get('category'))
       // 'all' (#310): done/archived projects are assignable too — picking one
       // reactivates it server-side, so the select lists every owned project.
-      Promise.all([fetchProjects('all'), fetchPoints()])
-        .then(([p, pts]) => {
+      Promise.all([fetchProjects('all'), fetchCategories(), fetchPoints()])
+        .then(([p, cats, pts]) => {
           if (cancelled) return
           setProjects(p)
+          setCategories(cats)
           setPoints(pts)
-          // Pre-assign only when the id resolves to an owned project.
+          // Pre-assign only when the id resolves to an owned project/category.
           if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
+          if (cats.some((c) => c.id === preselectCategory)) setCategoryId(preselectCategory)
         })
         .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
         .finally(() => !cancelled && setLoading(false))
@@ -137,18 +146,20 @@ export function TaskView() {
       setLoading(false)
       return
     }
-    Promise.all([getTask(taskId), fetchProjects('all'), fetchPoints()])
-      .then(([t, p, pts]) => {
+    Promise.all([getTask(taskId), fetchProjects('all'), fetchCategories(), fetchPoints()])
+      .then(([t, p, cats, pts]) => {
         if (cancelled) return
         setTask(t)
         setProjects(p)
+        setCategories(cats)
         setPoints(pts)
         setTitle(t.title)
         setComplexity(t.complexity)
         setMinutes(String(t.estimatedMinutes))
-        setStatus(t.status)
+        setStatus(t.archivedAt ? 'archived' : t.status)
         setDescription(t.description ?? '')
         setProjectId(t.projectId ?? '')
+        setCategoryId(t.categoryId ?? '')
       })
       .catch((e) => {
         if (cancelled) return
@@ -200,6 +211,7 @@ export function TaskView() {
           estimatedMinutes: mins,
           description: description.trim(),
           ...(projectId !== '' ? { projectId } : {}),
+          ...(categoryId !== '' ? { categoryId } : {}),
         })
         showToast({ message: `Task added: ${trimmed}`, icon: CircleCheck, tone: 'success' })
         // Create always lands on the dashboard (#256 review) — the Back button
@@ -208,16 +220,24 @@ export function TaskView() {
         return
       }
       const updated = await updateTask(task!.id, {
+        // 'archived' isn't a real status: keep 'done' and leave the flag alone.
+        // Any REAL status picked on a filed task un-files it — explicit
+        // archived:false covers staying 'done' (the #312 invariant already
+        // clears it when leaving 'done').
+        ...(status === 'archived'
+          ? { status: 'done' as TaskStatus }
+          : { status, ...(task!.archivedAt ? { archived: false } : {}) }),
         title: trimmed,
         complexity,
         estimatedMinutes: mins,
-        status,
         description: description.trim(),
         // #236 semantics: an int assigns to an active owned project; null unassigns.
         projectId: projectId === '' ? null : projectId,
+        // #276: same null-unlabels semantics for the category axis.
+        categoryId: categoryId === '' ? null : categoryId,
       })
       setTask({ ...task!, ...updated })
-      setStatus(updated.status)
+      setStatus(updated.archivedAt ? 'archived' : updated.status)
       showToast({ message: 'Task saved', icon: CircleCheck, tone: 'success' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the task.')
@@ -289,6 +309,13 @@ export function TaskView() {
           {creating ? 'Back' : 'All tasks'}
         </Button>
         <div className="flex items-center gap-2 px-1 text-xs text-muted">
+          {/* Filed-away indicator (#332) — the archived state visible at a
+              glance, beyond the Status select. */}
+          {!creating && task?.archivedAt && (
+            <span className="rounded-full bg-field px-2.5 py-0.5 text-[11px] font-semibold text-muted">
+              Archived
+            </span>
+          )}
           <span
             className={`h-2.5 w-2.5 flex-none rounded-[3px] ${project ? projectPole(project.color) : 'bg-gray-300'}`}
             aria-hidden
@@ -350,6 +377,26 @@ export function TaskView() {
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <label htmlFor="task-category" className={FIELD_LABEL}>
+                Category
+              </label>
+              {/* User-defined lists (#276) — flat set, no lifecycle groups. */}
+              <select
+                id="task-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
+                className={FIELD}
+              >
+                <option value="">No category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <label htmlFor="task-minutes" className={FIELD_LABEL}>
                 Estimate (minutes)
               </label>
@@ -362,6 +409,28 @@ export function TaskView() {
                 onChange={(e) => setMinutes(e.target.value)}
                 className={FIELD}
               />
+            </div>
+
+            {/* Status sits beside Estimate (#330 — was stranded below the
+                Difficulty tiles leaving dead space here). A filed task shows
+                "Archived"; picking a real status un-files it on save. */}
+            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
+              <label htmlFor="task-status" className={FIELD_LABEL}>
+                Status
+              </label>
+              <select
+                id="task-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as TaskStatus | 'archived')}
+                className={FIELD}
+              >
+                {task?.archivedAt && <option value="archived">Archived</option>}
+                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -417,24 +486,6 @@ export function TaskView() {
               </div>
             </div>
 
-            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
-              <label htmlFor="task-status" className={FIELD_LABEL}>
-                Status
-              </label>
-              <select
-                id="task-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className={FIELD}
-              >
-                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-description" className={FIELD_LABEL}>
                 Description
@@ -450,7 +501,7 @@ export function TaskView() {
             </div>
           </div>
 
-          {status !== 'done' && base !== undefined && (
+          {status !== 'done' && status !== 'archived' && base !== undefined && (
             <div className="mt-6 flex items-center gap-4 rounded-xl bg-success-tint px-4 py-3.5 text-success-ink">
               <div className="text-2xl font-bold tabular-nums tracking-tight">{base}</div>
               <p className="text-sm leading-relaxed">
@@ -481,7 +532,7 @@ export function TaskView() {
               </Button>
             )}
             <span className="flex-1" aria-hidden />
-            {!creating && status !== 'done' && (
+            {!creating && status !== 'done' && status !== 'archived' && (
               <Button onClick={() => void startNow()}>
                 <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
                 {task?.status === 'in_progress' ? 'Resume' : 'Start now'}

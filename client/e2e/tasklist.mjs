@@ -253,5 +253,273 @@ ok(
   '#310: the project’s tasks survive deletion in Unassigned',
 )
 
+// --- Task archiving (#312): rail entry, archive tab, unarchive ---
+const archTask = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: `e2e archive probe ${Date.now()}`, complexity: 'low', estimatedMinutes: 5 }),
+  })
+  const { task } = await r.json()
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'done' }),
+  })
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ archived: true }),
+  })
+  return task.id
+})
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+const archRail = await page.evaluate(() => {
+  const link = [...document.querySelectorAll('#app-rail a')].find(
+    (a) => a.getAttribute('href') === '/dashboard?tab=archived',
+  )
+  return link ? (link.querySelector('span.tabular-nums')?.textContent?.trim() ?? '') : null
+})
+ok(archRail !== null && Number(archRail) >= 1, `#312: rail Archived entry with count (${archRail})`)
+// #332: the All view INCLUDES the archived row, pill reading "Archived".
+const allTabArchPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e archive probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(
+  allTabArchPill === 'Archived',
+  `#332: All tab lists the archived task with an "Archived" pill (got "${allTabArchPill}")`,
+)
+// …but the Done STATUS tab still excludes it (done = done-not-filed).
+await page.goto(`${BASE}/dashboard?tab=done`, { waitUntil: 'networkidle0' })
+ok(
+  await page.evaluate(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || '')),
+  '#332: the Done tab still excludes archived tasks',
+)
+await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
+ok(
+  await page.evaluate(() => /e2e archive probe/i.test(document.body.textContent || '')),
+  '#312: archived tab lists the filed task',
+)
+// #330: the archived row's pill reads "Archived", never "Done".
+const archPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e archive probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(archPill === 'Archived', `#330: archived row pill reads "Archived" (got "${archPill}")`)
+
+// #330: un-filing happens in the TASK VIEW — its Status select shows
+// "Archived"; picking Done saves back to plain Done (archived:false).
+await page.goto(`${BASE}/tasks/${archTask}`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('#task-status', { timeout: 5000 })
+ok(
+  (await page.$eval('#task-status', (s) => s.value)) === 'archived',
+  '#330: task view Status shows "Archived" for a filed task',
+)
+ok(
+  await page.evaluate(() =>
+    [...document.querySelectorAll('main span')].some(
+      (s) => s.textContent?.trim() === 'Archived' && s.className.includes('rounded-full'),
+    ),
+  ),
+  '#332: task view shows the "Archived" chip in the top bar',
+)
+await page.select('#task-status', 'done')
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => /save changes/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  async (tid) => {
+    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) =>
+      r.json(),
+    )
+    return task.archivedAt === null && task.status === 'done'
+  },
+  { timeout: 5000, polling: 500 },
+  archTask,
+)
+ok(true, '#330: setting Status to Done un-files the task (back to plain Done)')
+
+// Re-file it, then the archived tab's Delete action (replaced Unarchive):
+// confirm modal → row gone → task gone server-side.
+await page.evaluate(
+  (tid) =>
+    fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: true }),
+    }),
+  archTask,
+)
+await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => /^delete e2e archive probe/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
+)
+await page.waitForSelector('[role=dialog]', { timeout: 5000 })
+await page.evaluate(() =>
+  [...document.querySelectorAll('[role=dialog] button')]
+    .find((b) => /delete task/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || ''),
+  { timeout: 5000 },
+)
+const deletedStatus = await page.evaluate(
+  async (tid) => (await fetch(`/api/tasks/${tid}`, { credentials: 'include' })).status,
+  archTask,
+)
+ok(deletedStatus === 404, '#330: archived-row Delete removes the task (confirmed, 404)')
+
+// --- One-click Archive on Done views (#321) ---
+// Task half: a done row exposes the trailing Archive button; clicking removes it.
+const oneClick = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: `e2e oneclick probe ${Date.now()}`, complexity: 'low', estimatedMinutes: 5 }),
+  })
+  const { task } = await r.json()
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'done' }),
+  })
+  return task.id
+})
+await page.goto(`${BASE}/dashboard?tab=done`, { waitUntil: 'networkidle0' })
+const rowArchive = await page.evaluate(() =>
+  [...document.querySelectorAll('main button')].some((b) =>
+    /^archive e2e oneclick probe/i.test(b.getAttribute('aria-label') || ''),
+  ),
+)
+ok(rowArchive, '#321: done row exposes the trailing Archive button')
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => /^archive e2e oneclick probe/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () => !/e2e oneclick probe/i.test(document.querySelector('main ul')?.textContent || ''),
+  { timeout: 5000 },
+)
+ok(
+  await page.evaluate(async (tid) => {
+    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) => r.json())
+    return task.archivedAt !== null
+  }, oneClick),
+  '#321: row Archive files the done task (archivedAt set, row gone)',
+)
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  oneClick,
+)
+
+// Project half: a done card exposes a visible Archive button.
+const doneProject = await page.evaluate(async () => {
+  const r = await fetch('/api/projects', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: `e2e done-card probe ${Date.now()}` }),
+  })
+  const { project } = await r.json()
+  const tr = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'done-card task', complexity: 'low', estimatedMinutes: 5, projectId: project.id }),
+  })
+  const { task } = await tr.json()
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'done' }),
+  })
+  return { id: project.id, name: project.name, taskId: task.id }
+})
+await page.goto(`${BASE}/dashboard?view=projects&status=done`, { waitUntil: 'networkidle0' })
+const cardArchive = await page.evaluate(
+  (name) =>
+    [...document.querySelectorAll('button')].some(
+      (b) => (b.getAttribute('aria-label') || '') === `Archive ${name}`,
+    ),
+  doneProject.name,
+)
+ok(cardArchive, '#321: done project card exposes a visible Archive button')
+await page.evaluate(
+  (name) =>
+    [...document.querySelectorAll('button')]
+      .find((b) => (b.getAttribute('aria-label') || '') === `Archive ${name}`)
+      ?.click(),
+  doneProject.name,
+)
+await page.waitForFunction(
+  (name) => !document.querySelector('main')?.textContent?.includes(name),
+  { timeout: 5000 },
+  doneProject.name,
+)
+ok(
+  await page.evaluate(async (pid) => {
+    const { projects } = await fetch('/api/projects?status=archived', { credentials: 'include' }).then(
+      (r) => r.json(),
+    )
+    return projects.some((p) => p.id === pid)
+  }, doneProject.id),
+  '#321: card Archive moves the done project to Archived (card gone)',
+)
+// Cleanup: delete the archived probe project + its task.
+await page.evaluate(async (probe) => {
+  await fetch(`/api/projects/${probe.id}`, { method: 'DELETE', credentials: 'include' })
+  await fetch(`/api/tasks/${probe.taskId}`, { method: 'DELETE', credentials: 'include' })
+}, doneProject)
+
+// --- Status pill on mixed-status lists (#322) ---
+const pillProbe = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: `e2e pill probe ${Date.now()}`, complexity: 'high', estimatedMinutes: 5 }),
+  })
+  const { task } = await r.json()
+  return task.id
+})
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+const allPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e pill probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(allPill === 'Ready', `#322: All tab pill shows the STATUS (got "${allPill}")`)
+await page.goto(`${BASE}/dashboard?tab=backlog`, { waitUntil: 'networkidle0' })
+const tabPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e pill probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(tabPill === 'High', `#322: status tab keeps the DIFFICULTY pill (got "${tabPill}")`)
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  pillProbe,
+)
+
 await browser.close()
 process.exit(done())

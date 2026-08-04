@@ -61,6 +61,7 @@ export function InProgress() {
       ? sizeParam
       : undefined
   const minutes = parseMinutes(params.get('minutes'))
+  const category = parseMinutes(params.get('category')) // same positive-int guard (#276)
 
   const [task, setTask] = useState<Task | null>(null)
   const [points, setPoints] = useState<PointsStats | null>(null)
@@ -165,11 +166,13 @@ export function InProgress() {
     return (
       <Completion
         title={task?.title ?? 'Task complete'}
+        taskId={task?.id}
         totalPoints={awarded?.totalPoints}
         multiplier={awarded?.multiplier}
         size={size}
         minutes={minutes}
         mode={mode}
+        category={category}
         projectBonus={projectDone}
       />
     )

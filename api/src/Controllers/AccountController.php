@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\BackupCodes;
 use App\Auth\EmailTokens;
 use App\Auth\Passwords;
 use App\Auth\Sessions;
+use App\Auth\Totp;
 use App\Db;
 use App\Email\Mailer;
 use App\Email\Templates;
@@ -59,7 +61,7 @@ final class AccountController
             ->execute($args);
 
         $stmt = $pdo->prepare(
-            'SELECT id, email, display_name, selection_strategy FROM users WHERE id = ? LIMIT 1',
+            'SELECT id, email, display_name, selection_strategy, totp_enabled FROM users WHERE id = ? LIMIT 1',
         );
         $stmt->execute([$req->userId]);
         $row = $stmt->fetch();
@@ -157,6 +159,138 @@ final class AccountController
         $sid = $req->cookies[Sessions::COOKIE] ?? null;
         Sessions::deleteUserSessionsExcept((int) $req->userId, is_string($sid) ? $sid : null);
         Response::noContent();
+    }
+
+    /**
+     * POST /api/account/totp/setup (#319) — start TOTP enrollment. Requires the
+     * current password (re-auth, like the password change). Stores a STAGED
+     * secret (`totp_enabled` stays 0 — login is unaffected until confirm), and
+     * returns it with the otpauth:// URI for the authenticator app. Re-running
+     * before confirm simply restages a fresh secret.
+     */
+    public function totpSetup(Request $req, array $params): void
+    {
+        if (!RateLimit::check('totp-setup', $req->clientIp(), 10)) {
+            Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+        $user = $this->requirePassword($req);
+        if ($user === null) {
+            return;
+        }
+        if ((int) ($user['totp_enabled'] ?? 0) === 1) {
+            Response::error('Two-factor authentication is already enabled.', 400);
+            return;
+        }
+
+        $secret = Totp::generateSecret();
+        Db::pdo()->prepare('UPDATE users SET totp_secret = ? WHERE id = ?')
+            ->execute([$secret, $req->userId]);
+
+        Response::json([
+            'secret' => $secret,
+            'otpauthUri' => Totp::otpauthUri($secret, (string) $user['email']),
+        ]);
+    }
+
+    /**
+     * POST /api/account/totp/confirm (#319) — arm 2FA by proving the app has
+     * the secret (one valid code). Confirm-to-arm means a mistyped/lost secret
+     * can never lock the account. Returns the 10 single-use backup codes —
+     * plaintext exactly once; only bcrypt hashes are stored.
+     */
+    public function totpConfirm(Request $req, array $params): void
+    {
+        $code = $req->input('code');
+        if (!is_string($code) || trim($code) === '') {
+            Response::error('A code from your authenticator app is required', 400);
+            return;
+        }
+
+        $pdo = Db::pdo();
+        $stmt = $pdo->prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$req->userId]);
+        $row = $stmt->fetch();
+        if ($row === false || (int) $row['totp_enabled'] === 1) {
+            Response::error('Two-factor authentication is already enabled.', 400);
+            return;
+        }
+        if ($row['totp_secret'] === null) {
+            Response::error('No enrollment in progress — start again from Settings.', 400);
+            return;
+        }
+        if (!Totp::verify((string) $row['totp_secret'], trim($code))) {
+            Response::error('That code didn\'t match — check the app and try again.', 400);
+            return;
+        }
+
+        $pdo->prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?')->execute([$req->userId]);
+
+        Response::json(['backupCodes' => BackupCodes::issue((int) $req->userId)]);
+    }
+
+    /**
+     * POST /api/account/totp/disable (#319) — requires the current password AND
+     * a valid authenticator code (or a backup code), so neither a stolen
+     * password nor a hijacked session alone can strip the second factor.
+     * Clears the secret + backup codes; sessions are untouched. Also cancels a
+     * merely-STAGED enrollment (password only — no code exists to demand yet).
+     */
+    public function totpDisable(Request $req, array $params): void
+    {
+        if (!RateLimit::check('totp-disable', $req->clientIp(), 10)) {
+            Response::error('Too many requests, please try again later.', 429);
+            return;
+        }
+        $user = $this->requirePassword($req);
+        if ($user === null) {
+            return;
+        }
+
+        $enabled = (int) ($user['totp_enabled'] ?? 0) === 1;
+        if ($enabled) {
+            $code = $req->input('code');
+            if (!is_string($code) || trim($code) === '') {
+                Response::error('A code from your authenticator app is required', 400);
+                return;
+            }
+            $code = trim($code);
+            $ok = preg_match('/^\d{6}$/', $code) === 1
+                ? Totp::verify((string) $user['totp_secret'], $code)
+                : BackupCodes::consume((int) $req->userId, $code);
+            if (!$ok) {
+                Response::error('That code didn\'t match — check the app and try again.', 400);
+                return;
+            }
+        }
+
+        Db::pdo()->prepare('UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE id = ?')
+            ->execute([$req->userId]);
+        BackupCodes::deleteAll((int) $req->userId);
+
+        Response::noContent();
+    }
+
+    /**
+     * Shared password re-auth for the TOTP endpoints: 400s on a missing/wrong
+     * password and returns null, else the full user row.
+     * @return array<string,mixed>|null
+     */
+    private function requirePassword(Request $req): ?array
+    {
+        $password = $req->input('password');
+        if (!is_string($password) || $password === '') {
+            Response::error('Your password is required', 400);
+            return null;
+        }
+        $stmt = Db::pdo()->prepare('SELECT * FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([$req->userId]);
+        $row = $stmt->fetch();
+        if ($row === false || !Passwords::verify($password, (string) $row['password_hash'])) {
+            Response::error('Password is incorrect', 400);
+            return null;
+        }
+        return $row;
     }
 
     /**

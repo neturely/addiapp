@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronLeft, ChevronRight, FolderPlus, Play, Plus, X } from 'lucide-react'
 import {
+  Archive,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FolderPlus,
+  Play,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react'
+import {
+  archiveTask,
   assignTaskToProject,
+  deleteTask,
   fetchTasksPage,
   startTask,
   type Task,
@@ -14,12 +26,16 @@ import { fetchPoints } from '@/lib/points'
 import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { projectPole } from '@/lib/projectColors'
 import { fetchProjects, type Project } from '@/lib/projects'
+import { deleteCategory, fetchCategories, type Category } from '@/lib/categories'
+import { Button } from '@/components/Button'
+import { CategoryModal } from '@/components/CategoryModal'
 import { Mascot } from '@/components/Mascot'
+import { Modal } from '@/components/Modal'
 import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
-type Filter = 'all' | TaskStatus | 'unassigned'
+type Filter = 'all' | TaskStatus | 'unassigned' | 'archived'
 type View = 'tasks' | 'projects'
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -27,6 +43,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'backlog', label: 'Ready' }, // presentation label; enum value stays `backlog` (#178)
   { key: 'in_progress', label: 'Started' },
   { key: 'done', label: 'Done' },
+  { key: 'archived', label: 'Archived' }, // the #312 archive axis, not a status
 ]
 
 // Tint pills (#178 palette): dark on-fill text keeps them AA in a dense list.
@@ -36,11 +53,27 @@ const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string 
   high: { label: 'High', className: 'bg-[#ffcdb8] text-on-primary' },
 }
 
+// Status pill for mixed-status lists (#322): the #256 display labels (never a
+// new string source) on the AA tint+ink pairs. Only Ready/Started/Done —
+// Unassigned is a project axis, already visible in the project cell.
+const STATUS_TAG: Record<TaskStatus, { label: string; className: string }> = {
+  backlog: { label: 'Ready', className: 'bg-accent-tint text-accent-ink' },
+  in_progress: { label: 'Started', className: 'bg-warning-tint text-warning-ink' },
+  done: { label: 'Done', className: 'bg-success-tint text-success-ink' },
+}
+// The archived axis outranks the underlying 'done' in the pill (#330) — a
+// filed task must read "Archived", never "Done".
+const ARCHIVED_TAG = { label: 'Archived', className: 'bg-field text-muted' }
+
 const PAGE_SIZE = 25 // offset page size (#262)
 
 // Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
 function filterFromTab(tab: string | null): Filter {
-  return tab === 'unassigned' || tab === 'backlog' || tab === 'in_progress' || tab === 'done'
+  return tab === 'unassigned' ||
+    tab === 'backlog' ||
+    tab === 'in_progress' ||
+    tab === 'done' ||
+    tab === 'archived'
     ? tab
     : 'all'
 }
@@ -71,6 +104,18 @@ export function Dashboard() {
   const rideAlongId = Number.isInteger(projectParam) && projectParam > 0 ? projectParam : null
   const projectFilterId = tabParam !== 'unassigned' && view === 'tasks' ? rideAlongId : null
 
+  // `?category=ID` (#276): the rail's custom-list entries. Independent axis;
+  // the project filter wins if both ever appear in one URL.
+  const categoryParam = Number(searchParams.get('category'))
+  const categoryFilterId =
+    view === 'tasks' &&
+    tabParam !== 'unassigned' &&
+    projectFilterId === null &&
+    Number.isInteger(categoryParam) &&
+    categoryParam > 0
+      ? categoryParam
+      : null
+
   const [tasks, setTasks] = useState<Task[]>([])
   const [total, setTotal] = useState(0)
   const [counts, setCounts] = useState<TaskCounts | null>(null)
@@ -93,18 +138,22 @@ export function Dashboard() {
   }
 
   // A filter or sort change is a fresh first page.
-  useEffect(() => setOffset(0), [filter, projectFilterId, newestFirst])
+  useEffect(() => setOffset(0), [filter, projectFilterId, categoryFilterId, newestFirst])
 
   const loadPage = useCallback(() => {
     const order = newestFirst ? ('desc' as const) : undefined
     const query =
       projectFilterId !== null
         ? { projectId: projectFilterId, limit: PAGE_SIZE, offset, order }
-        : filter === 'unassigned'
-          ? { unassigned: true, limit: PAGE_SIZE, offset, order }
-          : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
+        : categoryFilterId !== null
+          ? { categoryId: categoryFilterId, limit: PAGE_SIZE, offset, order }
+          : filter === 'unassigned'
+            ? { unassigned: true, limit: PAGE_SIZE, offset, order }
+            : filter === 'archived'
+              ? { archived: true, limit: PAGE_SIZE, offset, order }
+              : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
     return fetchTasksPage(query)
-  }, [filter, projectFilterId, offset, newestFirst])
+  }, [filter, projectFilterId, categoryFilterId, offset, newestFirst])
 
   useEffect(() => {
     let cancelled = false
@@ -145,6 +194,55 @@ export function Dashboard() {
     }
   }, [filter, projectFilterId])
 
+  // Categories (#276): the active filter's name/colour for the toolbar +
+  // Edit/Delete, and the `?newCategory=1` modal deep-link from the rail's plus.
+  const [categories, setCategories] = useState<Category[]>([])
+  const newCategoryParam = searchParams.get('newCategory') === '1'
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
+  const [categoryBusy, setCategoryBusy] = useState(false)
+  useEffect(() => {
+    if (categoryFilterId === null) return
+    let cancelled = false
+    fetchCategories()
+      .then((c) => !cancelled && setCategories(c))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [categoryFilterId])
+  const filterCategory =
+    categoryFilterId !== null ? (categories.find((c) => c.id === categoryFilterId) ?? null) : null
+
+  function closeNewCategory() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('newCategory')
+    setSearchParams(params)
+  }
+
+  async function confirmDeleteCategory() {
+    if (!deletingCategory) return
+    setCategoryBusy(true)
+    try {
+      const { unlabelledTasks } = await deleteCategory(deletingCategory.id)
+      showToast({
+        message:
+          unlabelledTasks > 0
+            ? `Category deleted — ${unlabelledTasks} ${unlabelledTasks === 1 ? 'task' : 'tasks'} kept without it`
+            : 'Category deleted',
+        icon: X,
+        tone: 'neutral',
+      })
+      setDeletingCategory(null)
+      navigate('/dashboard')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete the category.')
+      setDeletingCategory(null)
+    } finally {
+      setCategoryBusy(false)
+    }
+  }
+
   const rideAlongProject =
     rideAlongId !== null ? (projects.find((p) => p.id === rideAlongId) ?? null) : null
 
@@ -166,6 +264,45 @@ export function Dashboard() {
       setCounts(page.counts)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not assign that task.')
+    }
+  }
+
+  // One-click archive from the Done tab (#321) — the standard done → archived
+  // path, refetching like assign so the row leaves and counts settle.
+  async function archiveDone(task: Task) {
+    try {
+      await archiveTask(task.id, true)
+      showToast({ message: 'Task archived', icon: Archive, tone: 'neutral' })
+      const page = await loadPage()
+      setTasks(page.tasks)
+      setTotal(page.total)
+      setCounts(page.counts)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not archive that task.')
+    }
+  }
+
+  // Delete from the archive tab (#330 — replaced Unarchive: un-filing is the
+  // task view's job via its Status select). Confirmed via modal, then a
+  // server-authoritative refetch.
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null)
+  const [taskBusy, setTaskBusy] = useState(false)
+  async function confirmDeleteTask() {
+    if (!deletingTask) return
+    setTaskBusy(true)
+    try {
+      await deleteTask(deletingTask.id)
+      showToast({ message: `Task deleted: ${deletingTask.title}`, icon: Trash2, tone: 'neutral' })
+      setDeletingTask(null)
+      const page = await loadPage()
+      setTasks(page.tasks)
+      setTotal(page.total)
+      setCounts(page.counts)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete that task.')
+      setDeletingTask(null)
+    } finally {
+      setTaskBusy(false)
     }
   }
 
@@ -231,17 +368,21 @@ export function Dashboard() {
   const selectionLabel =
     projectFilterId !== null
       ? (filterProject?.name ?? 'Project')
-      : filter === 'all'
-        ? 'All tasks'
-        : filter === 'unassigned'
-          ? 'Unassigned'
-          : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
-  // Count text scopes to the selection (#256 review): a project filter shows
-  // THAT project's remaining count (the rail's figure), not the global backlog.
+      : categoryFilterId !== null
+        ? (filterCategory?.name ?? 'Category')
+        : filter === 'all'
+          ? 'All tasks'
+          : filter === 'unassigned'
+            ? 'Unassigned'
+            : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
+  // Count text scopes to the selection (#256 review): a project/category filter
+  // shows THAT list's remaining count (the rail's figure), not the global backlog.
   const ready = counts?.backlog ?? 0
   const countLabel = filterProject
     ? `${filterProject.remainingCount} of ${filterProject.totalCount} left to do`
-    : `${ready} ${ready === 1 ? 'task' : 'tasks'} ready to do`
+    : filterCategory
+      ? `${filterCategory.remainingCount} of ${filterCategory.totalCount} left to do`
+      : `${ready} ${ready === 1 ? 'task' : 'tasks'} ready to do`
 
   return (
     // No page heading / view toggle (review feedback on #256): the rail's
@@ -301,6 +442,26 @@ export function Dashboard() {
             </span>
             <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
             <span className="font-medium text-gray-700 tabular-nums">{countLabel}</span>
+            {/* Manage the filtered category in place (#276) — mirrors the
+                project cards' kebab actions, surfaced in the toolbar. */}
+            {filterCategory && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(filterCategory)}
+                  className="tap-44 cursor-pointer underline transition hover:text-primary-ink"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingCategory(filterCategory)}
+                  className="tap-44 cursor-pointer underline transition hover:text-danger-ink"
+                >
+                  Delete
+                </button>
+              </>
+            )}
             <span className="flex-1" aria-hidden />
             <span className="tabular-nums">{rangeLabel}</span>
             <Pager />
@@ -326,11 +487,15 @@ export function Dashboard() {
                   ? 'Nothing matches your search.'
                   : projectFilterId !== null
                     ? 'No tasks in this project yet.'
-                    : (counts?.all ?? 0) === 0
-                      ? 'No tasks yet.'
-                      : filter === 'unassigned'
-                        ? 'No unassigned tasks — every task is in a project.'
-                        : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
+                    : categoryFilterId !== null
+                      ? 'No tasks in this category yet.'
+                      : filter === 'archived'
+                        ? 'Nothing archived — archive done tasks to file them away.'
+                        : (counts?.all ?? 0) === 0
+                          ? 'No tasks yet.'
+                          : filter === 'unassigned'
+                            ? 'No unassigned tasks — every task is in a project.'
+                            : `No ${(FILTERS.find((f) => f.key === filter)?.label ?? '').toLowerCase()} tasks.`}
               </p>
               <Link
                 to="/tasks/new"
@@ -392,11 +557,28 @@ export function Dashboard() {
                       >
                         {task.project?.name ?? 'No project'}
                       </span>
-                      <span
-                        className={`flex-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${COMPLEXITY_TAG[task.complexity].className}`}
-                      >
-                        {COMPLEXITY_TAG[task.complexity].label}
-                      </span>
+                      {/* Mixed-status lists — All tasks and the per-project/
+                          category filters (both compute filter 'all') — spend
+                          the pill slot on STATUS (#322): that's what the user
+                          scans a mixed list for. The archived tab uses it too,
+                          resolving the archived axis first (#330 — a filed
+                          task reads "Archived", never "Done"). Homogeneous
+                          status tabs (and Unassigned) keep the difficulty pill. */}
+                      {(() => {
+                        const tag =
+                          filter === 'all' || filter === 'archived'
+                            ? task.archivedAt
+                              ? ARCHIVED_TAG
+                              : STATUS_TAG[task.status]
+                            : COMPLEXITY_TAG[task.complexity]
+                        return (
+                          <span
+                            className={`flex-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tag.className}`}
+                          >
+                            {tag.label}
+                          </span>
+                        )
+                      })()}
                       <span className="min-w-0 flex-1 truncate text-sm">
                         <span
                           className={
@@ -411,6 +593,17 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
+                      {/* Category chip (#276) — the custom-list label, pole dot
+                          + name; hidden below sm where the row is tight. */}
+                      {task.category && (
+                        <span className="hidden max-w-28 flex-none items-center gap-1.5 rounded-full bg-field px-2.5 py-0.5 text-[11px] font-medium text-gray-700 sm:inline-flex">
+                          <span
+                            className={`h-1.5 w-1.5 flex-none rounded-full ${projectPole(task.category.color)}`}
+                            aria-hidden
+                          />
+                          <span className="truncate">{task.category.name}</span>
+                        </span>
+                      )}
                       {/* Started rows carry their own live clock (#256 review
                           — tasks run in parallel, each on its own timer). */}
                       {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
@@ -453,6 +646,30 @@ export function Dashboard() {
                         onAssign={(project) => void assign(task, project)}
                       />
                     )}
+                    {/* One-click Archive on done rows (#321) — the Assign
+                        button's trailing style/placement. */}
+                    {filter === 'done' && task.status === 'done' && (
+                      <button
+                        type="button"
+                        onClick={() => void archiveDone(task)}
+                        aria-label={`Archive ${task.title}`}
+                        className="mr-4 flex-none cursor-pointer rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
+                      >
+                        Archive
+                      </button>
+                    )}
+                    {/* Delete (#330) — the archive tab's trailing row action
+                        (un-filing lives in the task view's Status select). */}
+                    {filter === 'archived' && (
+                      <button
+                        type="button"
+                        onClick={() => setDeletingTask(task)}
+                        aria-label={`Delete ${task.title}`}
+                        className="mr-4 flex-none cursor-pointer rounded-lg bg-danger-tint px-3 py-2.5 text-xs font-semibold text-danger-ink transition hover:opacity-80 sm:py-1.5"
+                      >
+                        Delete
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -464,6 +681,78 @@ export function Dashboard() {
             </>
           )}
         </>
+      )}
+
+      {/* New category (#276) — the rail's Categories plus deep-links ?newCategory=1. */}
+      {newCategoryParam && (
+        <CategoryModal
+          onClose={closeNewCategory}
+          onSaved={(saved) => {
+            closeNewCategory()
+            navigate(`/dashboard?category=${saved.id}`)
+          }}
+        />
+      )}
+      {editingCategory && (
+        <CategoryModal
+          category={editingCategory}
+          onClose={() => setEditingCategory(null)}
+          onSaved={(saved) => {
+            setEditingCategory(null)
+            setCategories((cs) => cs.map((c) => (c.id === saved.id ? saved : c)))
+          }}
+        />
+      )}
+      {/* Archived-row delete confirm (#330) — the TaskView dialog's copy. */}
+      {deletingTask && (
+        <Modal titleId="task-delete-title" onClose={() => !taskBusy && setDeletingTask(null)}>
+          <h2 id="task-delete-title" className="mb-3 text-xl font-bold text-gray-800">
+            Delete this task?
+          </h2>
+          <p className="mb-5 text-sm leading-relaxed text-gray-700">
+            “{deletingTask.title}” will be permanently deleted. Points already earned from it are
+            kept.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={taskBusy} onClick={() => setDeletingTask(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" disabled={taskBusy} onClick={() => void confirmDeleteTask()}>
+              {taskBusy ? 'Deleting…' : 'Delete task'}
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {deletingCategory && (
+        <Modal
+          titleId="category-delete-title"
+          onClose={() => !categoryBusy && setDeletingCategory(null)}
+        >
+          <h2 id="category-delete-title" className="mb-3 text-xl font-bold text-gray-800">
+            Delete this category?
+          </h2>
+          <p className="mb-5 text-sm leading-relaxed text-gray-700">
+            “{deletingCategory.name}” will be deleted. Its {deletingCategory.totalCount}{' '}
+            {deletingCategory.totalCount === 1 ? 'task keeps' : 'tasks keep'} existing — they just
+            lose the category.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              disabled={categoryBusy}
+              onClick={() => setDeletingCategory(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={categoryBusy}
+              onClick={() => void confirmDeleteCategory()}
+            >
+              {categoryBusy ? 'Deleting…' : 'Delete category'}
+            </Button>
+          </div>
+        </Modal>
       )}
     </main>
   )

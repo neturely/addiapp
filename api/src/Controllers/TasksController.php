@@ -55,6 +55,18 @@ final class TasksController
             $args[] = $status;
         }
 
+        // Archived axis (#312, visibility revised #332): the WORKING lists —
+        // the status tabs and the Unassigned axis — exclude filed-away tasks,
+        // but the mixed "all" views (plain All tasks + the per-project/category
+        // filters) INCLUDE them ("All" means all; the client renders their
+        // pill as "Archived"). `archived=1` flips to the archive-only view.
+        $archived = $req->query('archived') === '1';
+        if ($archived) {
+            $conditions[] = 't.archived_at IS NOT NULL';
+        } elseif ($status !== null || $req->query('unassigned') === '1') {
+            $conditions[] = 't.archived_at IS NULL';
+        }
+
         // Unassigned filter (#236): tasks with no project, across all statuses (a
         // different axis than the status tabs). Covered by the (user_id, project_id)
         // index from #234's migration 010.
@@ -81,12 +93,32 @@ final class TasksController
             $args[] = $projectId;
         }
 
-        // The list ships each row's project name + colour (#268) and, for done
-        // tasks, the points actually earned (#256 review — points_log join;
-        // UNIQUE(task_id) keeps it 1:1) — no N+1 either way.
+        // Per-category filter (#276): the rail's custom-list entries — same
+        // shape and non-enumeration rules as the project axis above.
+        $categoryParam = $req->query('categoryId');
+        if ($categoryParam !== null) {
+            $categoryId = self::positiveInt($categoryParam);
+            if ($categoryId === null) {
+                Response::error('Invalid category filter', 400);
+                return;
+            }
+            if (CategoriesController::findOwnedCategory(Db::pdo(), $categoryId, (int) $req->userId) === null) {
+                Response::error('Category not found', 404);
+                return;
+            }
+            $conditions[] = 't.category_id = ?';
+            $args[] = $categoryId;
+        }
+
+        // The list ships each row's project name + colour (#268), its category
+        // name + colour (#276), and, for done tasks, the points actually earned
+        // (#256 review — points_log join; UNIQUE(task_id) keeps it 1:1) — no
+        // N+1 any way round.
         $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color,
+                    c.name AS category_name, c.color AS category_color,
                     pl.total_points AS earned_points
              FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+             LEFT JOIN task_categories c ON c.id = t.category_id
              LEFT JOIN points_log pl ON pl.task_id = t.id';
 
         $paginated = $req->query('limit') !== null;
@@ -137,8 +169,11 @@ final class TasksController
             return;
         }
         $order = $orderParam === 'desc' ? 'DESC' : 'ASC';
+        // The archive orders by WHEN it was filed (#312 — newest-archived first
+        // under the default desc), with id as a same-second tiebreak.
+        $orderCol = $archived ? 't.archived_at' : 't.id';
         $stmt = $pdo->prepare(
-            $select . $where . " ORDER BY t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
+            $select . $where . " ORDER BY {$orderCol} {$order}, t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
 
@@ -158,7 +193,12 @@ final class TasksController
      */
     private static function statusCounts(PDO $pdo, int $userId): array
     {
-        $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? GROUP BY status');
+        // Archived rows (#312) sit outside the STATUS figures — "Done" means
+        // "done, not filed away" — but `all` includes them (#332: the All view
+        // lists them), and they get their own count for the archive tab.
+        $stmt = $pdo->prepare(
+            'SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? AND archived_at IS NULL GROUP BY status',
+        );
         $stmt->execute([$userId]);
         $counts = ['all' => 0, 'backlog' => 0, 'in_progress' => 0, 'done' => 0];
         foreach ($stmt->fetchAll() as $row) {
@@ -167,14 +207,21 @@ final class TasksController
             $counts['all'] += $n;
         }
 
-        $u = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL');
+        $u = $pdo->prepare(
+            'SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL AND archived_at IS NULL',
+        );
         $u->execute([$userId]);
         $counts['unassigned'] = (int) $u->fetchColumn();
+
+        $a = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND archived_at IS NOT NULL');
+        $a->execute([$userId]);
+        $counts['archived'] = (int) $a->fetchColumn();
+        $counts['all'] += $counts['archived'];
 
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&category=3 */
     public function next(Request $req, array $params): void
     {
         $mode = $req->query('mode');
@@ -193,10 +240,25 @@ final class TasksController
             return;
         }
 
+        // Category filter (#276): scope the pick to one owned custom list. An
+        // independent axis, so it composes with win-type/time AND projects mode.
+        $category = null;
+        if ($req->query('category') !== null) {
+            $category = self::positiveInt($req->query('category'));
+            if ($category === null) {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            if (CategoriesController::findOwnedCategory(Db::pdo(), $category, (int) $req->userId) === null) {
+                Response::error('Category not found', 404);
+                return;
+            }
+        }
+
         // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
         // the active project closest to done, respecting the time filter.
         if ($mode === 'projects') {
-            $this->nextInProjects($req, $minutes, $exclude);
+            $this->nextInProjects($req, $minutes, $exclude, $category);
             return;
         }
 
@@ -220,6 +282,10 @@ final class TasksController
         if ($exclude !== null) {
             $conditions[] = 'id <> ?';
             $args[] = $exclude;
+        }
+        if ($category !== null) {
+            $conditions[] = 'category_id = ?';
+            $args[] = $category;
         }
 
         $stmt = Db::pdo()->prepare('SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions));
@@ -281,7 +347,7 @@ final class TasksController
      * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
      * shape as the default mode, so TaskPresented → InProgress is unchanged.
      */
-    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude): void
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null): void
     {
         $conditions = ['t.user_id = ?', "t.status = 'backlog'"];
         $args = [$req->userId];
@@ -292,6 +358,10 @@ final class TasksController
         if ($exclude !== null) {
             $conditions[] = 't.id <> ?';
             $args[] = $exclude;
+        }
+        if ($category !== null) {
+            $conditions[] = 't.category_id = ?';
+            $args[] = $category;
         }
 
         $stmt = Db::pdo()->prepare(
@@ -339,13 +409,27 @@ final class TasksController
             }
         }
 
+        // Optional category (#276) — must be a category the caller owns.
+        $categoryId = null;
+        if (array_key_exists('categoryId', $req->body)) {
+            $categoryId = self::positiveIntValue($req->input('categoryId'));
+            if ($req->input('categoryId') !== null && $categoryId === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+
         $pdo = Db::pdo();
         if ($projectId !== null && ProjectsController::findOwnedProject($pdo, $projectId, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
-        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id) VALUES (?, ?, ?, ?, ?, ?)')
-            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId]);
+        if ($categoryId !== null && CategoriesController::findOwnedCategory($pdo, $categoryId, (int) $req->userId) === null) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId, $categoryId]);
         $taskId = (int) $pdo->lastInsertId(); // before Lifecycle's writes clobber it
 
         // #310: assignment reactivates an archived target, and the new
@@ -447,6 +531,24 @@ final class TasksController
             $args[] = $assign;
         }
 
+        // Assign / clear a category (#276): same null-vs-absent semantics as
+        // projectId — `false` = key absent, null = "unlabel", int = assign.
+        $assignCategory = false;
+        if (array_key_exists('categoryId', $req->body)) {
+            $raw = $req->input('categoryId');
+            if ($raw === null) {
+                $assignCategory = null;
+            } else {
+                $assignCategory = self::positiveIntValue($raw);
+                if ($assignCategory === null) {
+                    Response::error('Invalid input', 400);
+                    return;
+                }
+            }
+            $sets[] = 'category_id = ?';
+            $args[] = $assignCategory;
+        }
+
         $newStatus = null;
         if (array_key_exists('status', $req->body)) {
             $newStatus = self::enum($req->input('status'), self::STATUS);
@@ -456,7 +558,20 @@ final class TasksController
             }
         }
 
-        if (count($sets) === 0 && $newStatus === null) {
+        // Archive / unarchive (#312): a boolean AXIS flag beside status. Only a
+        // done task can be archived (done → archive, matching the project flow);
+        // the done-check runs below once the existing row is in hand.
+        $archivedFlag = null;
+        if (array_key_exists('archived', $req->body)) {
+            $rawArchived = $req->input('archived');
+            if (!is_bool($rawArchived)) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $archivedFlag = $rawArchived;
+        }
+
+        if (count($sets) === 0 && $newStatus === null && $archivedFlag === null) {
             Response::error('No fields to update', 400);
             return;
         }
@@ -472,6 +587,10 @@ final class TasksController
         // (a foreign id → 400, not a silent write). Any status is assignable
         // (#310) — a done/archived target reactivates after the write below.
         if (is_int($assign) && ProjectsController::findOwnedProject($pdo, $assign, (int) $req->userId) === null) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        if (is_int($assignCategory) && CategoriesController::findOwnedCategory($pdo, $assignCategory, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
@@ -498,7 +617,23 @@ final class TasksController
                     $sets[] = 'completed_at = NULL';
                     $sets[] = 'actual_minutes = NULL';
                 }
+                // Leaving 'done' un-files the task (#312) — the archived ⇒ done
+                // invariant keeps archived rows out of the Play backlog pool.
+                if ($newStatus !== 'done') {
+                    $sets[] = 'archived_at = NULL';
+                }
             }
+        }
+
+        if ($archivedFlag === true) {
+            if (($newStatus ?? $existing['status']) !== 'done') {
+                Response::error('Only done tasks can be archived', 400);
+                return;
+            }
+            // IFNULL keeps the original filing time on a redundant re-archive.
+            $sets[] = 'archived_at = IFNULL(archived_at, NOW())';
+        } elseif ($archivedFlag === false) {
+            $sets[] = 'archived_at = NULL';
         }
 
         $args[] = $id;
@@ -604,9 +739,12 @@ final class TasksController
             'estimatedMinutes' => (int) $r['estimated_minutes'],
             'status' => $r['status'],
             'projectId' => $r['project_id'] !== null ? (int) $r['project_id'] : null,
+            'categoryId' => ($r['category_id'] ?? null) !== null ? (int) $r['category_id'] : null,
             'startedAt' => Timestamps::iso($r['started_at']),
             'completedAt' => Timestamps::iso($r['completed_at']),
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
+            // Archived axis (#312); coalesced for narrow pre-migration SELECTs.
+            'archivedAt' => Timestamps::iso($r['archived_at'] ?? null),
             'createdAt' => Timestamps::iso($r['created_at']),
             'updatedAt' => Timestamps::iso($r['updated_at']),
             // Joined project name + colour (#268) — present only on the list
@@ -615,6 +753,14 @@ final class TasksController
                 ? [
                     'project' => $r['project_name'] !== null
                         ? ['name' => $r['project_name'], 'color' => (int) $r['project_color']]
+                        : null,
+                ]
+                : []),
+            // Joined category name + colour (#276) — list only, like project.
+            ...(array_key_exists('category_name', $r)
+                ? [
+                    'category' => $r['category_name'] !== null
+                        ? ['name' => $r['category_name'], 'color' => (int) $r['category_color']]
                         : null,
                 ]
                 : []),
