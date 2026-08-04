@@ -216,7 +216,7 @@ export function Choice() {
               id="play-category"
               value={category ?? ''}
               onChange={(e) => setCategory(e.target.value === '' ? null : Number(e.target.value))}
-              className="h-8 cursor-pointer rounded-lg bg-page/70 px-2.5 text-[13px] text-gray-700 focus:outline-none focus:bg-field focus-visible:ring-2 focus-visible:ring-accent"
+              className="h-8 cursor-pointer rounded-lg bg-page/70 px-2.5 text-[13px] text-gray-700 transition hover:bg-field field-focus"
             >
               <option value="">Anything</option>
               {categories.map((c) => (

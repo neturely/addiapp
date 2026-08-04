@@ -78,7 +78,7 @@ export function ResetPassword() {
         <h1 className="mb-4 text-center text-xl font-bold">Choose a new password</h1>
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
             type="password"
             autoComplete="new-password"
             placeholder="New password (min 8 characters)"
@@ -86,7 +86,7 @@ export function ResetPassword() {
             onChange={(e) => setPassword(e.target.value)}
           />
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
             type="password"
             autoComplete="new-password"
             placeholder="Confirm new password"

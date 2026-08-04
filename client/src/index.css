@@ -130,10 +130,6 @@
      fields. Measured: muted 5.16 on field, 4.67 on field-hover; gray-700 8.67. */
   --color-field: #efebe4;
   --color-field-hover: #e5e0d8;
-  /* Focused-input fill (2.3.0 review round): pointer focus darkens the cell
-     instead of drawing the accent ring (the ring survives as focus-visible for
-     keyboard users only). One step past field-hover so hover vs focus reads. */
-  --color-field-active: #dcd6ca;
 
   /* Mascot (#96): dedicated character-fill tokens — decorative, not text.
      Named separately (not reusing --color-primary etc.) because the mascot has
@@ -206,6 +202,22 @@
   bottom: min(0px, calc(50% - 22px));
   left: min(0px, calc(50% - 22px));
   right: min(0px, calc(50% - 22px));
+}
+
+/*
+ * Input focus treatment (2.3.0 review round 3 — user-picked "darken-then-wash
+ * + lit label + soft brand glow"): hover darkens the field, focus washes it in
+ * primary-tint with a soft coral halo. The old focus-visible accent ring is
+ * RETIRED — browsers fire focus-visible on text inputs even for mouse clicks,
+ * so a pointer/keyboard split never existed for text fields; this treatment IS
+ * the keyboard indicator (the lit label + wash + glow together clear that
+ * bar). The glow is a deliberate, user-decided scoped exception to the
+ * flat-surface rule (like the mascot halo) — inputs only, not cards.
+ */
+.field-focus:focus {
+  outline: none;
+  background-color: var(--color-primary-tint);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 16%, transparent);
 }
 
 /*
