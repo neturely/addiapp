@@ -141,6 +141,9 @@ export type TaskCounts = {
   unassigned: number
   /** Filed-away done tasks (#312) — outside every other figure. */
   archived: number
+  /** Live recurring chains (2.3.0 review round): rule-carrying tasks that
+   * aren't done/archived — the rail's Recurring entry. */
+  recurring: number
 }
 
 /** One page of the dashboard task list (#262 — offset pagination, superseding
@@ -168,6 +171,9 @@ export async function fetchTasksPage(opts: {
   categoryId?: number
   /** #312 archive view: only filed-away tasks (default lists exclude them). */
   archived?: boolean
+  /** Recurring view (2.3.0 review round): the live occurrence of every
+   * recurring chain (rule-carrying, not done, not archived). */
+  recurring?: boolean
   limit: number
   offset?: number
   /** Row order: 'asc' (oldest first, the default) or 'desc' (newest first). */
@@ -179,6 +185,7 @@ export async function fetchTasksPage(opts: {
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   if (opts.categoryId != null) params.set('categoryId', String(opts.categoryId))
   if (opts.archived) params.set('archived', '1')
+  if (opts.recurring) params.set('recurring', '1')
   params.set('limit', String(opts.limit))
   if (opts.offset) params.set('offset', String(opts.offset))
   if (opts.order === 'desc') params.set('order', 'desc')

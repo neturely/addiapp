@@ -36,7 +36,7 @@ import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
-type Filter = 'all' | TaskStatus | 'unassigned' | 'archived'
+type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
 type View = 'tasks' | 'projects'
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -45,6 +45,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'in_progress', label: 'Started' },
   { key: 'done', label: 'Done' },
   { key: 'archived', label: 'Archived' }, // the #312 archive axis, not a status
+  { key: 'recurring', label: 'Recurring' }, // live recurring chains (2.3.0 review round)
 ]
 
 // Tint pills (#178 palette): dark on-fill text keeps them AA in a dense list.
@@ -85,7 +86,8 @@ function filterFromTab(tab: string | null): Filter {
     tab === 'backlog' ||
     tab === 'in_progress' ||
     tab === 'done' ||
-    tab === 'archived'
+    tab === 'archived' ||
+    tab === 'recurring'
     ? tab
     : 'all'
 }
@@ -163,7 +165,9 @@ export function Dashboard() {
             ? { unassigned: true, limit: PAGE_SIZE, offset, order }
             : filter === 'archived'
               ? { archived: true, limit: PAGE_SIZE, offset, order }
-              : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
+              : filter === 'recurring'
+                ? { recurring: true, limit: PAGE_SIZE, offset, order }
+                : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
     return fetchTasksPage(query)
   }, [filter, projectFilterId, categoryFilterId, offset, newestFirst])
 
@@ -503,7 +507,9 @@ export function Dashboard() {
                       ? 'No tasks in this category yet.'
                       : filter === 'archived'
                         ? 'Nothing archived — archive done tasks to file them away.'
-                        : (counts?.all ?? 0) === 0
+                        : filter === 'recurring'
+                          ? 'No recurring tasks — set a Repeat on a task to see it here.'
+                          : (counts?.all ?? 0) === 0
                           ? 'No tasks yet.'
                           : filter === 'unassigned'
                             ? 'No unassigned tasks — every task is in a project.'
@@ -578,7 +584,7 @@ export function Dashboard() {
                           status tabs (and Unassigned) keep the difficulty pill. */}
                       {(() => {
                         const tag =
-                          filter === 'all' || filter === 'archived'
+                          filter === 'all' || filter === 'archived' || filter === 'recurring'
                             ? task.archivedAt
                               ? ARCHIVED_TAG
                               : STATUS_TAG[task.status]

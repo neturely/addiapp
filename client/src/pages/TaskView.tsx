@@ -69,7 +69,7 @@ function addedLabel(createdAt: string | undefined): string | null {
 }
 
 const FIELD =
-  'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
+  'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 focus:outline-none focus:bg-field-active focus-visible:ring-2 focus-visible:ring-accent'
 const FIELD_LABEL = 'text-xs font-semibold uppercase tracking-wider text-muted'
 const DELETE_TITLE_ID = 'task-delete-title'
 
@@ -98,7 +98,7 @@ function FieldPlusButton({ label, onClick }: { label: string; onClick: () => voi
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="tap-44 -my-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
+      className="tap-44 -my-1 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
     </button>
@@ -416,7 +416,7 @@ export function TaskView() {
             placeholder={creating ? 'What needs doing?' : undefined}
             // -ml only (not -mx): a full-width input with symmetric negative
             // margins overflows a 375px viewport (#270).
-            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field focus:bg-field focus:outline-none"
+            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field focus:bg-field-active focus:outline-none"
           />
 
           <div className="grid gap-5 sm:grid-cols-2">
@@ -516,84 +516,88 @@ export function TaskView() {
               </select>
             </div>
 
-            {/* Repeat + Snooze (#250) — the grid cells the epic-#256 field grid
-                was designed to absorb. Repeat is a preset select; the two
-                non-preset choices reveal their sub-inputs inside the cell. */}
-            <div className="flex flex-col gap-1.5">
+            {/* Snooze + Repeat (#250; 2.3.0 review round: each on its own full
+                row — the control on the left, its description / sub-inputs in
+                the right half of the row). */}
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <label htmlFor="task-available-from" className={FIELD_LABEL}>
+                Snooze
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                <input
+                  id="task-available-from"
+                  type="date"
+                  value={availableFrom}
+                  onChange={(e) => setAvailableFrom(e.target.value)}
+                  className={`${FIELD} sm:w-56`}
+                />
+                <p className="text-xs text-muted sm:flex-1">
+                  Play won’t suggest this task before then. Leave empty for “available now”.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-repeat" className={FIELD_LABEL}>
                 Repeat
               </label>
-              <select
-                id="task-repeat"
-                value={repeat}
-                onChange={(e) => setRepeat(e.target.value as RepeatPreset)}
-                className={FIELD}
-              >
-                <option value="">None</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Every 2 weeks</option>
-                <option value="monthly-day">Monthly on a day</option>
-                <option value="custom">Custom…</option>
-              </select>
-              {repeat === 'monthly-day' && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <label htmlFor="task-repeat-day" className="text-muted">
-                    on day
-                  </label>
-                  <input
-                    id="task-repeat-day"
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={domDay}
-                    onChange={(e) => setDomDay(e.target.value)}
-                    className={`${FIELD} w-24`}
-                  />
-                </div>
-              )}
-              {repeat === 'custom' && (
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <label htmlFor="task-repeat-n" className="text-muted">
-                    every
-                  </label>
-                  <input
-                    id="task-repeat-n"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={customN}
-                    onChange={(e) => setCustomN(e.target.value)}
-                    className={`${FIELD} w-24`}
-                  />
-                  <select
-                    aria-label="Repeat unit"
-                    value={customUnit}
-                    onChange={(e) => setCustomUnit(e.target.value as 'day' | 'week' | 'month')}
-                    className={`${FIELD} w-auto`}
-                  >
-                    <option value="day">days</option>
-                    <option value="week">weeks</option>
-                    <option value="month">months</option>
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="task-available-from" className={FIELD_LABEL}>
-                Snooze until
-              </label>
-              <input
-                id="task-available-from"
-                type="date"
-                value={availableFrom}
-                onChange={(e) => setAvailableFrom(e.target.value)}
-                className={FIELD}
-              />
-              <p className="text-xs text-muted">
-                Play won’t suggest this task before then. Leave empty for “available now”.
-              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                <select
+                  id="task-repeat"
+                  value={repeat}
+                  onChange={(e) => setRepeat(e.target.value as RepeatPreset)}
+                  className={`${FIELD} sm:w-56`}
+                >
+                  <option value="">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly-day">Monthly on a day</option>
+                  <option value="custom">Custom…</option>
+                </select>
+                {repeat === 'monthly-day' && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <label htmlFor="task-repeat-day" className="text-muted">
+                      on day
+                    </label>
+                    <input
+                      id="task-repeat-day"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={domDay}
+                      onChange={(e) => setDomDay(e.target.value)}
+                      className={`${FIELD} w-24`}
+                    />
+                  </div>
+                )}
+                {repeat === 'custom' && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <label htmlFor="task-repeat-n" className="text-muted">
+                      every
+                    </label>
+                    <input
+                      id="task-repeat-n"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={customN}
+                      onChange={(e) => setCustomN(e.target.value)}
+                      className={`${FIELD} w-24`}
+                    />
+                    <select
+                      aria-label="Repeat unit"
+                      value={customUnit}
+                      onChange={(e) => setCustomUnit(e.target.value as 'day' | 'week' | 'month')}
+                      className={`${FIELD} w-auto`}
+                    >
+                      <option value="day">days</option>
+                      <option value="week">weeks</option>
+                      <option value="month">months</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -659,7 +663,7 @@ export function TaskView() {
                 maxLength={MAX_DESCRIPTION}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full resize-y rounded-control bg-field p-3 text-sm leading-relaxed text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full resize-y rounded-control bg-field p-3 text-sm leading-relaxed text-gray-800 focus:outline-none focus:bg-field-active focus-visible:ring-2 focus-visible:ring-accent"
               />
             </div>
           </div>

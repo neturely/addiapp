@@ -78,7 +78,7 @@ export function Register() {
         <h1 className="mb-4 text-center text-xl font-bold">Create your AddiApp account</h1>
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
             type="text"
             autoComplete="nickname"
             placeholder="Display name (optional)"
@@ -86,7 +86,7 @@ export function Register() {
             onChange={(e) => setDisplayName(e.target.value)}
           />
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
             type="email"
             autoComplete="email"
             placeholder="Email"
@@ -94,7 +94,7 @@ export function Register() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
             type="password"
             autoComplete="new-password"
             placeholder="Password (min 8 characters)"

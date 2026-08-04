@@ -140,6 +140,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Started"
         count={counts?.in_progress}
       />
+      {/* Live recurring chains (2.3.0 review round) — an axis entry like
+          Unassigned/Archived, hence the neutral pole. */}
+      <RailLink
+        to="/dashboard?tab=recurring"
+        active={isTab('recurring')}
+        pole="bg-gray-400"
+        label="Recurring"
+        count={counts?.recurring}
+      />
       <RailLink
         to="/dashboard?tab=unassigned"
         active={isTab('unassigned')}

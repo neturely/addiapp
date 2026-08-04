@@ -130,6 +130,10 @@
      fields. Measured: muted 5.16 on field, 4.67 on field-hover; gray-700 8.67. */
   --color-field: #efebe4;
   --color-field-hover: #e5e0d8;
+  /* Focused-input fill (2.3.0 review round): pointer focus darkens the cell
+     instead of drawing the accent ring (the ring survives as focus-visible for
+     keyboard users only). One step past field-hover so hover vs focus reads. */
+  --color-field-active: #dcd6ca;
 
   /* Mascot (#96): dedicated character-fill tokens — decorative, not text.
      Named separately (not reusing --color-primary etc.) because the mascot has
