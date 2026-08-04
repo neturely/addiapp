@@ -34,8 +34,8 @@ import {
  */
 const STRATEGIES: { value: string; label: string }[] = [
   { value: 'weightedByAge', label: 'Weighted random — favours older tasks' },
+  { value: 'uniformRandom', label: 'Uniform random — every task has an equal chance' },
   { value: 'oldestFirst', label: 'Oldest first' },
-  { value: 'uniformRandom', label: 'Uniform random' },
 ]
 
 const FIELD =
@@ -471,7 +471,7 @@ export function Settings() {
           <Section
             first
             title="Profile"
-            lede="Shown on your avatar. Leave blank to use your email initial."
+            lede="Shown on your avatar. Leave blank to use your email initial. If your email is associated with a Gravatar account, your Gravatar icon is shown instead."
           >
             <form onSubmit={saveProfile} className="flex flex-col gap-3.5">
               <div>
@@ -596,6 +596,8 @@ export function Settings() {
             </form>
           </Section>
 
+          <TotpSection />
+
           <Section title="Play" lede="How AddiApp picks the next task when you press Play.">
             <div>
               <label htmlFor="selectionStrategy" className={LABEL}>
@@ -620,8 +622,6 @@ export function Settings() {
               </p>
             </div>
           </Section>
-
-          <TotpSection />
 
           {/* ONE danger section (#330 — consolidates the #304 Sign out and #266
               Delete sections): two same-size buttons. */}

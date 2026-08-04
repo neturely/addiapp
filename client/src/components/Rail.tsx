@@ -195,7 +195,7 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
       <RailLink
         to="/dashboard?view=projects&status=done"
         active={isDone}
-        pole="bg-success-tint"
+        pole="bg-success"
         label="Done"
         count={doneCount}
       />
