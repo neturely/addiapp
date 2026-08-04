@@ -2,18 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Archive,
-  ArchiveRestore,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   FolderPlus,
   Play,
   Plus,
+  Trash2,
   X,
 } from 'lucide-react'
 import {
   archiveTask,
   assignTaskToProject,
+  deleteTask,
   fetchTasksPage,
   startTask,
   type Task,
@@ -60,6 +61,9 @@ const STATUS_TAG: Record<TaskStatus, { label: string; className: string }> = {
   in_progress: { label: 'Started', className: 'bg-warning-tint text-warning-ink' },
   done: { label: 'Done', className: 'bg-success-tint text-success-ink' },
 }
+// The archived axis outranks the underlying 'done' in the pill (#330) — a
+// filed task must read "Archived", never "Done".
+const ARCHIVED_TAG = { label: 'Archived', className: 'bg-field text-muted' }
 
 const PAGE_SIZE = 25 // offset page size (#262)
 
@@ -278,18 +282,27 @@ export function Dashboard() {
     }
   }
 
-  // Unarchive from the archive tab (#312) — back to plain Done. Server-
-  // authoritative like assign: refetch the page after success.
-  async function unarchive(task: Task) {
+  // Delete from the archive tab (#330 — replaced Unarchive: un-filing is the
+  // task view's job via its Status select). Confirmed via modal, then a
+  // server-authoritative refetch.
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null)
+  const [taskBusy, setTaskBusy] = useState(false)
+  async function confirmDeleteTask() {
+    if (!deletingTask) return
+    setTaskBusy(true)
     try {
-      await archiveTask(task.id, false)
-      showToast({ message: 'Task restored to Done', icon: ArchiveRestore, tone: 'success' })
+      await deleteTask(deletingTask.id)
+      showToast({ message: `Task deleted: ${deletingTask.title}`, icon: Trash2, tone: 'neutral' })
+      setDeletingTask(null)
       const page = await loadPage()
       setTasks(page.tasks)
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not unarchive that task.')
+      setError(e instanceof Error ? e.message : 'Could not delete that task.')
+      setDeletingTask(null)
+    } finally {
+      setTaskBusy(false)
     }
   }
 
@@ -547,11 +560,17 @@ export function Dashboard() {
                       {/* Mixed-status lists — All tasks and the per-project/
                           category filters (both compute filter 'all') — spend
                           the pill slot on STATUS (#322): that's what the user
-                          scans a mixed list for. Homogeneous status tabs (and
-                          Unassigned/Archived) keep the difficulty pill. */}
+                          scans a mixed list for. The archived tab uses it too,
+                          resolving the archived axis first (#330 — a filed
+                          task reads "Archived", never "Done"). Homogeneous
+                          status tabs (and Unassigned) keep the difficulty pill. */}
                       {(() => {
                         const tag =
-                          filter === 'all' ? STATUS_TAG[task.status] : COMPLEXITY_TAG[task.complexity]
+                          filter === 'all' || filter === 'archived'
+                            ? task.archivedAt
+                              ? ARCHIVED_TAG
+                              : STATUS_TAG[task.status]
+                            : COMPLEXITY_TAG[task.complexity]
                         return (
                           <span
                             className={`flex-none rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tag.className}`}
@@ -639,16 +658,16 @@ export function Dashboard() {
                         Archive
                       </button>
                     )}
-                    {/* Unarchive (#312) — the archive tab's trailing row action,
-                        in the AssignControl style/placement. */}
+                    {/* Delete (#330) — the archive tab's trailing row action
+                        (un-filing lives in the task view's Status select). */}
                     {filter === 'archived' && (
                       <button
                         type="button"
-                        onClick={() => void unarchive(task)}
-                        aria-label={`Unarchive ${task.title}`}
-                        className="mr-4 flex-none cursor-pointer rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
+                        onClick={() => setDeletingTask(task)}
+                        aria-label={`Delete ${task.title}`}
+                        className="mr-4 flex-none cursor-pointer rounded-lg bg-danger-tint px-3 py-2.5 text-xs font-semibold text-danger-ink transition hover:opacity-80 sm:py-1.5"
                       >
-                        Unarchive
+                        Delete
                       </button>
                     )}
                   </li>
@@ -683,6 +702,26 @@ export function Dashboard() {
             setCategories((cs) => cs.map((c) => (c.id === saved.id ? saved : c)))
           }}
         />
+      )}
+      {/* Archived-row delete confirm (#330) — the TaskView dialog's copy. */}
+      {deletingTask && (
+        <Modal titleId="task-delete-title" onClose={() => !taskBusy && setDeletingTask(null)}>
+          <h2 id="task-delete-title" className="mb-3 text-xl font-bold text-gray-800">
+            Delete this task?
+          </h2>
+          <p className="mb-5 text-sm leading-relaxed text-gray-700">
+            “{deletingTask.title}” will be permanently deleted. Points already earned from it are
+            kept.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={taskBusy} onClick={() => setDeletingTask(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" disabled={taskBusy} onClick={() => void confirmDeleteTask()}>
+              {taskBusy ? 'Deleting…' : 'Delete task'}
+            </Button>
+          </div>
+        </Modal>
       )}
       {deletingCategory && (
         <Modal

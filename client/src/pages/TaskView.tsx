@@ -102,7 +102,10 @@ export function TaskView() {
   const [title, setTitle] = useState('')
   const [complexity, setComplexity] = useState<TaskComplexity>('medium')
   const [minutes, setMinutes] = useState('')
-  const [status, setStatus] = useState<TaskStatus>('backlog')
+  // 'archived' (#330) is the #312 axis presented AS a status: a filed task
+  // shows it; picking a real status un-files (the edit page IS the unarchive
+  // path — the archive tab only offers Delete).
+  const [status, setStatus] = useState<TaskStatus | 'archived'>('backlog')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState<number | ''>('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
@@ -153,7 +156,7 @@ export function TaskView() {
         setTitle(t.title)
         setComplexity(t.complexity)
         setMinutes(String(t.estimatedMinutes))
-        setStatus(t.status)
+        setStatus(t.archivedAt ? 'archived' : t.status)
         setDescription(t.description ?? '')
         setProjectId(t.projectId ?? '')
         setCategoryId(t.categoryId ?? '')
@@ -217,10 +220,16 @@ export function TaskView() {
         return
       }
       const updated = await updateTask(task!.id, {
+        // 'archived' isn't a real status: keep 'done' and leave the flag alone.
+        // Any REAL status picked on a filed task un-files it — explicit
+        // archived:false covers staying 'done' (the #312 invariant already
+        // clears it when leaving 'done').
+        ...(status === 'archived'
+          ? { status: 'done' as TaskStatus }
+          : { status, ...(task!.archivedAt ? { archived: false } : {}) }),
         title: trimmed,
         complexity,
         estimatedMinutes: mins,
-        status,
         description: description.trim(),
         // #236 semantics: an int assigns to an active owned project; null unassigns.
         projectId: projectId === '' ? null : projectId,
@@ -228,7 +237,7 @@ export function TaskView() {
         categoryId: categoryId === '' ? null : categoryId,
       })
       setTask({ ...task!, ...updated })
-      setStatus(updated.status)
+      setStatus(updated.archivedAt ? 'archived' : updated.status)
       showToast({ message: 'Task saved', icon: CircleCheck, tone: 'success' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the task.')
@@ -395,6 +404,28 @@ export function TaskView() {
               />
             </div>
 
+            {/* Status sits beside Estimate (#330 — was stranded below the
+                Difficulty tiles leaving dead space here). A filed task shows
+                "Archived"; picking a real status un-files it on save. */}
+            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
+              <label htmlFor="task-status" className={FIELD_LABEL}>
+                Status
+              </label>
+              <select
+                id="task-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as TaskStatus | 'archived')}
+                className={FIELD}
+              >
+                {task?.archivedAt && <option value="archived">Archived</option>}
+                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <span id="task-difficulty-label" className={FIELD_LABEL}>
                 Difficulty
@@ -448,24 +479,6 @@ export function TaskView() {
               </div>
             </div>
 
-            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
-              <label htmlFor="task-status" className={FIELD_LABEL}>
-                Status
-              </label>
-              <select
-                id="task-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className={FIELD}
-              >
-                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-description" className={FIELD_LABEL}>
                 Description
@@ -481,7 +494,7 @@ export function TaskView() {
             </div>
           </div>
 
-          {status !== 'done' && base !== undefined && (
+          {status !== 'done' && status !== 'archived' && base !== undefined && (
             <div className="mt-6 flex items-center gap-4 rounded-xl bg-success-tint px-4 py-3.5 text-success-ink">
               <div className="text-2xl font-bold tabular-nums tracking-tight">{base}</div>
               <p className="text-sm leading-relaxed">
@@ -512,7 +525,7 @@ export function TaskView() {
               </Button>
             )}
             <span className="flex-1" aria-hidden />
-            {!creating && status !== 'done' && (
+            {!creating && status !== 'done' && status !== 'archived' && (
               <Button onClick={() => void startNow()}>
                 <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
                 {task?.status === 'in_progress' ? 'Resume' : 'Start now'}

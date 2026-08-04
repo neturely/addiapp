@@ -183,6 +183,8 @@ export async function updateTask(
     projectId?: number | null
     /** #276 semantics mirror projectId: an int assigns, null unlabels. */
     categoryId?: number | null
+    /** #312 archive flag — the task view sends false to un-file (#330). */
+    archived?: boolean
   },
 ): Promise<Task> {
   const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {

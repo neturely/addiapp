@@ -294,24 +294,74 @@ ok(
   await page.evaluate(() => /e2e archive probe/i.test(document.body.textContent || '')),
   '#312: archived tab lists the filed task',
 )
+// #330: the archived row's pill reads "Archived", never "Done".
+const archPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e archive probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
+ok(archPill === 'Archived', `#330: archived row pill reads "Archived" (got "${archPill}")`)
+
+// #330: un-filing happens in the TASK VIEW — its Status select shows
+// "Archived"; picking Done saves back to plain Done (archived:false).
+await page.goto(`${BASE}/tasks/${archTask}`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('#task-status', { timeout: 5000 })
+ok(
+  (await page.$eval('#task-status', (s) => s.value)) === 'archived',
+  '#330: task view Status shows "Archived" for a filed task',
+)
+await page.select('#task-status', 'done')
 await page.evaluate(() =>
-  [...document.querySelectorAll('main button')]
-    .find((b) => /^unarchive/i.test(b.getAttribute('aria-label') || ''))
+  [...document.querySelectorAll('button')]
+    .find((b) => /save changes/i.test(b.textContent || ''))
     ?.click(),
 )
-await page.waitForFunction(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || ''), {
-  timeout: 5000,
-})
-const unarchived = await page.evaluate(async (tid) => {
-  const r = await fetch(`/api/tasks/${tid}`, { credentials: 'include' })
-  const { task } = await r.json()
-  return task.archivedAt === null && task.status === 'done'
-}, archTask)
-ok(unarchived, '#312: Unarchive restores the row to plain Done')
-await page.evaluate(
-  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+await page.waitForFunction(
+  async (tid) => {
+    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) =>
+      r.json(),
+    )
+    return task.archivedAt === null && task.status === 'done'
+  },
+  { timeout: 5000, polling: 500 },
   archTask,
 )
+ok(true, '#330: setting Status to Done un-files the task (back to plain Done)')
+
+// Re-file it, then the archived tab's Delete action (replaced Unarchive):
+// confirm modal → row gone → task gone server-side.
+await page.evaluate(
+  (tid) =>
+    fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archived: true }),
+    }),
+  archTask,
+)
+await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => /^delete e2e archive probe/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
+)
+await page.waitForSelector('[role=dialog]', { timeout: 5000 })
+await page.evaluate(() =>
+  [...document.querySelectorAll('[role=dialog] button')]
+    .find((b) => /delete task/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || ''),
+  { timeout: 5000 },
+)
+const deletedStatus = await page.evaluate(
+  async (tid) => (await fetch(`/api/tasks/${tid}`, { credentials: 'include' })).status,
+  archTask,
+)
+ok(deletedStatus === 404, '#330: archived-row Delete removes the task (confirmed, 404)')
 
 // --- One-click Archive on Done views (#321) ---
 // Task half: a done row exposes the trailing Archive button; clicking removes it.
