@@ -284,10 +284,22 @@ const archRail = await page.evaluate(() => {
   return link ? (link.querySelector('span.tabular-nums')?.textContent?.trim() ?? '') : null
 })
 ok(archRail !== null && Number(archRail) >= 1, `#312: rail Archived entry with count (${archRail})`)
-// The archived row is out of the default list but on the archived tab.
+// #332: the All view INCLUDES the archived row, pill reading "Archived".
+const allTabArchPill = await page.evaluate(() => {
+  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
+    /e2e archive probe/i.test(li.textContent || ''),
+  )
+  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
+})
 ok(
-  await page.evaluate(() => !/e2e archive probe/i.test(document.body.textContent || '')),
-  '#312: archived task is excluded from All tasks',
+  allTabArchPill === 'Archived',
+  `#332: All tab lists the archived task with an "Archived" pill (got "${allTabArchPill}")`,
+)
+// …but the Done STATUS tab still excludes it (done = done-not-filed).
+await page.goto(`${BASE}/dashboard?tab=done`, { waitUntil: 'networkidle0' })
+ok(
+  await page.evaluate(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || '')),
+  '#332: the Done tab still excludes archived tasks',
 )
 await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
 ok(
@@ -310,6 +322,14 @@ await page.waitForSelector('#task-status', { timeout: 5000 })
 ok(
   (await page.$eval('#task-status', (s) => s.value)) === 'archived',
   '#330: task view Status shows "Archived" for a filed task',
+)
+ok(
+  await page.evaluate(() =>
+    [...document.querySelectorAll('main span')].some(
+      (s) => s.textContent?.trim() === 'Archived' && s.className.includes('rounded-full'),
+    ),
+  ),
+  '#332: task view shows the "Archived" chip in the top bar',
 )
 await page.select('#task-status', 'done')
 await page.evaluate(() =>

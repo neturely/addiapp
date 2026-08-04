@@ -309,6 +309,13 @@ export function TaskView() {
           {creating ? 'Back' : 'All tasks'}
         </Button>
         <div className="flex items-center gap-2 px-1 text-xs text-muted">
+          {/* Filed-away indicator (#332) — the archived state visible at a
+              glance, beyond the Status select. */}
+          {!creating && task?.archivedAt && (
+            <span className="rounded-full bg-field px-2.5 py-0.5 text-[11px] font-semibold text-muted">
+              Archived
+            </span>
+          )}
           <span
             className={`h-2.5 w-2.5 flex-none rounded-[3px] ${project ? projectPole(project.color) : 'bg-gray-300'}`}
             aria-hidden

@@ -48,9 +48,9 @@ ok(
     'Password',
     'Play',
     'Two-factor authentication',
-    'Sign out & delete account',
+    'Account',
   ].every((s) => sections.includes(s)),
-  `#266/#304/#319/#330: all six sections render (${sections.join(', ')})`,
+  `#266/#304/#319/#330/#332: all six sections render (${sections.join(', ')})`,
 )
 // #330: the consolidated danger section holds BOTH same-size buttons.
 ok(
