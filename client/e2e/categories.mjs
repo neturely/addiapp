@@ -12,12 +12,28 @@ await login(page)
 
 const CAT_NAME = `e2e-cat-${Date.now()}`
 
-// Rail: the Categories section head + its plus deep-links the modal.
+// Rail (#334): NO separate Categories section — entries live in the Tasks
+// section under Ready, followed by the "New category" row, before Started.
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
-const railHasSection = await page.evaluate(() =>
-  [...document.querySelectorAll('#app-rail a')].some((a) => a.textContent?.trim() === 'Categories'),
+const rail = await page.evaluate(() => {
+  const links = [...document.querySelectorAll('#app-rail a')].map((a) => ({
+    text: a.textContent?.trim() || '',
+    href: a.getAttribute('href') || '',
+  }))
+  return {
+    hasCategoriesHead: links.some((l) => l.text === 'Categories'),
+    readyIdx: links.findIndex((l) => l.href === '/dashboard?tab=backlog'),
+    newCatIdx: links.findIndex((l) => l.href === '/dashboard?newCategory=1'),
+    startedIdx: links.findIndex((l) => l.href === '/dashboard?tab=in_progress'),
+  }
+})
+ok(
+  !rail.hasCategoriesHead &&
+    rail.readyIdx >= 0 &&
+    rail.readyIdx < rail.newCatIdx &&
+    rail.newCatIdx < rail.startedIdx,
+  `#334: categories live under Ready in the Tasks section (Ready@${rail.readyIdx} < New category@${rail.newCatIdx} < Started@${rail.startedIdx}, no Categories head)`,
 )
-ok(railHasSection, '#276: rail shows the Categories section')
 
 await page.goto(`${BASE}/dashboard?newCategory=1`, { waitUntil: 'networkidle0' })
 await page.waitForSelector('[role=dialog] #category-name', { timeout: 5000 })

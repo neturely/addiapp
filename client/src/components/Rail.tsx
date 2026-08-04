@@ -112,6 +112,27 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Ready"
         count={counts?.backlog}
       />
+      {/* Category entries live in the Tasks section, directly under Ready
+          (#334 — the way project entries sit under the Active pool; the
+          separate Categories section is gone). Edit/Delete stay on the
+          Dashboard toolbar when an entry's filter is active (#276). */}
+      {categories.map((c) => (
+        <RailLink
+          key={c.id}
+          to={`/dashboard?category=${c.id}`}
+          active={activeCategoryId === c.id}
+          pole={projectPole(c.color)}
+          label={c.name}
+          count={c.remainingCount}
+        />
+      ))}
+      <Link
+        to="/dashboard?newCategory=1"
+        className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
+      >
+        <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
+        <span>New category</span>
+      </Link>
       <RailLink
         to="/dashboard?tab=in_progress"
         active={isTab('in_progress')}
@@ -142,30 +163,6 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Archived"
         count={counts?.archived}
       />
-
-      {/* User-defined categories (#276): custom lists managed like projects —
-          the plus opens the New-category modal on the Dashboard; each entry
-          filters the task list to that category. */}
-      <RailHead
-        label="Categories"
-        to="/dashboard"
-        plusTo="/dashboard?newCategory=1"
-        plusLabel="New category"
-        className="mt-6"
-      />
-      {categories.map((c) => (
-        <RailLink
-          key={c.id}
-          to={`/dashboard?category=${c.id}`}
-          active={activeCategoryId === c.id}
-          pole={projectPole(c.color)}
-          label={c.name}
-          count={c.remainingCount}
-        />
-      ))}
-      {categories.length === 0 && (
-        <p className="px-2.5 py-1 text-xs text-muted">Your own task lists — add one with +</p>
-      )}
 
       <RailHead
         label="Projects"
