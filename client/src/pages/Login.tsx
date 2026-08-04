@@ -86,14 +86,24 @@ export function Login() {
               : 'Enter the 6-digit code from your authenticator app.'}
           </p>
           <form onSubmit={onSubmitCode} className="space-y-4">
+            {/* name/id/label matter here (#343): password managers classify the
+                field by these keywords, not by autocomplete — without them the
+                lone text input on the login URI gets treated as the username. */}
+            <label htmlFor={usingBackupCode ? 'backup-code' : 'otp'} className="sr-only">
+              {usingBackupCode ? 'Backup code' : 'Authenticator code'}
+            </label>
             <input
+              key={usingBackupCode ? 'backup-code' : 'otp'}
               className="w-full rounded-lg bg-gray-100 p-2.5 text-center tracking-widest focus:ring-2 focus:ring-primary focus:outline-none"
               type="text"
+              id={usingBackupCode ? 'backup-code' : 'otp'}
+              name={usingBackupCode ? 'backup-code' : 'otp'}
               autoFocus
               autoComplete="one-time-code"
               inputMode={usingBackupCode ? 'text' : 'numeric'}
+              maxLength={usingBackupCode ? undefined : 6}
+              pattern={usingBackupCode ? undefined : '\\d{6}'}
               placeholder={usingBackupCode ? 'xxxxx-xxxxx' : '123456'}
-              aria-label={usingBackupCode ? 'Backup code' : 'Authenticator code'}
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
