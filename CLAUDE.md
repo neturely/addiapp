@@ -299,8 +299,9 @@ to the old Node API.
   join ships `task.category = { name, color } | null`, POST/PATCH tasks accept
   `categoryId` (null unlabels), and **`GET /api/tasks/next?category=N`** scopes the
   Play pick (composes with size/time AND `mode=projects`). Client: `lib/categories.ts`
-  (+ `CATEGORIES_CHANGED_EVENT` rail signal), a rail **Categories section** (entries
-  → `?category=ID` with remaining counts; plus → `?newCategory=1` modal),
+  (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
+  the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
+  "New category" row → the `?newCategory=1` modal),
   Dashboard category filter with toolbar **Edit/Delete** (confirm modal states the
   tasks-survive consequence), a row **category chip**, a TaskView **Category
   select** (+ `?category=` pre-assign on create), and a Play Choice **"From"
@@ -518,11 +519,14 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Rail** (`Rail.tsx`, `w-56`, collapsible; below `sm` it's an **overlay drawer**,
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
-  (All tasks / Ready / Started / Unassigned / Done → the Dashboard's `?tab=`
-  filters, counts from the server `counts`; **+ Archived**, the #312 task-archive
-  axis → `?tab=archived`) + **Categories section (#276** —
-  per-category entries → `?category=ID` with remaining counts; plus →
-  `?newCategory=1`**)** + Projects section (per-project entries → **`?project=ID`**, the
+  (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
+  the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
+  the #312 task-archive axis → `?tab=archived`). **Category entries (#276, placed
+  #334)** sit directly under Ready — the way project entries sit under Active; NO
+  separate Categories section — each → `?category=ID` with its remaining count,
+  followed by a muted **"+ New category" row** → the `?newCategory=1` modal
+  (Edit/Delete live on the Dashboard toolbar when a category filter is active).
+  Then the Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
 - **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in
