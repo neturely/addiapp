@@ -653,7 +653,7 @@ export function Dashboard() {
                       {/* Recurring badge (#250; review round 2: trailing, to
                           the RIGHT of the time/points cell). */}
                       {task.recurrence && (
-                        <span className="flex-none text-muted" aria-label="Repeats">
+                        <span role="img" className="flex-none text-muted" aria-label="Repeats">
                           <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
                         </span>
                       )}
