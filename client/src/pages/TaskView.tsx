@@ -69,8 +69,9 @@ function addedLabel(createdAt: string | undefined): string | null {
 }
 
 const FIELD =
-  'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 focus:outline-none focus:bg-field-active focus-visible:ring-2 focus-visible:ring-accent'
-const FIELD_LABEL = 'text-xs font-semibold uppercase tracking-wider text-muted'
+  'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 transition hover:bg-field-hover field-focus'
+const FIELD_LABEL =
+  'text-xs font-semibold uppercase tracking-wider text-muted transition group-focus-within:text-primary-ink'
 const DELETE_TITLE_ID = 'task-delete-title'
 
 /** The Repeat select's presets (#250); '' = not recurring. */
@@ -416,11 +417,11 @@ export function TaskView() {
             placeholder={creating ? 'What needs doing?' : undefined}
             // -ml only (not -mx): a full-width input with symmetric negative
             // margins overflows a 375px viewport (#270).
-            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field focus:bg-field-active focus:outline-none"
+            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field field-focus"
           />
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+            <div className="group flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="task-project" className={FIELD_LABEL}>
                   Project
@@ -456,7 +457,7 @@ export function TaskView() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="group flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="task-category" className={FIELD_LABEL}>
                   Category
@@ -479,7 +480,7 @@ export function TaskView() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="group flex flex-col gap-1.5">
               <label htmlFor="task-minutes" className={FIELD_LABEL}>
                 Estimate (minutes)
               </label>
@@ -497,7 +498,7 @@ export function TaskView() {
             {/* Status sits beside Estimate (#330 — was stranded below the
                 Difficulty tiles leaving dead space here). A filed task shows
                 "Archived"; picking a real status un-files it on save. */}
-            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
+            <div className={`group flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
               <label htmlFor="task-status" className={FIELD_LABEL}>
                 Status
               </label>
@@ -519,7 +520,7 @@ export function TaskView() {
             {/* Snooze + Repeat (#250; 2.3.0 review round: each on its own full
                 row — the control on the left, its description / sub-inputs in
                 the right half of the row). */}
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-available-from" className={FIELD_LABEL}>
                 Snooze
               </label>
@@ -539,7 +540,7 @@ export function TaskView() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-repeat" className={FIELD_LABEL}>
                 Repeat
               </label>
@@ -605,7 +606,7 @@ export function TaskView() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
               <span id="task-difficulty-label" className={FIELD_LABEL}>
                 Difficulty
               </span>
@@ -658,7 +659,7 @@ export function TaskView() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-description" className={FIELD_LABEL}>
                 Description
               </label>
@@ -668,7 +669,7 @@ export function TaskView() {
                 maxLength={MAX_DESCRIPTION}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full resize-y rounded-control bg-field p-3 text-sm leading-relaxed text-gray-800 focus:outline-none focus:bg-field-active focus-visible:ring-2 focus-visible:ring-accent"
+                className="w-full resize-y rounded-control bg-field p-3 text-sm leading-relaxed text-gray-800 transition hover:bg-field-hover field-focus"
               />
             </div>
           </div>

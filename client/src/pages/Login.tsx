@@ -94,7 +94,7 @@ export function Login() {
             </label>
             <input
               key={usingBackupCode ? 'backup-code' : 'otp'}
-              className="w-full rounded-lg bg-gray-100 p-2.5 text-center tracking-widest focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
+              className="w-full rounded-lg bg-gray-100 p-2.5 text-center tracking-widest transition hover:bg-gray-200 field-focus"
               type="text"
               id={usingBackupCode ? 'backup-code' : 'otp'}
               name={usingBackupCode ? 'backup-code' : 'otp'}
@@ -158,7 +158,7 @@ export function Login() {
         )}
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
             type="email"
             autoComplete="email"
             placeholder="Email"
@@ -166,7 +166,7 @@ export function Login() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:bg-gray-200 focus-visible:ring-2 focus-visible:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
             type="password"
             autoComplete="current-password"
             placeholder="Password"
