@@ -316,17 +316,22 @@ to the old Node API.
   400; false unarchives; IFNULL keeps the original filing time on re-archive).
   **Invariant: archived ⇒ done** — a status transition leaving 'done' clears
   `archived_at`, so a filed task can never re-enter the Play backlog pool.
-  Default lists/tabs **including All tasks** exclude archived; `GET
-  /api/tasks?archived=1` is the archive view (ordered by `archived_at`,
-  newest-filed first under the default desc); `counts` excludes archived from
-  every status figure ("Done" = done-not-filed) and gains an **`archived`** key.
+  Visibility (**revised #332** — supersedes the original all-lists exclusion):
+  the **mixed "all" views (All tasks + per-project/category filters) INCLUDE
+  archived rows** ("All" means all — rendered with the "Archived" pill), while
+  the WORKING lists (status tabs + Unassigned) exclude them; `GET
+  /api/tasks?archived=1` is the archive-only view (ordered by `archived_at`,
+  newest-filed first under the default desc). `counts`: the status figures
+  exclude archived ("Done" = done-not-filed), **`all` includes them**, and an
+  **`archived`** key serves the tab.
   No points effect. Client: `archiveTask(id, archived)` in `lib/tasks` (pings the
   rail), a rail Tasks **"Archived" entry** below Done (`?tab=archived`), the
   archived tab's trailing **Delete** row action (#330 — confirm modal; NOT
   Unarchive: **un-filing is the task view's job** — its Status select shows
   "Archived" for a filed task, picking Ready/Started un-files via the invariant
   and picking Done sends explicit `archived:false`; archived rows' pill reads
-  **"Archived"**, never "Done"), and a Play **Completion archive shortcut** — an `Archive`
+  **"Archived"**, never "Done", and TaskView's top bar carries an **"Archived"
+  chip**, #332), and a Play **Completion archive shortcut** — an `Archive`
   icon button beside "Keep going" (`aria-label="Archive this task"`, flips to a
   check + "Archived", no navigation). **One-click Archive on the Done views
   (#321):** done task rows (`?tab=done`) carry a trailing **Archive** button in
@@ -407,7 +412,7 @@ to the old Node API.
   itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
   (Profile / Email / Password / **Play** / **Two-factor authentication** (#319) /
-  **Sign out & delete account** (#330 — ONE danger section, two same-size md
+  **Account** (#330/#332 — ONE danger section, titled "Account", two same-size md
   danger buttons: Sign out everywhere + Delete my account), hairline dividers —
   replaced the three FormCards). `AccountController`:
   `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared

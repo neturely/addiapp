@@ -64,13 +64,18 @@ final class TaskArchiveTest extends DbTestCase
         self::assertSame(200, $status);
         self::assertNotNull($body['task']['archivedAt']);
 
-        // Default list (All tasks included) excludes the archived row; the
-        // archive view returns exactly it; counts split done/archived.
+        // The All view INCLUDES the archived row (#332 — "All" means all; the
+        // client pill renders it as Archived off archivedAt), the STATUS tab
+        // excludes it ("Done" = done-not-filed), and the archive view returns
+        // exactly it. `counts.all` includes archived; `done` doesn't.
         [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], ['limit' => '10']);
-        self::assertSame([$ready], array_column($body['tasks'], 'id'));
-        self::assertSame(1, $body['counts']['all']);
+        self::assertEqualsCanonicalizing([$ready, $done], array_column($body['tasks'], 'id'));
+        self::assertSame(2, $body['counts']['all']);
         self::assertSame(0, $body['counts']['done']);
         self::assertSame(1, $body['counts']['archived']);
+
+        [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], ['limit' => '10', 'status' => 'done']);
+        self::assertSame([], array_column($body['tasks'], 'id'));
 
         [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], ['limit' => '10', 'archived' => '1']);
         self::assertSame([$done], array_column($body['tasks'], 'id'));

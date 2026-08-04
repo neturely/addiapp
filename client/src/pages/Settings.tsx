@@ -626,7 +626,7 @@ export function Settings() {
           {/* ONE danger section (#330 — consolidates the #304 Sign out and #266
               Delete sections): two same-size buttons. */}
           <Section
-            title="Sign out & delete account"
+            title="Account"
             lede="Sign out everywhere ends your session on every device, including this one — you just sign back in. Deleting your account removes every task, project and point permanently; nothing is recoverable."
           >
             <div className="flex flex-wrap gap-2.5">

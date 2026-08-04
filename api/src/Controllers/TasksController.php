@@ -55,11 +55,17 @@ final class TasksController
             $args[] = $status;
         }
 
-        // Archived axis (#312): filed-away done tasks. Default lists/tabs —
-        // including All tasks — EXCLUDE archived ("out of sight"); `archived=1`
-        // flips to the archive view.
+        // Archived axis (#312, visibility revised #332): the WORKING lists —
+        // the status tabs and the Unassigned axis — exclude filed-away tasks,
+        // but the mixed "all" views (plain All tasks + the per-project/category
+        // filters) INCLUDE them ("All" means all; the client renders their
+        // pill as "Archived"). `archived=1` flips to the archive-only view.
         $archived = $req->query('archived') === '1';
-        $conditions[] = $archived ? 't.archived_at IS NOT NULL' : 't.archived_at IS NULL';
+        if ($archived) {
+            $conditions[] = 't.archived_at IS NOT NULL';
+        } elseif ($status !== null || $req->query('unassigned') === '1') {
+            $conditions[] = 't.archived_at IS NULL';
+        }
 
         // Unassigned filter (#236): tasks with no project, across all statuses (a
         // different axis than the status tabs). Covered by the (user_id, project_id)
@@ -187,8 +193,9 @@ final class TasksController
      */
     private static function statusCounts(PDO $pdo, int $userId): array
     {
-        // Archived rows (#312) sit outside every status figure — "Done" means
-        // "done, not filed away" — and get their own count for the archive tab.
+        // Archived rows (#312) sit outside the STATUS figures — "Done" means
+        // "done, not filed away" — but `all` includes them (#332: the All view
+        // lists them), and they get their own count for the archive tab.
         $stmt = $pdo->prepare(
             'SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? AND archived_at IS NULL GROUP BY status',
         );
@@ -209,6 +216,7 @@ final class TasksController
         $a = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND archived_at IS NOT NULL');
         $a->execute([$userId]);
         $counts['archived'] = (int) $a->fetchColumn();
+        $counts['all'] += $counts['archived'];
 
         return $counts;
     }
