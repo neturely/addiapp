@@ -6,12 +6,15 @@ import {
   Flame,
   Mountain,
   Play,
+  Plus,
   Trash2,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/Button'
+import { CategoryModal } from '@/components/CategoryModal'
 import { Modal } from '@/components/Modal'
+import { ProjectModal } from '@/components/ProjectModal'
 import { ApiError } from '@/lib/apiError'
 import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
@@ -69,6 +72,20 @@ const FIELD =
 const FIELD_LABEL = 'text-xs font-semibold uppercase tracking-wider text-muted'
 const DELETE_TITLE_ID = 'task-delete-title'
 
+/** The label-row plus (#341) — rail-plus styling, tap-44 for the touch target. */
+function FieldPlusButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="tap-44 -my-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
+    >
+      <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+    </button>
+  )
+}
+
 /**
  * The open-in-place task view (#262) — THE one edit path, replacing the old
  * inline row-swap edit, the #218 desktop modal, and the /tasks/:id/edit page
@@ -114,6 +131,9 @@ export function TaskView() {
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // #341: inline create-from-the-field — the label-row plus opens the existing
+  // modal and the saved entity is appended + selected without leaving the task.
+  const [creatingEntity, setCreatingEntity] = useState<'project' | 'category' | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -344,9 +364,12 @@ export function TaskView() {
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="task-project" className={FIELD_LABEL}>
-                Project
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="task-project" className={FIELD_LABEL}>
+                  Project
+                </label>
+                <FieldPlusButton label="New project" onClick={() => setCreatingEntity('project')} />
+              </div>
               {/* Grouped Active / Done / Archived (#310) — picking a non-active
                   project is a deliberate reactivation, so it's labelled. */}
               <select
@@ -377,9 +400,12 @@ export function TaskView() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="task-category" className={FIELD_LABEL}>
-                Category
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="task-category" className={FIELD_LABEL}>
+                  Category
+                </label>
+                <FieldPlusButton label="New category" onClick={() => setCreatingEntity('category')} />
+              </div>
               {/* User-defined lists (#276) — flat set, no lifecycle groups. */}
               <select
                 id="task-category"
@@ -560,6 +586,29 @@ export function TaskView() {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {/* #341: inline create — the lib create calls already fire the
+          PROJECTS/CATEGORIES_CHANGED events, so the rail refreshes itself. */}
+      {creatingEntity === 'project' && (
+        <ProjectModal
+          onClose={() => setCreatingEntity(null)}
+          onSaved={(p) => {
+            setProjects((prev) => [...prev, p])
+            setProjectId(p.id)
+            setCreatingEntity(null)
+          }}
+        />
+      )}
+      {creatingEntity === 'category' && (
+        <CategoryModal
+          onClose={() => setCreatingEntity(null)}
+          onSaved={(c) => {
+            setCategories((prev) => [...prev, c])
+            setCategoryId(c.id)
+            setCreatingEntity(null)
+          }}
+        />
       )}
     </main>
   )
