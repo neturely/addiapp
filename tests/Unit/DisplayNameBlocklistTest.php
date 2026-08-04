@@ -48,7 +48,7 @@ final class DisplayNameBlocklistTest extends TestCase
     public static function cleanNames(): array
     {
         return [
-            'plain name' => ['Elise'],
+            'plain name' => ['Astrid'],
             'hyphenated' => ['Anna-Karin'],
             'initials' => ['JC'],
             'substring traps avoided: raccoon' => ['Raccoon Fan'],
@@ -58,7 +58,7 @@ final class DisplayNameBlocklistTest extends TestCase
             'non-latin only (normalizes to empty)' => ['日本語の名前'],
             'emoji + name' => ['⭐ Star'],
             // Leet map must not corrupt ordinary digit-carrying names
-            'digits in a normal name' => ['Elise2024'],
+            'digits in a normal name' => ['Astrid2024'],
             'leet-looking but clean' => ['S1mon 5venson'],
             'substring traps avoided: Phuket' => ['Phuket Traveller'],
             'substring traps avoided: FC initials' => ['FC Köln fan'],
@@ -78,6 +78,6 @@ final class DisplayNameBlocklistTest extends TestCase
 
     public function testValidatorStillAcceptsCleanName(): void
     {
-        $this->assertSame('Elise', AuthController::displayName('Elise'));
+        $this->assertSame('Astrid', AuthController::displayName('Astrid'));
     }
 }
