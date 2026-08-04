@@ -623,11 +623,13 @@ export function Settings() {
 
           <TotpSection />
 
+          {/* ONE danger section (#330 — consolidates the #304 Sign out and #266
+              Delete sections): two same-size buttons. */}
           <Section
-            title="Sign out"
-            lede="Ends your session on every device, including this one. You'll just need to sign back in."
+            title="Sign out & delete account"
+            lede="Sign out everywhere ends your session on every device, including this one — you just sign back in. Deleting your account removes every task, project and point permanently; nothing is recoverable."
           >
-            <div>
+            <div className="flex flex-wrap gap-2.5">
               <Button
                 variant="danger"
                 disabled={signingOutAll}
@@ -635,15 +637,7 @@ export function Settings() {
               >
                 {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
               </Button>
-            </div>
-          </Section>
-
-          <Section
-            title="Delete account"
-            lede="Removes your account, every task and project, and your whole points history. This can't be undone and nothing is recoverable afterwards."
-          >
-            <div>
-              <Button variant="danger" size="lg" onClick={() => setConfirmingDelete(true)}>
+              <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
                 Delete my account
               </Button>
             </div>

@@ -48,10 +48,21 @@ ok(
     'Password',
     'Play',
     'Two-factor authentication',
-    'Sign out',
-    'Delete account',
+    'Sign out & delete account',
   ].every((s) => sections.includes(s)),
-  `#266/#304/#319: all seven sections render (${sections.join(', ')})`,
+  `#266/#304/#319/#330: all six sections render (${sections.join(', ')})`,
+)
+// #330: the consolidated danger section holds BOTH same-size buttons.
+ok(
+  await page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('main section button')]
+    const signOut = buttons.find((b) => /sign out everywhere/i.test(b.textContent || ''))
+    const del = buttons.find((b) => /delete my account/i.test(b.textContent || ''))
+    if (!signOut || !del) return false
+    if (signOut.closest('section') !== del.closest('section')) return false
+    return signOut.getBoundingClientRect().height === del.getBoundingClientRect().height
+  }),
+  '#330: Sign out + Delete share one section with equal-height buttons',
 )
 
 // Selection preference round-trip: change → toast → survives a reload.
