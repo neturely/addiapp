@@ -27,9 +27,14 @@ final class Lifecycle
     public static function sync(int $projectId, int $userId): void
     {
         $pdo = Db::pdo();
+        // Recurring tasks (#250) sit outside the tallies, mirroring the #240
+        // bonus check: they never finish (completion spawns the next
+        // occurrence), so they'd otherwise pin the project 'active' forever —
+        // and a freshly spawned occurrence must not flip a done project back.
         $stmt = $pdo->prepare(
             "SELECT COUNT(*) AS total, COALESCE(SUM(status = 'done'), 0) AS done_c
-             FROM tasks WHERE project_id = ? AND user_id = ?",
+             FROM tasks WHERE project_id = ? AND user_id = ?
+               AND recur_unit IS NULL AND recur_day_of_month IS NULL",
         );
         $stmt->execute([$projectId, $userId]);
         $row = $stmt->fetch();

@@ -71,6 +71,7 @@ export function InProgress() {
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
   const [projectDone, setProjectDone] = useState<ProjectCompletion | null>(null) // #240
+  const [recursAt, setRecursAt] = useState<string | null>(null) // #250 comes-back date
   const [done, setDone] = useState(false)
   const [workingLabel] = useState(
     () => WORKING_LABELS[Math.floor(Math.random() * WORKING_LABELS.length)],
@@ -127,9 +128,10 @@ export function InProgress() {
     setCompleting(true)
     setError(null)
     try {
-      const { pointsAwarded, projectCompleted } = await completeTask(task.id)
+      const { pointsAwarded, projectCompleted, recursAt: nextAt } = await completeTask(task.id)
       setAwarded(pointsAwarded ?? null)
       setProjectDone(projectCompleted ?? null)
+      setRecursAt(nextAt ?? null)
       setDone(true)
       // Completion renders in place (no route change), so refresh the header
       // chip imperatively — otherwise it would linger on the finished task (#135).
@@ -174,6 +176,7 @@ export function InProgress() {
         mode={mode}
         category={category}
         projectBonus={projectDone}
+        recursAt={recursAt}
       />
     )
   }
