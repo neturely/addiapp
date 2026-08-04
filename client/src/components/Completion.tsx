@@ -26,6 +26,17 @@ type CompletionProps = {
   category?: number
   /** Project-completion bonus (#240) when this task finished its project. */
   projectBonus?: ProjectCompletion | null
+  /** Next-occurrence date (#250, Y-m-d) when completing spawned a recurrence —
+   *  the "Comes back …" line, so the task doesn't read as gone. */
+  recursAt?: string | null
+}
+
+/** '2026-08-25' → "tomorrow" / "Aug 25" for the comes-back line (#250). */
+function comesBackLabel(ymd: string): string {
+  const today = new Date()
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  if (ymd === tomorrow.toLocaleDateString('sv-SE')) return 'tomorrow'
+  return new Date(`${ymd}T00:00:00`).toLocaleDateString('en', { month: 'short', day: 'numeric' })
 }
 
 /**
@@ -49,6 +60,7 @@ export function Completion({
   mode,
   category,
   projectBonus,
+  recursAt,
 }: CompletionProps) {
   const params = new URLSearchParams()
   if (mode) params.set('mode', mode)
@@ -97,7 +109,8 @@ export function Completion({
       : `Nice work! ${title} complete.`) +
     (projectBonus
       ? ` Project ${projectBonus.name} complete — bonus ${projectBonus.bonus} points!`
-      : '')
+      : '') +
+    (recursAt ? ` It comes back ${comesBackLabel(recursAt)}.` : '')
 
   const contextParts: string[] = []
   if (streak != null && streak > 0) contextParts.push(`🔥 Day ${streak} streak`)
@@ -127,7 +140,18 @@ export function Completion({
           Nice work!
         </h1>
       }
-      body={<p className="text-muted">{title}</p>}
+      body={
+        <p className="text-muted">
+          {title}
+          {/* Comes-back line (#250) — a spawned recurrence isn't gone, it's
+              scheduled; aria-hidden, the heading announcement covers it. */}
+          {recursAt && (
+            <span aria-hidden className="mt-1 block text-sm">
+              ↻ Comes back {comesBackLabel(recursAt)}
+            </span>
+          )}
+        </p>
+      }
       context={
         totalPoints != null || projectBonus ? (
           <div className="flex flex-col gap-3">

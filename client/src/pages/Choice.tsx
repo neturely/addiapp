@@ -7,13 +7,14 @@ import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchTaskAvailability, type TaskAvailability, type WinSize } from '@/lib/tasks'
 
-/** Time-available presets (minutes). null = "any amount of time". */
+/** Time-available presets (2.3.0 review round: fuzzy durations, not concrete
+ *  minutes — labels only; each still maps to a minute cap for the server's
+ *  unchanged `minutes` filter). null = "any amount of time". */
 const TIME_OPTIONS: { label: string; minutes: number | null }[] = [
   { label: 'Any time', minutes: null },
-  { label: '5 min', minutes: 5 },
-  { label: '15 min', minutes: 15 },
-  { label: '30 min', minutes: 30 },
-  { label: '1 hour', minutes: 60 },
+  { label: 'A little time', minutes: 30 },
+  { label: 'A few hours', minutes: 180 },
+  { label: 'A day', minutes: 480 },
 ]
 
 /** Rotating heading (#183) — a random one is picked per mount. */
@@ -209,13 +210,13 @@ export function Choice() {
         {categories.length > 0 && (
           <div className="mt-5 flex items-center justify-center gap-2">
             <label htmlFor="play-category" className="text-xs text-muted">
-              From
+              From inside of
             </label>
             <select
               id="play-category"
               value={category ?? ''}
               onChange={(e) => setCategory(e.target.value === '' ? null : Number(e.target.value))}
-              className="h-8 cursor-pointer rounded-lg bg-page/70 px-2.5 text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-accent"
+              className="h-8 cursor-pointer rounded-lg bg-page/70 px-2.5 text-[13px] text-gray-700 transition hover:bg-field field-focus"
             >
               <option value="">Anything</option>
               {categories.map((c) => (

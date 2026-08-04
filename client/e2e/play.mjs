@@ -43,7 +43,7 @@ const choice = await page.evaluate(() => {
 })
 ok(choice.small && choice.big, '#264: both win-type options render')
 ok(!choice.projects, '#306: "Focus on projects" hidden with no active-project backlog task')
-ok(choice.time && choice.radios === 5, '#264: time chips are the 5-radio radiogroup')
+ok(choice.time && choice.radios === 4, '#264: time chips are the 4-radio radiogroup (fuzzy durations, 2.3.0 review round)')
 
 // Seed an active project WITH a backlog task → the option comes back.
 await page.evaluate(async () => {

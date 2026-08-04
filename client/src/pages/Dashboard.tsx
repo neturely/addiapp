@@ -8,6 +8,7 @@ import {
   FolderPlus,
   Play,
   Plus,
+  Repeat,
   Trash2,
   X,
 } from 'lucide-react'
@@ -35,7 +36,7 @@ import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
-type Filter = 'all' | TaskStatus | 'unassigned' | 'archived'
+type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
 type View = 'tasks' | 'projects'
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -44,6 +45,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'in_progress', label: 'Started' },
   { key: 'done', label: 'Done' },
   { key: 'archived', label: 'Archived' }, // the #312 archive axis, not a status
+  { key: 'recurring', label: 'Recurring' }, // live recurring chains (2.3.0 review round)
 ]
 
 // Tint pills (#178 palette): dark on-fill text keeps them AA in a dense list.
@@ -67,13 +69,25 @@ const ARCHIVED_TAG = { label: 'Archived', className: 'bg-field text-muted' }
 
 const PAGE_SIZE = 25 // offset page size (#262)
 
+/** Future-dated ("snoozed", #250)? Compares Y-m-d strings in local time. */
+function isSnoozed(availableFrom: string | null | undefined): boolean {
+  if (!availableFrom) return false
+  return availableFrom > new Date().toLocaleDateString('sv-SE')
+}
+
+/** '2026-08-25' → 'Aug 25' for the snooze chip (#250). */
+function shortDate(ymd: string): string {
+  return new Date(`${ymd}T00:00:00`).toLocaleDateString('en', { month: 'short', day: 'numeric' })
+}
+
 // Map the `?tab=` URL param (#236 ride-along, #260 rail links) to a filter.
 function filterFromTab(tab: string | null): Filter {
   return tab === 'unassigned' ||
     tab === 'backlog' ||
     tab === 'in_progress' ||
     tab === 'done' ||
-    tab === 'archived'
+    tab === 'archived' ||
+    tab === 'recurring'
     ? tab
     : 'all'
 }
@@ -151,7 +165,9 @@ export function Dashboard() {
             ? { unassigned: true, limit: PAGE_SIZE, offset, order }
             : filter === 'archived'
               ? { archived: true, limit: PAGE_SIZE, offset, order }
-              : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
+              : filter === 'recurring'
+                ? { recurring: true, limit: PAGE_SIZE, offset, order }
+                : { status: filter === 'all' ? undefined : filter, limit: PAGE_SIZE, offset, order }
     return fetchTasksPage(query)
   }, [filter, projectFilterId, categoryFilterId, offset, newestFirst])
 
@@ -491,7 +507,9 @@ export function Dashboard() {
                       ? 'No tasks in this category yet.'
                       : filter === 'archived'
                         ? 'Nothing archived — archive done tasks to file them away.'
-                        : (counts?.all ?? 0) === 0
+                        : filter === 'recurring'
+                          ? 'No recurring tasks — set a Repeat on a task to see it here.'
+                          : (counts?.all ?? 0) === 0
                           ? 'No tasks yet.'
                           : filter === 'unassigned'
                             ? 'No unassigned tasks — every task is in a project.'
@@ -566,7 +584,7 @@ export function Dashboard() {
                           status tabs (and Unassigned) keep the difficulty pill. */}
                       {(() => {
                         const tag =
-                          filter === 'all' || filter === 'archived'
+                          filter === 'all' || filter === 'archived' || filter === 'recurring'
                             ? task.archivedAt
                               ? ARCHIVED_TAG
                               : STATUS_TAG[task.status]
@@ -593,6 +611,13 @@ export function Dashboard() {
                           <span className="text-muted"> — {task.description}</span>
                         )}
                       </span>
+                      {/* Snooze chip (#250): future-dated rows stay visible but
+                          distinct (hiding them repeats the #248 mistake). */}
+                      {isSnoozed(task.availableFrom) && task.status === 'backlog' && (
+                        <span className="hidden flex-none rounded-full bg-field px-2.5 py-0.5 text-[11px] font-medium text-muted sm:inline">
+                          from {shortDate(task.availableFrom!)}
+                        </span>
+                      )}
                       {/* Category chip (#276) — the custom-list label, pole dot
                           + name; hidden below sm where the row is tight. */}
                       {task.category && (
@@ -625,6 +650,13 @@ export function Dashboard() {
                           </span>
                         ) : null}
                       </span>
+                      {/* Recurring badge (#250; review round 2: trailing, to
+                          the RIGHT of the time/points cell). */}
+                      {task.recurrence && (
+                        <span role="img" className="flex-none text-muted" aria-label="Repeats">
+                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                        </span>
+                      )}
                     </button>
                     {/* Below sm there's no hover for the pole swap, so ready
                         rows keep a trailing always-visible play button there. */}

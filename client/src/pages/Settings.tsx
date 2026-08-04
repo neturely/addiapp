@@ -34,13 +34,14 @@ import {
  */
 const STRATEGIES: { value: string; label: string }[] = [
   { value: 'weightedByAge', label: 'Weighted random — favours older tasks' },
+  { value: 'uniformRandom', label: 'Uniform random — every task has an equal chance' },
   { value: 'oldestFirst', label: 'Oldest first' },
-  { value: 'uniformRandom', label: 'Uniform random' },
 ]
 
 const FIELD =
-  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
-const LABEL = 'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted'
+  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 transition hover:bg-field-hover field-focus'
+const LABEL =
+  'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted transition group-focus-within:text-primary-ink'
 const DELETE_TITLE_ID = 'account-delete-title'
 const TOTP_TITLE_ID = 'totp-enroll-title'
 
@@ -171,7 +172,7 @@ function TotpSection() {
       >
         {enabled ? (
           <form onSubmit={submitDisable} className="flex flex-col gap-3.5">
-            <div>
+            <div className="group">
               <label htmlFor="totpDisablePassword" className={LABEL}>
                 Your password
               </label>
@@ -184,7 +185,7 @@ function TotpSection() {
                 className={FIELD}
               />
             </div>
-            <div>
+            <div className="group">
               <label htmlFor="totpDisableCode" className={LABEL}>
                 Authenticator or backup code
               </label>
@@ -214,7 +215,7 @@ function TotpSection() {
           </form>
         ) : (
           <form onSubmit={startSetup} className="flex flex-col gap-3.5">
-            <div>
+            <div className="group">
               <label htmlFor="totpSetupPassword" className={LABEL}>
                 Your password
               </label>
@@ -292,7 +293,7 @@ function TotpSection() {
               </div>
               <p className="mb-3 text-xs break-all text-muted">{enrollment.otpauthUri}</p>
               <form onSubmit={confirmEnrollment} className="flex flex-col gap-3.5">
-                <div>
+                <div className="group">
                   <label htmlFor="totpConfirmCode" className={LABEL}>
                     6-digit code
                   </label>
@@ -471,10 +472,10 @@ export function Settings() {
           <Section
             first
             title="Profile"
-            lede="Shown on your avatar. Leave blank to use your email initial."
+            lede="Shown on your avatar. Leave blank to use your email initial. If your email is associated with a Gravatar account, your Gravatar icon is shown instead."
           >
             <form onSubmit={saveProfile} className="flex flex-col gap-3.5">
-              <div>
+              <div className="group">
                 <label htmlFor="displayName" className={LABEL}>
                   Display name
                 </label>
@@ -505,7 +506,7 @@ export function Settings() {
             lede="We'll send a confirmation link to the new address. Your email changes only once you click it, and you'll be signed out on your other devices."
           >
             <form onSubmit={saveEmail} className="flex flex-col gap-3.5">
-              <div>
+              <div className="group">
                 <label htmlFor="currentEmail" className={LABEL}>
                   Current email
                 </label>
@@ -517,7 +518,7 @@ export function Settings() {
                   className={`${FIELD} text-muted`}
                 />
               </div>
-              <div>
+              <div className="group">
                 <label htmlFor="newEmail" className={LABEL}>
                   New email
                 </label>
@@ -557,7 +558,7 @@ export function Settings() {
             lede="At least 8 characters. Changing it signs out your other devices."
           >
             <form onSubmit={savePassword} className="flex flex-col gap-3.5">
-              <div>
+              <div className="group">
                 <label htmlFor="currentPassword" className={LABEL}>
                   Current password
                 </label>
@@ -570,7 +571,7 @@ export function Settings() {
                   className={FIELD}
                 />
               </div>
-              <div>
+              <div className="group">
                 <label htmlFor="newPassword" className={LABEL}>
                   New password
                 </label>
@@ -596,8 +597,10 @@ export function Settings() {
             </form>
           </Section>
 
+          <TotpSection />
+
           <Section title="Play" lede="How AddiApp picks the next task when you press Play.">
-            <div>
+            <div className="group">
               <label htmlFor="selectionStrategy" className={LABEL}>
                 Selection
               </label>
@@ -620,8 +623,6 @@ export function Settings() {
               </p>
             </div>
           </Section>
-
-          <TotpSection />
 
           {/* ONE danger section (#330 — consolidates the #304 Sign out and #266
               Delete sections): two same-size buttons. */}
@@ -655,7 +656,7 @@ export function Settings() {
             restore any of it.
           </div>
           <form onSubmit={confirmDelete} className="flex flex-col gap-3.5">
-            <div>
+            <div className="group">
               <label htmlFor="deleteConfirm" className={LABEL}>
                 Type “delete” to confirm
               </label>
@@ -669,7 +670,7 @@ export function Settings() {
                 className={FIELD}
               />
             </div>
-            <div>
+            <div className="group">
               <label htmlFor="deletePassword" className={LABEL}>
                 Your password
               </label>

@@ -77,7 +77,7 @@ export function CategoryModal({
             maxLength={MAX_NAME}
             placeholder="e.g. Errands"
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
           />
         </div>
 

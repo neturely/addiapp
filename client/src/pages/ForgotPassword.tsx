@@ -73,7 +73,7 @@ export function ForgotPassword() {
         </p>
         <form onSubmit={onSubmit} className="space-y-4">
           <input
-            className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
             type="email"
             required
             autoComplete="email"

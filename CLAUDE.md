@@ -341,6 +341,33 @@ to the old Node API.
   **Archive** button (assigning would just revert a done project; Add task + the
   kebab keep that path) — active cards unchanged. Locked by
   `tests/Db/TaskArchiveTest.php` + the #312/#321 blocks in tasklist.mjs/play.mjs.
+- **Recurring tasks + "snooze until" (#250 — BUILT 2026-08-04)**: two features on one
+  mechanism. **Snooze**: `tasks.available_from DATE NULL` (migration 027) — Play
+  selection (`/api/tasks/next`, BOTH modes, and the #306 availability probe) excludes
+  rows dated after today (in `APP_TIMEZONE`); the task stays visible on the Dashboard
+  with a muted **"from Aug 25" chip** (backlog rows) and can still be started manually.
+  **Recurrence**: three columns (migrations 028–030), two **mutually exclusive
+  families** — `recur_unit ENUM('day','week','month')` + `recur_interval` (every N
+  units, **completion-relative**, month-end clamped) XOR `recur_day_of_month` (next
+  day-D **strictly after** completion, 29–31 clamp). All-NULL = not recurring. Date
+  math is pure in **`api/src/Tasks/Recur.php`** (unit-tested: clamping, year roll,
+  strictly-after). **Clone-per-occurrence**: the completing PATCH spawns ONE fresh
+  backlog clone (title/description/complexity/estimate/project/category + the rule,
+  `available_from` = next occurrence) — the spawn is **gated on the points award
+  winning its `UNIQUE(task_id)` race** (#74 pattern), so a concurrent double-complete
+  spawns once and a reopen-recomplete never re-spawns; the response carries a
+  **`recursAt`** rider (Y-m-d, completing call only) which Completion renders as
+  "↻ Comes back tomorrow / Aug 25". The newest occurrence IS the template (edit it to
+  change the rule; delete it to end the chain; `recurrence: null` on PATCH stops it).
+  **Recurring tasks sit OUTSIDE the project all-done tallies** in BOTH
+  `Award::awardProjectCompletion` (#240 — they'd make the bonus unreachable) and
+  `Lifecycle::sync` (#310 — a spawned clone must not flip a done project back to
+  active; a project with only recurring tasks is never auto-done). API:
+  `availableFrom` (Y-m-d | null) + `recurrence` (`{unit,interval}` | `{dayOfMonth}` |
+  null) on POST/PATCH, both on `mapTask`. Client: TaskView **Repeat** cell (None /
+  Daily / Weekly / Every 2 weeks / Monthly on a day / Custom every-N-days|weeks|months)
+  + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows. Locked by
+  `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
@@ -840,11 +867,6 @@ Genuinely still open:
   responsive pass; a real phone design pass (360px-class, row content choices,
   touch running-task UX, dvh/safe-areas, real-device verification) is deferred
   post-#256.
-- [ ] Recurring tasks + "snooze until" — **#250** (spec agreed 2026-07-29, ready to
-  build): clone-per-occurrence on completion + a nullable `available_from` date
-  (excluded from Play selection), per-task rules (every-N-days/weeks or
-  monthly-on-day-D). Recurring is a task attribute, NOT an auto project; recurring
-  tasks are excluded from the #240 project all-done check. Full spec in the issue.
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes super-light card
   drop-shadows + button polish, which would revise the long-standing flat "no shadows/borders"
   rule; **triage / not adopted** (the flat rule holds until it ships). The mascot half-out
@@ -854,6 +876,9 @@ Genuinely still open:
 
 Resolved (kept for reference):
 
+- [x] Recurring tasks + "snooze until" — **#250, BUILT 2026-08-04** (see the
+  What's-built entry): clone-per-occurrence + `available_from`, recurring excluded
+  from the #240/#310 all-done tallies.
 - [x] Backend language — **PHP 8.2 + PDO** (Node isn't available on the plan; #77)
 - [x] Hosting — **same KnownHost Basic Plus Reseller box as wptips** (not a separate plan)
 - [x] SSH availability — **yes**; deploy is Actions + rsync + SSH migrate (#39)

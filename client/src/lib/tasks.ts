@@ -27,9 +27,16 @@ export type Task = {
   startedAt?: string | null
   /** ISO timestamp when the task was filed away (#312); null = not archived. */
   archivedAt?: string | null
+  /** Snooze-until date (#250, plain Y-m-d); Play skips the task before it. */
+  availableFrom?: string | null
+  /** Recurrence rule (#250); null/absent = not recurring. */
+  recurrence?: Recurrence | null
   /** ISO creation timestamp — the task view's "added N days ago" line (#262). */
   createdAt?: string
 }
+
+/** Recurrence rule (#250): every N days/weeks/months, XOR monthly on day D. */
+export type Recurrence = { unit: 'day' | 'week' | 'month'; interval: number } | { dayOfMonth: number }
 
 /** Points breakdown returned when a task is completed (issue #28). */
 export type AwardResult = {
@@ -61,6 +68,10 @@ export type NewTaskInput = {
   projectId?: number
   /** Optional category to create the task into (#276); must be owned. */
   categoryId?: number
+  /** Snooze-until date (#250, Y-m-d); null/absent = available now. */
+  availableFrom?: string | null
+  /** Recurrence rule (#250); null clears it on update. */
+  recurrence?: Recurrence | null
 }
 
 /** Play-mode pick strategy. Default (win-type) unless `projects` (#238). */
@@ -130,6 +141,9 @@ export type TaskCounts = {
   unassigned: number
   /** Filed-away done tasks (#312) — outside every other figure. */
   archived: number
+  /** Live recurring chains (2.3.0 review round): rule-carrying tasks that
+   * aren't done/archived — the rail's Recurring entry. */
+  recurring: number
 }
 
 /** One page of the dashboard task list (#262 — offset pagination, superseding
@@ -157,6 +171,9 @@ export async function fetchTasksPage(opts: {
   categoryId?: number
   /** #312 archive view: only filed-away tasks (default lists exclude them). */
   archived?: boolean
+  /** Recurring view (2.3.0 review round): the live occurrence of every
+   * recurring chain (rule-carrying, not done, not archived). */
+  recurring?: boolean
   limit: number
   offset?: number
   /** Row order: 'asc' (oldest first, the default) or 'desc' (newest first). */
@@ -168,6 +185,7 @@ export async function fetchTasksPage(opts: {
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
   if (opts.categoryId != null) params.set('categoryId', String(opts.categoryId))
   if (opts.archived) params.set('archived', '1')
+  if (opts.recurring) params.set('recurring', '1')
   params.set('limit', String(opts.limit))
   if (opts.offset) params.set('offset', String(opts.offset))
   if (opts.order === 'desc') params.set('order', 'desc')
@@ -270,14 +288,22 @@ export type ProjectCompletion = { projectId: number; name: string; bonus: number
  * `pointsAwarded` is present the first time and omitted if it was already done.
  * `projectCompleted` (#240) is present only when this completion finished the
  * task's project (all its tasks done) — the once-ever project bonus.
+ * `recursAt` (#250) is present when completing a recurring task spawned its
+ * next occurrence — the Y-m-d date it comes back.
  */
 export async function completeTask(
   id: number,
-): Promise<{ task: Task; pointsAwarded?: AwardResult; projectCompleted?: ProjectCompletion }> {
+): Promise<{
+  task: Task
+  pointsAwarded?: AwardResult
+  projectCompleted?: ProjectCompletion
+  recursAt?: string
+}> {
   const res = await requestJson<{
     task: Task
     pointsAwarded?: AwardResult
     projectCompleted?: ProjectCompletion
+    recursAt?: string
   }>(`/tasks/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),

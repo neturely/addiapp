@@ -205,6 +205,22 @@
 }
 
 /*
+ * Input focus treatment (2.3.0 review round 3 — user-picked "darken-then-wash
+ * + lit label + soft brand glow"): hover darkens the field, focus washes it in
+ * primary-tint with a soft coral halo. The old focus-visible accent ring is
+ * RETIRED — browsers fire focus-visible on text inputs even for mouse clicks,
+ * so a pointer/keyboard split never existed for text fields; this treatment IS
+ * the keyboard indicator (the lit label + wash + glow together clear that
+ * bar). The glow is a deliberate, user-decided scoped exception to the
+ * flat-surface rule (like the mascot halo) — inputs only, not cards.
+ */
+.field-focus:focus {
+  outline: none;
+  background-color: var(--color-primary-tint);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+/*
  * The AppLayout shell owns page height (#92). Pages still set their own
  * `min-h-screen` (per-screen cleanup is retrofit #94); inside the shell that
  * would stack a full viewport UNDER the header+footer and push the footer off

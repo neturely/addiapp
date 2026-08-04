@@ -80,7 +80,7 @@ export function ProjectForm({
           maxLength={MAX_NAME}
           placeholder="e.g. Kitchen renovation"
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+          className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
         />
       </div>
 
@@ -98,7 +98,7 @@ export function ProjectForm({
           maxLength={MAX_DESCRIPTION}
           placeholder="What is this project about?"
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full resize-y rounded-lg bg-gray-100 p-2.5 focus:ring-2 focus:ring-primary focus:outline-none"
+          className="w-full resize-y rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
         />
       </div>
 
