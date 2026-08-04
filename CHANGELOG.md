@@ -11,10 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Display names now pass a small profanity blocklist on register and account update ([#340](https://github.com/neturely/addiapp/issues/340))
 - Recurring tasks + "snooze until": tasks can repeat (every N days/weeks/months, or monthly on a day) — completing one spawns the next occurrence, dated and excluded from Play until then; any task can be snoozed to a future date ([#250](https://github.com/neturely/addiapp/issues/250))
+- A "Recurring" rail entry under Started — one view of every live recurring task, with its own count ([#355](https://github.com/neturely/addiapp/pull/355))
 ### Changed
+- Inputs have a new focus treatment: the field washes in the brand tint with a soft glow and its label lights up — the old blue focus ring is gone everywhere ([#355](https://github.com/neturely/addiapp/pull/355), [#357](https://github.com/neturely/addiapp/pull/357))
+- Play Choice: the category scope reads "From inside of", and the time filter is now fuzzy durations (Any time / A little time / A few hours / A day) instead of concrete minutes ([#355](https://github.com/neturely/addiapp/pull/355))
+- Task view: "Snooze" and Repeat each sit on their own full row (control left, description/custom options right); the recurring ↻ marker on task rows moved to the end of the row ([#355](https://github.com/neturely/addiapp/pull/355), [#356](https://github.com/neturely/addiapp/pull/356))
 - Settings/TaskView/rail polish: Gravatar mentioned in the avatar helper text, 2FA section moved below Password, Play strategy list reordered with a Uniform-random descriptor, inline "+" to create a project/category from the task view, Projects "Done" rail pole now green ([#341](https://github.com/neturely/addiapp/issues/341))
 ### Fixed
 - Password managers now recognize the login 2FA code field as a one-time-code input instead of a username box ([#343](https://github.com/neturely/addiapp/issues/343))
+### Security
+- The display-name blocklist got a leetspeak pass and a wider vetted wordlist ([#355](https://github.com/neturely/addiapp/pull/355))
+- Dependency bumps clear all open Dependabot/audit findings with in-range fixes (ip-address, brace-expansion, react-router 7.18.1); the router RSC advisory needs the v8 major and is tracked as [#359](https://github.com/neturely/addiapp/issues/359) ([#358](https://github.com/neturely/addiapp/pull/358))
 
 ## [2.2.0] - 2026-08-04
 ### Added
