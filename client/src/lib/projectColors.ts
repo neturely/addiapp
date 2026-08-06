@@ -45,6 +45,19 @@ export function projectPole(color: number | undefined): string {
   return (PROJECT_COLORS[color ?? 0] ?? PROJECT_COLORS[0]).pole
 }
 
+/**
+ * Soft tint for a palette index (#336 — the row category chip): the hue mixed
+ * lightly into white, so a dark neutral text stays AA on every slot. The White
+ * slot (no embedded hex) falls back to the neutral field tone so the chip
+ * stays visible on the white row surface.
+ */
+export function projectTint(color: number | undefined): string {
+  const slot = PROJECT_COLORS[color ?? 0] ?? PROJECT_COLORS[0]
+  const hex = /#[0-9a-f]{6}/i.exec(slot.pole)?.[0]
+  if (!hex) return 'var(--color-field)'
+  return `color-mix(in srgb, ${hex} 18%, white)`
+}
+
 /** The leading spectrum hues (slots 0–15); Black/Grey/White sit after them. */
 export const SPECTRUM_SLOTS = 16
 

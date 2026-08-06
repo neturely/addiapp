@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
-import { Plus } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { projectPole } from '@/lib/projectColors'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
@@ -114,21 +114,18 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
       />
       {/* Category entries live in the Tasks section, directly under Ready
           (#334 — the way project entries sit under the Active pool; the
-          separate Categories section is gone). Edit/Delete stay on the
-          Dashboard toolbar when an entry's filter is active (#276). */}
+          separate Categories section is gone). They indent one step (#336) so
+          user-defined lists read as children of Ready, not more statuses, and
+          each carries the inline EDIT affordance — hover/focus reveals it at
+          sm+, the drawer shows it always — deep-linking the edit modal
+          (?category=ID&editCategory=1). Delete lives inside that modal; the
+          old Dashboard-toolbar Edit/Delete is gone. */}
       {categories.map((c) => (
-        <RailLink
-          key={c.id}
-          to={`/dashboard?category=${c.id}`}
-          active={activeCategoryId === c.id}
-          pole={projectPole(c.color)}
-          label={c.name}
-          count={c.remainingCount}
-        />
+        <CategoryRailRow key={c.id} category={c} active={activeCategoryId === c.id} />
       ))}
       <Link
         to="/dashboard?newCategory=1"
-        className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
+        className="flex h-11 items-center gap-2.5 rounded-lg py-0 pl-5 pr-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
       >
         <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
         <span>New category</span>
@@ -253,6 +250,50 @@ function RailHead({
         className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-6 sm:w-6"
       >
         <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} aria-hidden />
+      </Link>
+    </div>
+  )
+}
+
+/**
+ * A category entry (#336): a RailLink-styled row, indented one step under
+ * Ready, with an inline EDIT affordance. At sm+ the count fades on hover /
+ * focus-within and the pencil takes its place; below sm (drawer) the pencil is
+ * always visible beside the count (row padding reserves its slot). Visibility
+ * uses opacity, not display — a display-hidden control would drop out of the
+ * keyboard tab order, and group-focus-within is what reveals it when tabbed to.
+ */
+function CategoryRailRow({ category, active }: { category: Category; active: boolean }) {
+  return (
+    <div className="group relative">
+      <Link
+        to={`/dashboard?category=${category.id}`}
+        aria-current={active ? 'true' : undefined}
+        className={`flex h-11 items-center gap-2.5 rounded-lg py-0 pl-5 pr-2.5 text-sm max-sm:pr-12 sm:h-8 ${
+          active
+            ? 'bg-primary-tint font-semibold text-primary-ink'
+            : 'text-gray-700 hover:bg-field-hover'
+        }`}
+      >
+        <span
+          className={`h-2 w-2 flex-none rounded-[3px] ${projectPole(category.color)}`}
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1 truncate">{category.name}</span>
+        <span
+          className={`text-xs tabular-nums transition-opacity sm:group-hover:opacity-0 sm:group-focus-within:opacity-0 ${
+            active ? 'text-primary-ink' : 'text-muted'
+          }`}
+        >
+          {category.remainingCount}
+        </span>
+      </Link>
+      <Link
+        to={`/dashboard?category=${category.id}&editCategory=1`}
+        aria-label={`Edit category ${category.name}`}
+        className="pointer-events-none absolute right-0.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-muted opacity-0 transition hover:bg-field-hover hover:text-primary-ink max-sm:pointer-events-auto max-sm:opacity-100 sm:h-7 sm:w-7 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+      >
+        <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
       </Link>
     </div>
   )

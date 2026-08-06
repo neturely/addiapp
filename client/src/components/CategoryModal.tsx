@@ -20,10 +20,14 @@ export function CategoryModal({
   category,
   onClose,
   onSaved,
+  onDelete,
 }: {
   category?: Category
   onClose: () => void
   onSaved: (saved: Category) => void
+  /** Edit mode only (#336): Delete lives INSIDE this modal — a low-emphasis
+   * trigger handing off to the caller's existing confirm step. */
+  onDelete?: () => void
 }) {
   const { showToast } = useToast()
   const editing = category !== undefined
@@ -108,6 +112,15 @@ export function CategoryModal({
                 : 'Create category'}
           </Button>
         </div>
+        {editing && onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="mx-auto block cursor-pointer text-sm text-danger-ink transition hover:underline"
+          >
+            Delete this category…
+          </button>
+        )}
       </form>
       {/* Rendered last so the first focusable element is the name field, not this. */}
       <button

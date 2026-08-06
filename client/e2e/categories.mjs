@@ -1,7 +1,9 @@
-// User-defined task categories (#276): the rail's Categories section, the
+// User-defined task categories (#276; management moved to the rail, #336):
+// the rail entries (indented, with the inline edit affordance), the
 // New-category modal (rail plus → ?newCategory=1), the per-category filter
-// with its toolbar Edit/Delete, the TaskView Category select, and the Play
-// Choice "From" scope. Cleans up after itself (deletes the category + task).
+// (toolbar Edit/Delete GONE — edit deep-links ?category=ID&editCategory=1,
+// Delete lives inside that modal), the tinted row chip, the TaskView Category
+// select, and the Play Choice "From" scope. Cleans up after itself.
 import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -72,6 +74,20 @@ ok(
   filtered.length === 1 && /e2e categorized/.test(filtered[0]),
   `#276: ?category= filter shows exactly the labelled task (got ${filtered.length})`,
 )
+// #336: the row chip carries the category's palette tint (inline background)
+// and the toolbar's old Edit/Delete controls are gone.
+const v2Bits = await page.evaluate(() => {
+  const li = document.querySelector('ul[aria-label="Tasks"] li')
+  const chip = [...(li?.querySelectorAll('span') ?? [])].find((s) =>
+    (s.getAttribute('style') || '').includes('background'),
+  )
+  const toolbarBtns = [...document.querySelectorAll('main button')].filter((b) =>
+    ['Edit', 'Delete'].includes(b.textContent?.trim() || ''),
+  ).length
+  return { chip: !!chip, toolbarBtns }
+})
+ok(v2Bits.chip, '#336: row category chip carries the palette tint')
+ok(v2Bits.toolbarBtns === 0, '#336: toolbar Edit/Delete controls are gone')
 // The count is the trailing tabular-nums span, NOT the (digit-bearing) name.
 const railCount = await page.evaluate((name) => {
   const link = [...document.querySelectorAll('#app-rail a')].find((a) =>
@@ -105,17 +121,42 @@ await page.waitForFunction(
 )
 ok(true, '#276: Choice "From" scope carries category= into the Play chain')
 
-// Cleanup: delete the category from the toolbar (tasks survive), then the task.
+// Management via the rail (#336): the entry carries an inline edit affordance
+// deep-linking ?category=ID&editCategory=1; Delete lives inside the modal and
+// hands off to the confirm step. (Doubles as the cleanup — tasks survive.)
 await page.goto(`${BASE}/dashboard?category=${categoryId}`, { waitUntil: 'networkidle0' })
-await page.evaluate(() =>
-  [...document.querySelectorAll('main button')]
-    .find((b) => b.textContent?.trim() === 'Delete')
-    ?.click(),
+const editHref = await page.evaluate((name) => {
+  const a = [...document.querySelectorAll('#app-rail a[aria-label^="Edit category"]')].find((el) =>
+    (el.getAttribute('aria-label') || '').includes(name),
+  )
+  return a?.getAttribute('href') ?? null
+}, CAT_NAME)
+ok(
+  editHref === `/dashboard?category=${categoryId}&editCategory=1`,
+  `#336: rail entry carries the edit affordance (got ${editHref})`,
 )
-await page.waitForSelector('[role=dialog]', { timeout: 5000 })
+await page.goto(`${BASE}${editHref}`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('[role=dialog] #category-name', { timeout: 5000 })
+ok(
+  await page.evaluate(
+    (name) => document.querySelector('#category-name')?.value === name,
+    CAT_NAME,
+  ),
+  '#336: edit deep link opens the modal prefilled',
+)
 await page.evaluate(() =>
   [...document.querySelectorAll('[role=dialog] button')]
-    .find((b) => /delete category/i.test(b.textContent || ''))
+    .find((b) => /delete this category…/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () => /delete this category\?/i.test(document.querySelector('[role=dialog] h2')?.textContent || ''),
+  { timeout: 5000 },
+)
+ok(true, '#336: modal Delete hands off to the confirm step')
+await page.evaluate(() =>
+  [...document.querySelectorAll('[role=dialog] button')]
+    .find((b) => /^delete category$/i.test(b.textContent?.trim() || ''))
     ?.click(),
 )
 await page.waitForFunction(() => !window.location.search.includes('category='), { timeout: 5000 })
