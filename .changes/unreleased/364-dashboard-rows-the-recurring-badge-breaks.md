@@ -1,2 +1,2 @@
-<!-- okffs:type=Changed -->
-- Dashboard rows: the ↻ recurring badge breaks the min/pts column alignment ([#364](https://github.com/neturely/addiapp/issues/364))
+<!-- okffs:type=Fixed -->
+- Dashboard rows read "Title ↻ Description" — the recurring badge sits inline between title and description (no more min/pts column misalignment) and the " — " separator is gone ([#364](https://github.com/neturely/addiapp/issues/364))
