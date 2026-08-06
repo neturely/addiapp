@@ -397,7 +397,9 @@ to the old Node API.
   {label}."), `notifications/NotificationsProvider` (InProgressProvider
   pattern: fetch on mount + route change, NO polling) feeding the Header
   **avatar dot — total-based, two-state (user decision 2026-08-06)**: shown
-  while the view has ANY items, **amber** (`bg-warning`) at rest, **red**
+  while the view has ANY items, **green** (`bg-success`) at rest (revised from
+  amber — it read too close to the red; blue would blend into the accent-tint
+  avatar), **red**
   (`bg-primary`) when some are unread; the served **`totalCount`** (not the
   capped list's length) drives presence + the menu count, `unreadCount` only
   escalates the colour (the `aria-label` carries whichever count applies —

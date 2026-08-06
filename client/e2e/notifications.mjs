@@ -101,7 +101,7 @@ ok(rowA?.hasOpen === true, '#366: row carries the Open-task action')
 ok(rowA?.unreadDot === true, '#366: unread row shows the primary dot')
 ok(rowA?.hasDismiss === true, '#366: row carries a trailing Dismiss button')
 
-// Opening marked everything read: the badge DOWNGRADES to amber (total-count
+// Opening marked everything read: the badge DOWNGRADES to green (total-count
 // state — items still exist in the view) rather than disappearing.
 await page.waitForFunction(
   () => {
@@ -114,10 +114,10 @@ await page.waitForFunction(
 ok(
   await page.evaluate(
     () =>
-      !!document.querySelector('header span.bg-warning.ring-2') &&
+      !!document.querySelector('header span.bg-success.ring-2') &&
       !document.querySelector('header span.bg-primary.ring-2'),
   ),
-  '#366: after reading, the dot goes amber (items remain, none new)',
+  '#366: after reading, the dot goes green (items remain, none new)',
 )
 const serverUnread = await page.evaluate(async () => {
   const { unreadCount } = await fetch('/api/notifications', { credentials: 'include' }).then((r) =>

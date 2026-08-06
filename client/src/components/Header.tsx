@@ -214,13 +214,16 @@ export function Header() {
               )}
             </button>
             {/* Notification indicator (#366, user decision): shown while the
-                /notifications view has ANY items — amber at rest, escalating
-                to red when some are new (unread). Outside the clipped avatar
-                button; the surface ring separates it from any gravatar. */}
+                /notifications view has ANY items — GREEN at rest (calm "they're
+                there, all read"; green over amber, which read too close to the
+                red, and over blue, which would blend into the accent-tint
+                avatar), escalating to red when some are new (unread). Outside
+                the clipped avatar button; the surface ring separates it from
+                any gravatar. */}
             {totalCount > 0 && (
               <span
                 className={`pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-surface ${
-                  unreadCount > 0 ? 'bg-primary' : 'bg-warning'
+                  unreadCount > 0 ? 'bg-primary' : 'bg-success'
                 }`}
                 aria-hidden
               />
@@ -248,7 +251,7 @@ export function Header() {
                       className={`rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
                         unreadCount > 0
                           ? 'bg-primary-tint text-primary-ink'
-                          : 'bg-warning-tint text-warning-ink'
+                          : 'bg-success-tint text-success-ink'
                       }`}
                     >
                       {totalCount}

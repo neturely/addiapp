@@ -21,7 +21,7 @@ export type NotificationsPayload = {
   notifications: AppNotification[]
   unreadCount: number
   /** All non-dismissed notifications (the /notifications view's row count —
-   * served, since the list itself is capped). Drives the header badge: amber
+   * served, since the list itself is capped). Drives the header badge: green
    * when the view has items, red when some are unread. */
   totalCount: number
 }
