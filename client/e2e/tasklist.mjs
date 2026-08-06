@@ -301,10 +301,29 @@ ok(
   await page.evaluate(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || '')),
   '#332: the Done tab still excludes archived tasks',
 )
+// #363: the toolbar count scopes to the tab — Done shows the done figure +
+// wording (was the global backlog's "ready to do" on every tab).
+const tabCounts = await page.evaluate(async () => {
+  const { counts } = await fetch('/api/tasks?limit=1', { credentials: 'include' }).then((r) =>
+    r.json(),
+  )
+  return counts
+})
+const doneCountText = `${tabCounts.done} ${tabCounts.done === 1 ? 'task' : 'tasks'} done`
+ok(
+  await page.evaluate((t) => (document.body.textContent || '').includes(t), doneCountText),
+  `#363: Done tab toolbar reads "${doneCountText}"`,
+)
 await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
 ok(
   await page.evaluate(() => /e2e archive probe/i.test(document.body.textContent || '')),
   '#312: archived tab lists the filed task',
+)
+// #363: same on Archived — its own figure, not the backlog's.
+const archCountText = `${tabCounts.archived} ${tabCounts.archived === 1 ? 'task' : 'tasks'} archived`
+ok(
+  await page.evaluate((t) => (document.body.textContent || '').includes(t), archCountText),
+  `#363: Archived tab toolbar reads "${archCountText}"`,
 )
 // #330: the archived row's pill reads "Archived", never "Done".
 const archPill = await page.evaluate(() => {
