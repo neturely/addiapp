@@ -302,12 +302,13 @@ to the old Node API.
   (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
   the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
   "New category" row → the `?newCategory=1` modal). **Management lives in the
-  rail (#336 — the toolbar Edit/Delete is GONE):** entries sit INLINE with the
-  fixed rows (an indent was tried and rejected on user review), differentiated
-  by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
-  centered in the pole square's 8px slot so all rail labels share one x —
-  projects keep the square, categories get the tag: that IS the
-  category-vs-project iconography split), and each carries an inline **edit
+  rail (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN
+  rail section (between Tasks and Projects; plain non-link head, its + → the
+  `?newCategory=1` modal), entries led by a **coloured TAG icon** in the
+  category's palette hue (`projectHex()`; centered in the pole square's 8px
+  slot so all rail labels share one x — **per-project entries lead with a
+  FOLDER icon the same way**, the fixed pool rows keep pole squares:
+  tag = category, folder = project), and each carries an inline **edit
   affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
   sm+ via opacity, never `display:none`, so it stays in the tab order; always
   visible in the drawer; the hover highlight sits on `group-hover`, so
@@ -618,17 +619,16 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   hamburger, entries are ≥44px targets): Tasks section
   (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
   the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
-  the #312 task-archive axis → `?tab=archived`). **Section order (#336
-  revision): the fixed axes group under Ready** — All tasks / Ready /
-  Recurring / Unassigned / **[category entries]** / "+ New category" / Started
-  / Done / Archived — mirroring the Projects section's pools-then-entries
-  flow. **Category entries (#276, placed #334, rail-managed #336)** sit inline
-  (no indent — tried, rejected), led by a coloured **tag icon** (vs the
-  projects' pole square), each → `?category=ID` with its remaining count and
-  an inline **edit affordance** (hover/focus-revealed pencil →
-  `?category=ID&editCategory=1`; Delete inside the modal — see the #276
-  What's-built entry), followed by the **"+ New category" row** → the
-  `?newCategory=1` modal.
+  the #312 task-archive axis → `?tab=archived`). **Tasks section order (#336):
+  the fixed axes group under Ready** — All tasks / Ready / Recurring /
+  Unassigned / Started / Done / Archived. **Categories then get their OWN
+  section between Tasks and Projects (#336 final round — the in-Tasks
+  placement was tried twice and rejected):** a plain non-link head (no
+  aggregate view exists) whose **+ → the `?newCategory=1` modal** (the old
+  "+ New category" row is GONE); entries led by a coloured **tag icon**, each
+  → `?category=ID` with its remaining count and an inline **edit affordance**
+  (hover/focus-revealed pencil → `?category=ID&editCategory=1`; Delete inside
+  the modal — see the #276 What's-built entry).
   Then the Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).

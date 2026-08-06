@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
-import { Pencil, Plus, Tag } from 'lucide-react'
-import { projectHex, projectPole } from '@/lib/projectColors'
+import { Folder, Pencil, Plus, Tag, type LucideIcon } from 'lucide-react'
+import { projectHex } from '@/lib/projectColors'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
 import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
@@ -129,24 +129,6 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Unassigned"
         count={counts?.unassigned}
       />
-      {/* Category entries follow the fixed axes (#334/#336 — the way project
-          entries follow the Active pool; the separate Categories section is
-          gone). Inline with the rest, differentiated by the coloured TAG icon
-          instead of a pole square; each carries the inline EDIT affordance —
-          hover/focus reveals it at sm+, the drawer shows it always —
-          deep-linking the edit modal (?category=ID&editCategory=1). Delete
-          lives inside that modal; the old Dashboard-toolbar Edit/Delete is
-          gone. */}
-      {categories.map((c) => (
-        <CategoryRailRow key={c.id} category={c} active={activeCategoryId === c.id} />
-      ))}
-      <Link
-        to="/dashboard?newCategory=1"
-        className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
-      >
-        <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
-        <span>New category</span>
-      </Link>
       <RailLink
         to="/dashboard?tab=in_progress"
         active={isTab('in_progress')}
@@ -171,6 +153,21 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         count={counts?.archived}
       />
 
+      {/* Categories get their OWN section again (#336, user review — the
+          in-Tasks placement was tried across two rounds and rejected): head
+          plus → the ?newCategory=1 modal (the old "+ New category" row is
+          gone), entries keep the tag icon + inline edit affordance. The head
+          is a plain label — there is no aggregate categories view to link. */}
+      <RailHead
+        label="Categories"
+        plusTo="/dashboard?newCategory=1"
+        plusLabel="New category"
+        className="mt-6"
+      />
+      {categories.map((c) => (
+        <CategoryRailRow key={c.id} category={c} active={activeCategoryId === c.id} />
+      ))}
+
       <RailHead
         label="Projects"
         to="/dashboard?view=projects"
@@ -187,12 +184,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Active"
         count={activeProjects.length}
       />
+      {/* Per-project entries lead with a FOLDER icon in the project's colour
+          (#336 review — the per-entry icon pattern from categories' tag; the
+          fixed pool rows keep their pole squares). */}
       {activeProjects.map((p) => (
         <RailLink
           key={p.id}
           to={`/dashboard?project=${p.id}`}
           active={activeProjectId === p.id}
-          pole={projectPole(p.color)}
+          leadIcon={{ Icon: Folder, color: projectHex(p.color) }}
           label={p.name}
           count={p.remainingCount}
         />
@@ -228,22 +228,26 @@ function RailHead({
 }: {
   label: string
   /** The section heading is itself a link (#256 review feedback) — Tasks →
-   * the task list, Projects → the projects grid. */
-  to: string
+   * the task list, Projects → the projects grid. Absent (Categories, #336):
+   * there is no aggregate view, the head is a plain label. */
+  to?: string
   plusTo: string
   plusLabel: string
   plusState?: unknown
   className?: string
 }) {
+  // h-11 below sm = a real touch target in the drawer (#270); text-size at sm+.
+  const headClasses =
+    'flex h-11 items-center text-[11px] font-semibold uppercase tracking-wider text-muted sm:h-auto'
   return (
     <div className={`mb-1 flex items-center justify-between pl-2.5 pr-1 ${className}`}>
-      <Link
-        to={to}
-        // h-11 below sm = a real touch target in the drawer (#270); text-size at sm+.
-        className="flex h-11 items-center text-[11px] font-semibold uppercase tracking-wider text-muted transition hover:text-primary-ink sm:h-auto"
-      >
-        {label}
-      </Link>
+      {to ? (
+        <Link to={to} className={`${headClasses} transition hover:text-primary-ink`}>
+          {label}
+        </Link>
+      ) : (
+        <span className={headClasses}>{label}</span>
+      )}
       <Link
         to={plusTo}
         state={plusState}
@@ -313,12 +317,17 @@ function RailLink({
   to,
   active,
   pole,
+  leadIcon,
   label,
   count,
 }: {
   to: string
   active: boolean
-  pole: string
+  /** Fixed entries' colour square; per-entry rows pass `leadIcon` instead. */
+  pole?: string
+  /** Icon lead (#336 — projects' folder): centered in the pole square's 8px
+   * slot so every rail label shares the same x. */
+  leadIcon?: { Icon: LucideIcon; color: string }
   label: string
   count?: number
 }) {
@@ -333,7 +342,17 @@ function RailLink({
           : 'text-gray-700 hover:bg-field-hover'
       }`}
     >
-      <span className={`h-2 w-2 flex-none rounded-[3px] ${pole}`} aria-hidden />
+      {leadIcon ? (
+        <span className="flex w-2 flex-none justify-center" aria-hidden>
+          <leadIcon.Icon
+            className="h-3.5 w-3.5 flex-none"
+            style={{ color: leadIcon.color }}
+            strokeWidth={2.25}
+          />
+        </span>
+      ) : (
+        <span className={`h-2 w-2 flex-none rounded-[3px] ${pole}`} aria-hidden />
+      )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count != null && (
         <span className={`text-xs tabular-nums ${active ? 'text-primary-ink' : 'text-muted'}`}>

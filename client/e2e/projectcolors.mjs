@@ -57,7 +57,9 @@ const after = await page.evaluate(() => {
 ok(after.checkedIndex === 1, '#268: ArrowRight moves the checked swatch')
 ok(after.focusedIndex === after.checkedIndex, '#268: focus follows the selection')
 
-// Round-trip: create a project with the selected colour → rail pole shows it.
+// Round-trip: create a project with the selected colour → the rail entry's
+// FOLDER icon (#336 — the per-entry icon lead superseding the pole square)
+// carries it as an inline colour style.
 // ArrowRight moved us from Random (cell 0) onto Red (palette slot 0).
 const name = `Colour probe ${Date.now()}`
 await page.type('#project-name', name)
@@ -68,15 +70,20 @@ const railHasProject = await page.evaluate(
   name,
 )
 ok(railHasProject, '#268: new project appears in the rail')
+// Browsers normalize inline hex colours to rgb() — compare in that space.
+const rgbOf = (hex) => {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
 const poleFor = (n) =>
   page.evaluate((needle) => {
     const link = [...document.querySelectorAll('#app-rail a')].find((a) =>
       a.textContent.includes(needle),
     )
-    return link?.querySelector('span[aria-hidden]')?.className ?? ''
+    return link?.querySelector('svg.lucide-folder')?.style.color ?? ''
   }, n)
-const poleClass = await poleFor(name)
-ok(poleClass.includes('bg-[#d11a1a]'), `#268: rail pole carries slot-0 Red (class: "${poleClass}")`)
+const poleColor = await poleFor(name)
+ok(poleColor === rgbOf('#d11a1a'), `#268: rail folder icon carries slot-0 Red (got "${poleColor}")`)
 
 // #308: leaving Random selected rolls a concrete SPECTRUM hue at save time —
 // the stored colour is a real palette index, never a neutral.
@@ -86,10 +93,10 @@ const randomName = `Random probe ${Date.now()}`
 await page.type('#project-name', randomName)
 await page.click('button[type="submit"]')
 await sleep(600)
-const randomPole = await poleFor(randomName)
+const randomColor = await poleFor(randomName)
 ok(
-  SPECTRUM_HEXES.some((hex) => randomPole.includes(`bg-[${hex}]`)),
-  `#308: Random rolls one of the 16 spectrum hues (class: "${randomPole}")`,
+  SPECTRUM_HEXES.some((hex) => randomColor === rgbOf(hex)),
+  `#308: Random rolls one of the 16 spectrum hues (got "${randomColor}")`,
 )
 
 await browser.close()

@@ -14,33 +14,40 @@ await login(page)
 
 const CAT_NAME = `e2e-cat-${Date.now()}`
 
-// Rail (#334): NO separate Categories section — entries live in the Tasks
-// section under Ready, followed by the "New category" row, before Started.
+// Rail (#336, final round): Categories has its OWN section between Tasks and
+// Projects — a plain (non-link) head with the + → ?newCategory=1; the old
+// "+ New category" row is gone. The Tasks section keeps the axes grouped
+// under Ready (Recurring, Unassigned) with Started after.
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 const rail = await page.evaluate(() => {
   const links = [...document.querySelectorAll('#app-rail a')].map((a) => ({
     text: a.textContent?.trim() || '',
     href: a.getAttribute('href') || '',
   }))
+  const heads = [...document.querySelectorAll('#app-rail > div.mb-1')].map((d) =>
+    (d.textContent || '').trim(),
+  )
   return {
-    hasCategoriesHead: links.some((l) => l.text === 'Categories'),
+    hasCategoriesHead: heads.some((h) => h.startsWith('Categories')),
+    newCatRow: links.some((l) => l.text === 'New category'),
+    plusIdx: links.findIndex((l) => l.href === '/dashboard?newCategory=1'),
     readyIdx: links.findIndex((l) => l.href === '/dashboard?tab=backlog'),
     recurringIdx: links.findIndex((l) => l.href === '/dashboard?tab=recurring'),
     unassignedIdx: links.findIndex((l) => l.href === '/dashboard?tab=unassigned'),
-    newCatIdx: links.findIndex((l) => l.href === '/dashboard?newCategory=1'),
     startedIdx: links.findIndex((l) => l.href === '/dashboard?tab=in_progress'),
+    archivedIdx: links.findIndex((l) => l.href === '/dashboard?tab=archived'),
   }
 })
-// #336 order revision: the fixed axes (Recurring, Unassigned) group directly
-// under Ready, THEN the category entries + New category, then Started.
 ok(
-  !rail.hasCategoriesHead &&
-    rail.readyIdx >= 0 &&
+  rail.hasCategoriesHead && !rail.newCatRow && rail.plusIdx > rail.archivedIdx,
+  `#336: Categories has its own section after Tasks (head + plus@${rail.plusIdx} > Archived@${rail.archivedIdx}; no "+ New category" row)`,
+)
+ok(
+  rail.readyIdx >= 0 &&
     rail.readyIdx < rail.recurringIdx &&
     rail.recurringIdx < rail.unassignedIdx &&
-    rail.unassignedIdx < rail.newCatIdx &&
-    rail.newCatIdx < rail.startedIdx,
-  `#336: Tasks section orders Ready@${rail.readyIdx} < Recurring@${rail.recurringIdx} < Unassigned@${rail.unassignedIdx} < New category@${rail.newCatIdx} < Started@${rail.startedIdx} (no Categories head)`,
+    rail.unassignedIdx < rail.startedIdx,
+  `#336: Tasks axes order Ready@${rail.readyIdx} < Recurring@${rail.recurringIdx} < Unassigned@${rail.unassignedIdx} < Started@${rail.startedIdx}`,
 )
 
 await page.goto(`${BASE}/dashboard?newCategory=1`, { waitUntil: 'networkidle0' })
