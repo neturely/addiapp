@@ -18,12 +18,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
 
   const refresh = useCallback(async () => {
     try {
-      const { notifications, unreadCount } = await fetchNotifications()
+      const { notifications, unreadCount, totalCount } = await fetchNotifications()
       setNotifications(notifications)
       setUnreadCount(unreadCount)
+      setTotalCount(totalCount)
     } catch {
       // Non-blocking chrome — keep the last-known state on a transient failure.
       // (A 401 is handled globally by apiRequest → redirect.)
@@ -46,7 +48,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <NotificationsContext.Provider value={{ notifications, unreadCount, refresh, markAllRead }}>
+    <NotificationsContext.Provider
+      value={{ notifications, unreadCount, totalCount, refresh, markAllRead }}
+    >
       {children}
     </NotificationsContext.Provider>
   )

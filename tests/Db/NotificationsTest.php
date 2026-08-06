@@ -74,6 +74,7 @@ final class NotificationsTest extends DbTestCase
         [$status, $body] = $this->dispatch('GET', '/api/notifications', $sid);
         self::assertSame(200, $status);
         self::assertSame(1, $body['unreadCount']);
+        self::assertSame(1, $body['totalCount']);
         self::assertCount(1, $body['notifications']);
         $n = $body['notifications'][0];
         self::assertSame('recurring_activated', $n['type']);
@@ -140,6 +141,9 @@ final class NotificationsTest extends DbTestCase
 
         [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
         self::assertSame(0, $body['unreadCount']);
+        // Read ≠ gone: the row still counts toward the view total (the badge
+        // stays amber until the row is dismissed or its task completes).
+        self::assertSame(1, $body['totalCount']);
         self::assertNotNull($body['notifications'][0]['readAt']);
     }
 
@@ -207,6 +211,7 @@ final class NotificationsTest extends DbTestCase
         // dedupe — the next sweep must not re-insert.
         [, $after] = $this->dispatch('GET', '/api/notifications', $sid);
         self::assertSame(0, $after['unreadCount']);
+        self::assertSame(0, $after['totalCount']);
         self::assertCount(0, $after['notifications']);
 
         // Re-dismiss and foreign/unknown ids → 404 (non-enumerating, #129).

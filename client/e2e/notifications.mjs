@@ -46,13 +46,19 @@ const stamp = Date.now()
 const taskA = await seed(`e2e notify probe A ${stamp}`, { unit: 'week', interval: 2 })
 const taskB = await seed(`e2e notify probe B ${stamp}`, { unit: 'day', interval: 1 })
 
-// A route change makes the provider refetch → sweep runs → avatar dot appears.
+// A route change makes the provider refetch → sweep runs → the avatar badge
+// escalates to the RED unread state (label says "unread", dot = bg-primary).
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 await page.waitForFunction(
-  () => !!document.querySelector('button[aria-label^="Account menu ("]'),
+  () =>
+    (document.querySelector('button[aria-label^="Account menu"]')?.getAttribute('aria-label') || '')
+      .includes('unread'),
   { timeout: 5000 },
 )
-ok(true, '#366: avatar carries the unread indicator after the sweep')
+ok(
+  await page.evaluate(() => !!document.querySelector('header span.bg-primary.ring-2')),
+  '#366: unread state shows the red avatar dot',
+)
 
 // The avatar disclosure carries a Notifications item with the count.
 await page.click('button[aria-label^="Account menu"]')
@@ -95,10 +101,23 @@ ok(rowA?.hasOpen === true, '#366: row carries the Open-task action')
 ok(rowA?.unreadDot === true, '#366: unread row shows the primary dot')
 ok(rowA?.hasDismiss === true, '#366: row carries a trailing Dismiss button')
 
-// Opening marked everything read: the badge is gone and the server agrees.
+// Opening marked everything read: the badge DOWNGRADES to amber (total-count
+// state — items still exist in the view) rather than disappearing.
 await page.waitForFunction(
-  () => !document.querySelector('button[aria-label^="Account menu ("]'),
+  () => {
+    const label =
+      document.querySelector('button[aria-label^="Account menu"]')?.getAttribute('aria-label') || ''
+    return !label.includes('unread') && /\(\d+ notifications?\)/.test(label)
+  },
   { timeout: 5000 },
+)
+ok(
+  await page.evaluate(
+    () =>
+      !!document.querySelector('header span.bg-warning.ring-2') &&
+      !document.querySelector('header span.bg-primary.ring-2'),
+  ),
+  '#366: after reading, the dot goes amber (items remain, none new)',
 )
 const serverUnread = await page.evaluate(async () => {
   const { unreadCount } = await fetch('/api/notifications', { credentials: 'include' }).then((r) =>

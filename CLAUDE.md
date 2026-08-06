@@ -396,8 +396,13 @@ to the old Node API.
   vocabulary, "every 2 weeks" etc.; message = "<title> was added — repeats
   {label}."), `notifications/NotificationsProvider` (InProgressProvider
   pattern: fetch on mount + route change, NO polling) feeding the Header
-  **avatar dot** (+ unread count in the avatar `aria-label` — e2e matchers
-  prefix-match "Account menu" for this) and a **Notifications item with count**
+  **avatar dot — total-based, two-state (user decision 2026-08-06)**: shown
+  while the view has ANY items, **amber** (`bg-warning`) at rest, **red**
+  (`bg-primary`) when some are unread; the served **`totalCount`** (not the
+  capped list's length) drives presence + the menu count, `unreadCount` only
+  escalates the colour (the `aria-label` carries whichever count applies —
+  e2e matchers prefix-match "Account menu" for this) and a **Notifications
+  item with the total count**
   in the avatar disclosure → `pages/Notifications.tsx`, styled as the
   **Dashboard row list** (user feedback: surface rows + gap-px, leading dot
   cell = unread primary / read grey, bold-lead "Title was added — repeats …"

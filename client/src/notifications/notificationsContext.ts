@@ -4,8 +4,10 @@ import type { AppNotification } from '@/lib/notifications'
 export type NotificationsContextValue = {
   /** Newest-first list from the last fetch (server-bounded). */
   notifications: AppNotification[]
-  /** Unread total — drives the header avatar dot and the menu count. */
+  /** Unread count — escalates the header badge from amber to red. */
   unreadCount: number
+  /** All non-dismissed notifications — the badge's presence + the menu count. */
+  totalCount: number
   /** Re-fetch (runs the server-side activation sweep). */
   refresh: () => Promise<void>
   /** Mark everything read (v1 model) and zero the local count. */

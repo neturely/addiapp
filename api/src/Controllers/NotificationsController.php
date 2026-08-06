@@ -40,10 +40,16 @@ final class NotificationsController
             'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL AND dismissed_at IS NULL',
         );
         $unread->execute([$userId]);
+        // Total in the view (dismissed excluded) — served, not derived from the
+        // list, which is capped at LIST_LIMIT. Drives the header badge: amber
+        // when the view has items, red when some are new (user decision).
+        $total = $pdo->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND dismissed_at IS NULL');
+        $total->execute([$userId]);
 
         Response::json([
             'notifications' => array_map([self::class, 'mapNotification'], $rows),
             'unreadCount' => (int) $unread->fetchColumn(),
+            'totalCount' => (int) $total->fetchColumn(),
         ]);
     }
 
