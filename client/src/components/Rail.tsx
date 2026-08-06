@@ -243,8 +243,9 @@ function RailHead({
 }: {
   label: string
   /** The section heading is itself a link (#256 review feedback) — Tasks →
-   * the task list, Projects → the projects grid. Absent (Categories, #336):
-   * there is no aggregate view, the head is a plain label. */
+   * the task list, Projects → the projects grid, Categories → the categories
+   * view. Optional: a section whose heading has no landing view renders a
+   * plain label instead. */
   to?: string
   plusTo: string
   plusLabel: string

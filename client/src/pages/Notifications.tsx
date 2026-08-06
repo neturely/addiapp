@@ -60,15 +60,20 @@ export function Notifications() {
   useEffect(() => {
     let cancelled = false
     void (async () => {
+      // Only a FAILED FETCH may empty the list — the follow-up read-state sync
+      // must never wipe successfully fetched rows (its helpers swallow their
+      // own errors today; the split keeps that guarantee structural).
+      let fetched: AppNotification[]
       try {
-        const { notifications } = await fetchNotifications()
-        if (cancelled) return
-        setList(notifications)
-        await markAllRead()
-        await refresh()
+        ;({ notifications: fetched } = await fetchNotifications())
       } catch {
         if (!cancelled) setList([])
+        return
       }
+      if (cancelled) return
+      setList(fetched)
+      await markAllRead()
+      await refresh()
     })()
     return () => {
       cancelled = true
