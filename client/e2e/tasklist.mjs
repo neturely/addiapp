@@ -540,9 +540,11 @@ await page.evaluate(
   pillProbe,
 )
 
-// --- Recurring-badge column alignment (#364) ---
-// The ↻ badge slot renders on EVERY row (invisible without a rule), so a list
-// mixing recurring + plain rows keeps the min/pts cell at one right edge.
+// --- Recurring-badge column alignment (#364; badge moved LEFT of the min/pts
+// cell on user feedback) ---
+// The fixed-width min/pts cell is always the row's last element, so the column
+// keeps one right edge whether or not the (now left-side, conditional) badge
+// renders — and ruleless rows carry no reserved whitespace.
 const recurProbe = await page.evaluate(async () => {
   const r = await fetch('/api/tasks', {
     method: 'POST',
@@ -568,28 +570,30 @@ const recurAlign = await page.evaluate(() => {
     Math.round(li.querySelector('span.tabular-nums')?.getBoundingClientRect().right ?? -1),
   )
   const hasProbe = rows.some((li) => /e2e recur align probe/i.test(li.textContent || ''))
-  const slots = rows.every((li) => li.querySelector('svg.lucide-repeat'))
-  return { unique: [...new Set(edges)], hasProbe, slots }
+  return { unique: [...new Set(edges)], hasProbe }
 })
 ok(
-  recurAlign.hasProbe && recurAlign.slots && recurAlign.unique.length === 1,
+  recurAlign.hasProbe && recurAlign.unique.length === 1,
   `#364: mixed recurring/plain rows share one min/pts right edge (edges: ${recurAlign.unique.join(', ')})`,
 )
-// Only the recurring row's badge is exposed to AT (role=img); the reserved
-// slots on plain rows stay aria-hidden + invisible.
-const recurA11y = await page.evaluate(() => {
+// The badge renders ONLY on the recurring row (role=img), positioned BEFORE
+// the min/pts cell; plain rows have no badge markup at all.
+const recurBadge = await page.evaluate(() => {
   const rows = [...document.querySelectorAll('ul[aria-label="Tasks"] > li')]
   const probe = rows.find((li) => /e2e recur align probe/i.test(li.textContent || ''))
   const plain = rows.find((li) => !/e2e recur align probe/i.test(li.textContent || ''))
+  const badge = probe?.querySelector('[role=img][aria-label=Repeats]')
+  const cell = probe?.querySelector('span.tabular-nums')
   return {
-    probeImg: !!probe?.querySelector('[role=img][aria-label=Repeats]'),
-    plainImg: !!plain?.querySelector('[role=img][aria-label=Repeats]'),
-    plainHidden: !!plain?.querySelector('span.invisible[aria-hidden] svg.lucide-repeat'),
+    probeImg: !!badge,
+    badgeBeforeCell:
+      !!badge && !!cell && !!(badge.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING),
+    plainRepeat: !!plain?.querySelector('svg.lucide-repeat'),
   }
 })
 ok(
-  recurA11y.probeImg && !recurA11y.plainImg && recurA11y.plainHidden,
-  '#364: badge semantics only on the recurring row; plain rows aria-hidden + invisible',
+  recurBadge.probeImg && recurBadge.badgeBeforeCell && !recurBadge.plainRepeat,
+  '#364: badge only on the recurring row, left of the min/pts cell',
 )
 await page.evaluate(
   (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
