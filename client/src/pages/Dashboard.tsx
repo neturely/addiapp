@@ -391,14 +391,25 @@ export function Dashboard() {
           : filter === 'unassigned'
             ? 'Unassigned'
             : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
-  // Count text scopes to the selection (#256 review): a project/category filter
-  // shows THAT list's remaining count (the rail's figure), not the global backlog.
-  const ready = counts?.backlog ?? 0
+  // Count text scopes to the selection (#256 review; per-tab figures #363): a
+  // project/category filter shows THAT list's remaining count (the rail's
+  // figure); a status tab shows its own count + wording. "All tasks" keeps the
+  // actionable backlog figure — it mirrors the rail's Ready badge.
+  const statusCount: Record<Filter, { count: number; noun: string }> = {
+    all: { count: counts?.backlog ?? 0, noun: 'ready to do' },
+    backlog: { count: counts?.backlog ?? 0, noun: 'ready to do' },
+    in_progress: { count: counts?.in_progress ?? 0, noun: 'started' },
+    done: { count: counts?.done ?? 0, noun: 'done' },
+    unassigned: { count: counts?.unassigned ?? 0, noun: 'unassigned' },
+    archived: { count: counts?.archived ?? 0, noun: 'archived' },
+    recurring: { count: counts?.recurring ?? 0, noun: 'recurring' },
+  }
+  const { count: tabCount, noun: tabNoun } = statusCount[filter]
   const countLabel = filterProject
     ? `${filterProject.remainingCount} of ${filterProject.totalCount} left to do`
     : filterCategory
       ? `${filterCategory.remainingCount} of ${filterCategory.totalCount} left to do`
-      : `${ready} ${ready === 1 ? 'task' : 'tasks'} ready to do`
+      : `${tabCount} ${tabCount === 1 ? 'task' : 'tasks'} ${tabNoun}`
 
   return (
     // No page heading / view toggle (review feedback on #256): the rail's
