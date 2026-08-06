@@ -608,6 +608,9 @@ export function Dashboard() {
                           </span>
                         )
                       })()}
+                      {/* "Title ↻ Description" (user feedback 2026-08-06): no
+                          separator — the bold title carries the split; a
+                          recurring rule puts the ↻ inline between the two. */}
                       <span className="min-w-0 flex-1 truncate text-sm">
                         <span
                           className={
@@ -618,8 +621,19 @@ export function Dashboard() {
                         >
                           {task.title}
                         </span>
+                        {task.recurrence && (
+                          <Repeat
+                            role="img"
+                            aria-label="Repeats"
+                            className="mx-1.5 inline h-3.5 w-3.5 align-[-2px] text-muted"
+                            strokeWidth={2.25}
+                          />
+                        )}
                         {task.description && (
-                          <span className="text-muted"> — {task.description}</span>
+                          <span className="text-muted">
+                            {!task.recurrence && ' '}
+                            {task.description}
+                          </span>
                         )}
                       </span>
                       {/* Snooze chip (#250): future-dated rows stay visible but
@@ -643,16 +657,6 @@ export function Dashboard() {
                       {/* Started rows carry their own live clock (#256 review
                           — tasks run in parallel, each on its own timer). */}
                       {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
-                      {/* Recurring badge (#250) — LEFT of the min/pts cell
-                          (#364 follow-up, user feedback): with the fixed-width
-                          cell always last, the column keeps one right edge and
-                          ruleless rows carry no reserved whitespace, so the
-                          badge renders only when a rule exists. */}
-                      {task.recurrence && (
-                        <span role="img" className="flex-none text-muted" aria-label="Repeats">
-                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-                        </span>
-                      )}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for

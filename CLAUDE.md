@@ -367,9 +367,9 @@ to the old Node API.
   null) on POST/PATCH, both on `mapTask`. Client: TaskView **Repeat** cell (None /
   Daily / Weekly / Every 2 weeks / Monthly on a day / Custom every-N-days|weeks|months)
   + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows
-  (rendered LEFT of the min/pts cell — the fixed-width cell stays the row's
-  last element, so the column keeps one right edge with no reserved whitespace
-  on ruleless rows; #364 + user-feedback follow-up). Locked by
+  (inline in the title cluster — "Title ↻ Description"; the fixed-width min/pts
+  cell stays the row's last element, so the column keeps one right edge with no
+  reserved whitespace on ruleless rows; #364 + user-feedback follow-ups). Locked by
   `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
@@ -399,7 +399,9 @@ to the old Node API.
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
   name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
   All tasks + the per-project/category filters; the homogeneous status tabs and
-  Unassigned/Archived keep the **effort** pill) · **title — description** (truncated) · ONE combined
+  Unassigned/Archived keep the **effort** pill) · **title [↻] description** (truncated; no
+  separator — the bold title carries the split, and a recurring rule's ↻ sits inline
+  between the two, user feedback 2026-08-06) · ONE combined
   **"10 min / 5 pts"** cell (#256 review — minutes muted, points **gold**
   `text-warning-ink`, same size/weight; done rows show the EARNED "+N pts" in
   gold via the list's `points_log` join; base from `GET /api/points`). Ready

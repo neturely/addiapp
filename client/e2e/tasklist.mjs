@@ -540,11 +540,11 @@ await page.evaluate(
   pillProbe,
 )
 
-// --- Recurring-badge column alignment (#364; badge moved LEFT of the min/pts
-// cell on user feedback) ---
+// --- Recurring-badge placement + column alignment (#364; user feedback moved
+// the badge INLINE in the title cluster: "Title ↻ Description") ---
 // The fixed-width min/pts cell is always the row's last element, so the column
-// keeps one right edge whether or not the (now left-side, conditional) badge
-// renders — and ruleless rows carry no reserved whitespace.
+// keeps one right edge whether or not the conditional badge renders — and
+// ruleless rows carry no reserved whitespace.
 const recurProbe = await page.evaluate(async () => {
   const r = await fetch('/api/tasks', {
     method: 'POST',
@@ -576,8 +576,8 @@ ok(
   recurAlign.hasProbe && recurAlign.unique.length === 1,
   `#364: mixed recurring/plain rows share one min/pts right edge (edges: ${recurAlign.unique.join(', ')})`,
 )
-// The badge renders ONLY on the recurring row (role=img), positioned BEFORE
-// the min/pts cell; plain rows have no badge markup at all.
+// The badge renders ONLY on the recurring row (role=img), inline in the title
+// cluster (before the min/pts cell); plain rows have no badge markup at all.
 const recurBadge = await page.evaluate(() => {
   const rows = [...document.querySelectorAll('ul[aria-label="Tasks"] > li')]
   const probe = rows.find((li) => /e2e recur align probe/i.test(li.textContent || ''))
@@ -593,7 +593,7 @@ const recurBadge = await page.evaluate(() => {
 })
 ok(
   recurBadge.probeImg && recurBadge.badgeBeforeCell && !recurBadge.plainRepeat,
-  '#364: badge only on the recurring row, left of the min/pts cell',
+  '#364: ↻ only on the recurring row, inline in the title cluster',
 )
 await page.evaluate(
   (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
