@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-08-06
+### Changed
+- Categories v2: management moved into the sidebar (per-entry edit pencil on categories AND projects; delete/archive live inside the edit modals), categories get their own sidebar section, a `?view=categories` row-list view, and an optional description; entries are led by a coloured tag icon (categories) or folder icon (projects); task-row category chips render in the category's own colour ([#336](https://github.com/neturely/addiapp/issues/336))
+### Security
+- Upgrade routing to react-router v8 (react-router-dom is retired in v8), clearing the npm-audit advisory GHSA-qwww-vcr4-c8h2; CI/deploy build on Node 22 ([#359](https://github.com/neturely/addiapp/issues/359))
+### Fixed
+- Shell polish: the right column keeps a gutter so a long task list's scrollbar no longer touches its cards, and scrollbars app-wide drop the off-white track for a flat transparent one ([#373](https://github.com/neturely/addiapp/pull/373), [#374](https://github.com/neturely/addiapp/pull/374))
+- Dashboard rows read "Title ↻ Description" — the recurring badge sits inline between title and description (no more min/pts column misalignment) and the " — " separator is gone ([#364](https://github.com/neturely/addiapp/issues/364))
+- Dashboard toolbar count now scopes to the active tab ("N tasks done/started/unassigned/archived/recurring") instead of always showing the backlog's "ready to do" figure ([#363](https://github.com/neturely/addiapp/issues/363))
+### Added
+- In-app notifications: an avatar indicator (green when the view has items, red when some are new) with a notifications view; the first type fires when a recurring task's next occurrence becomes available. Notifications can be dismissed and are removed automatically when their task is completed or deleted ([#366](https://github.com/neturely/addiapp/issues/366))
+
 ## [2.3.0] - 2026-08-04
 ### Added
 - Display names now pass a small profanity blocklist on register and account update ([#340](https://github.com/neturely/addiapp/issues/340))
@@ -158,7 +170,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/neturely/addiapp/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/neturely/addiapp/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/neturely/addiapp/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/neturely/addiapp/compare/v2.0.0...v2.1.0
