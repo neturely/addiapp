@@ -1,2 +1,0 @@
-<!-- okffs:type=Changed -->
-- Categories v2: management moved into the sidebar (per-entry edit pencil on categories AND projects; delete/archive live inside the edit modals), categories get their own sidebar section, a `?view=categories` row-list view, and an optional description; entries are led by a coloured tag icon (categories) or folder icon (projects); task-row category chips render in the category's own colour ([#336](https://github.com/neturely/addiapp/issues/336))
