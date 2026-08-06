@@ -643,6 +643,16 @@ export function Dashboard() {
                       {/* Started rows carry their own live clock (#256 review
                           — tasks run in parallel, each on its own timer). */}
                       {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
+                      {/* Recurring badge (#250) — LEFT of the min/pts cell
+                          (#364 follow-up, user feedback): with the fixed-width
+                          cell always last, the column keeps one right edge and
+                          ruleless rows carry no reserved whitespace, so the
+                          badge renders only when a rule exists. */}
+                      {task.recurrence && (
+                        <span role="img" className="flex-none text-muted" aria-label="Repeats">
+                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                        </span>
+                      )}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for
@@ -660,20 +670,6 @@ export function Dashboard() {
                             {basePoints[task.complexity]} pts
                           </span>
                         ) : null}
-                      </span>
-                      {/* Recurring badge (#250; review round 2: trailing, to
-                          the RIGHT of the time/points cell). The slot renders
-                          on EVERY row (#364) so the min/pts column keeps one
-                          straight right edge in mixed lists — non-recurring
-                          rows just hide the icon (`invisible` keeps the
-                          width; the a11y img semantics only on real ones). */}
-                      <span
-                        className={`flex-none text-muted ${task.recurrence ? '' : 'invisible'}`}
-                        {...(task.recurrence
-                          ? { role: 'img', 'aria-label': 'Repeats' }
-                          : { 'aria-hidden': true })}
-                      >
-                        <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
                       </span>
                     </button>
                     {/* Below sm there's no hover for the pole swap, so ready
