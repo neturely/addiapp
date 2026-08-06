@@ -25,16 +25,22 @@ const rail = await page.evaluate(() => {
   return {
     hasCategoriesHead: links.some((l) => l.text === 'Categories'),
     readyIdx: links.findIndex((l) => l.href === '/dashboard?tab=backlog'),
+    recurringIdx: links.findIndex((l) => l.href === '/dashboard?tab=recurring'),
+    unassignedIdx: links.findIndex((l) => l.href === '/dashboard?tab=unassigned'),
     newCatIdx: links.findIndex((l) => l.href === '/dashboard?newCategory=1'),
     startedIdx: links.findIndex((l) => l.href === '/dashboard?tab=in_progress'),
   }
 })
+// #336 order revision: the fixed axes (Recurring, Unassigned) group directly
+// under Ready, THEN the category entries + New category, then Started.
 ok(
   !rail.hasCategoriesHead &&
     rail.readyIdx >= 0 &&
-    rail.readyIdx < rail.newCatIdx &&
+    rail.readyIdx < rail.recurringIdx &&
+    rail.recurringIdx < rail.unassignedIdx &&
+    rail.unassignedIdx < rail.newCatIdx &&
     rail.newCatIdx < rail.startedIdx,
-  `#334: categories live under Ready in the Tasks section (Ready@${rail.readyIdx} < New category@${rail.newCatIdx} < Started@${rail.startedIdx}, no Categories head)`,
+  `#336: Tasks section orders Ready@${rail.readyIdx} < Recurring@${rail.recurringIdx} < Unassigned@${rail.unassignedIdx} < New category@${rail.newCatIdx} < Started@${rail.startedIdx} (no Categories head)`,
 )
 
 await page.goto(`${BASE}/dashboard?newCategory=1`, { waitUntil: 'networkidle0' })
@@ -74,7 +80,7 @@ ok(
   filtered.length === 1 && /e2e categorized/.test(filtered[0]),
   `#276: ?category= filter shows exactly the labelled task (got ${filtered.length})`,
 )
-// #336: the row chip carries the category's palette tint (inline background)
+// #336: on the category's OWN filter view the chip is redundant and hidden,
 // and the toolbar's old Edit/Delete controls are gone.
 const v2Bits = await page.evaluate(() => {
   const li = document.querySelector('ul[aria-label="Tasks"] li')
@@ -86,8 +92,25 @@ const v2Bits = await page.evaluate(() => {
   ).length
   return { chip: !!chip, toolbarBtns }
 })
-ok(v2Bits.chip, '#336: row category chip carries the palette tint')
+ok(!v2Bits.chip, '#336: no category chip on the category’s own filter view')
 ok(v2Bits.toolbarBtns === 0, '#336: toolbar Edit/Delete controls are gone')
+// …while mixed views (All tasks) show the chip in the category's palette tint,
+// and the rail entry leads with the coloured TAG icon (not a pole square).
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+const allView = await page.evaluate((name) => {
+  const li = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((el) =>
+    /e2e categorized/i.test(el.textContent || ''),
+  )
+  const chip = [...(li?.querySelectorAll('span') ?? [])].find((s) =>
+    (s.getAttribute('style') || '').includes('background'),
+  )
+  const railEntry = [...document.querySelectorAll('#app-rail a')].find((a) =>
+    a.textContent?.includes(name),
+  )
+  return { chip: !!chip, tagIcon: !!railEntry?.querySelector('svg.lucide-tag') }
+}, CAT_NAME)
+ok(allView.chip, '#336: All-tasks row chip carries the palette tint')
+ok(allView.tagIcon, '#336: rail category entry leads with the tag icon')
 // The count is the trailing tabular-nums span, NOT the (digit-bearing) name.
 const railCount = await page.evaluate((name) => {
   const link = [...document.querySelectorAll('#app-rail a')].find((a) =>
@@ -145,9 +168,7 @@ ok(
   '#336: edit deep link opens the modal prefilled',
 )
 await page.evaluate(() =>
-  [...document.querySelectorAll('[role=dialog] button')]
-    .find((b) => /delete this category…/i.test(b.textContent || ''))
-    ?.click(),
+  document.querySelector('[role=dialog] button[aria-label="Delete this category"]')?.click(),
 )
 await page.waitForFunction(
   () => /delete this category\?/i.test(document.querySelector('[role=dialog] h2')?.textContent || ''),

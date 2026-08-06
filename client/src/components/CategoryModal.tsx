@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { CircleCheck, X } from 'lucide-react'
+import { CircleCheck, Trash2, X } from 'lucide-react'
 import { Button } from './Button'
 import { ColorSwatchPicker } from './ColorSwatchPicker'
 import { Modal } from './Modal'
@@ -111,16 +111,20 @@ export function CategoryModal({
                 ? 'Save changes'
                 : 'Create category'}
           </Button>
+          {editing && onDelete && (
+            /* Delete rides the action row right of Save (#336 revision) — a
+               red icon square at the lg button height, handing off to the
+               caller's confirm step. */
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Delete this category"
+              className="inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-control bg-danger-tint text-danger-ink transition hover:bg-danger-deep hover:text-white sm:h-[42px] sm:w-[42px]"
+            >
+              <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </button>
+          )}
         </div>
-        {editing && onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="mx-auto block cursor-pointer text-sm text-danger-ink transition hover:underline"
-          >
-            Delete this category…
-          </button>
-        )}
       </form>
       {/* Rendered last so the first focusable element is the name field, not this. */}
       <button

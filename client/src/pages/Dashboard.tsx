@@ -637,8 +637,10 @@ export function Dashboard() {
                       {/* Category chip (#276; recoloured #336) — the label in
                           the category's own palette tint (dark neutral text is
                           AA on every slot's 18% tint), replacing the grey
-                          pill + dot; hidden below sm where the row is tight. */}
-                      {task.category && (
+                          pill + dot; hidden below sm where the row is tight,
+                          and on the category's OWN filter view (redundant —
+                          every row there shares it). */}
+                      {task.category && categoryFilterId === null && (
                         <span
                           className="hidden max-w-28 flex-none truncate rounded-full px-2.5 py-0.5 text-[11px] font-medium text-gray-700 sm:inline-block"
                           style={{ backgroundColor: projectTint(task.category.color) }}

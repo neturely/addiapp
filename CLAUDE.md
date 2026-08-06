@@ -302,22 +302,29 @@ to the old Node API.
   (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
   the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
   "New category" row → the `?newCategory=1` modal). **Management lives in the
-  rail (#336 — the toolbar Edit/Delete is GONE):** each entry indents one step
-  (children of Ready, not more statuses) and carries an inline **edit
+  rail (#336 — the toolbar Edit/Delete is GONE):** entries sit INLINE with the
+  fixed rows (an indent was tried and rejected on user review), differentiated
+  by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
+  centered in the pole square's 8px slot so all rail labels share one x —
+  projects keep the square, categories get the tag: that IS the
+  category-vs-project iconography split), and each carries an inline **edit
   affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
   sm+ via opacity, never `display:none`, so it stays in the tab order; always
-  visible in the drawer) deep-linking **`?category=ID&editCategory=1`** — the
-  Dashboard opens the edit `CategoryModal` on the filtered list itself;
-  **Delete lives INSIDE that modal** (a low-emphasis "Delete this category…"
-  trigger → the existing tasks-survive confirm dialog). The row **category
-  chip** renders in the category's own palette **tint**
-  (`projectTint()` in `lib/projectColors.ts` — the hue color-mixed 18% into
-  white, dark neutral text AA on every slot; White falls back to the field
-  tone), a TaskView **Category select** (+ `?category=` pre-assign on create),
-  and a Play Choice **"From" select** (renders only when categories exist)
-  carried through the whole chain (TaskPresented → InProgress → Completion
-  "Keep going"). **#336 angles deliberately deferred:** assign-from-list, the
-  Choice "From" restyle, and category-vs-project iconography. **`ColorSwatchPicker`**
+  visible in the drawer; the hover highlight sits on `group-hover`, so
+  hovering the pencil keeps the row lit) deep-linking
+  **`?category=ID&editCategory=1`** — the Dashboard opens the edit
+  `CategoryModal` on the filtered list itself; **Delete lives INSIDE that
+  modal** as a red Trash2 icon square in the action row, right of Save (lg
+  button height, danger-tint → danger-deep hover) → the existing tasks-survive
+  confirm dialog. The row **category chip** renders in the category's own
+  palette **tint** (`projectTint()` in `lib/projectColors.ts` — the hue
+  color-mixed 18% into white, dark neutral text AA on every slot; White falls
+  back to the field tone) — **hidden on the category's own filter view**
+  (redundant there, every row shares it) — a TaskView **Category select**
+  (+ `?category=` pre-assign on create), and a Play Choice **"From" select**
+  (renders only when categories exist) carried through the whole chain
+  (TaskPresented → InProgress → Completion "Keep going"). **#336 angles
+  deliberately deferred:** assign-from-list and the Choice "From" restyle. **`ColorSwatchPicker`**
   (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
   CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
 - **Task archiving (#312)**: an **Archived AXIS on tasks** (`tasks.archived_at`
@@ -611,13 +618,17 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   hamburger, entries are ≥44px targets): Tasks section
   (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
   the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
-  the #312 task-archive axis → `?tab=archived`). **Category entries (#276, placed
-  #334, indented + rail-managed #336)** sit directly under Ready, indented one
-  step — children of Ready, not more statuses; NO separate Categories section —
-  each → `?category=ID` with its remaining count and an inline **edit
-  affordance** (hover/focus-revealed pencil → `?category=ID&editCategory=1`;
-  Delete inside the modal — see the #276 What's-built entry), followed by a
-  matching-indent **"+ New category" row** → the `?newCategory=1` modal.
+  the #312 task-archive axis → `?tab=archived`). **Section order (#336
+  revision): the fixed axes group under Ready** — All tasks / Ready /
+  Recurring / Unassigned / **[category entries]** / "+ New category" / Started
+  / Done / Archived — mirroring the Projects section's pools-then-entries
+  flow. **Category entries (#276, placed #334, rail-managed #336)** sit inline
+  (no indent — tried, rejected), led by a coloured **tag icon** (vs the
+  projects' pole square), each → `?category=ID` with its remaining count and
+  an inline **edit affordance** (hover/focus-revealed pencil →
+  `?category=ID&editCategory=1`; Delete inside the modal — see the #276
+  What's-built entry), followed by the **"+ New category" row** → the
+  `?newCategory=1` modal.
   Then the Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).

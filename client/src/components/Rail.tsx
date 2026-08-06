@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
-import { Pencil, Plus } from 'lucide-react'
-import { projectPole } from '@/lib/projectColors'
+import { Pencil, Plus, Tag } from 'lucide-react'
+import { projectHex, projectPole } from '@/lib/projectColors'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
 import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
@@ -112,33 +112,9 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Ready"
         count={counts?.backlog}
       />
-      {/* Category entries live in the Tasks section, directly under Ready
-          (#334 — the way project entries sit under the Active pool; the
-          separate Categories section is gone). They indent one step (#336) so
-          user-defined lists read as children of Ready, not more statuses, and
-          each carries the inline EDIT affordance — hover/focus reveals it at
-          sm+, the drawer shows it always — deep-linking the edit modal
-          (?category=ID&editCategory=1). Delete lives inside that modal; the
-          old Dashboard-toolbar Edit/Delete is gone. */}
-      {categories.map((c) => (
-        <CategoryRailRow key={c.id} category={c} active={activeCategoryId === c.id} />
-      ))}
-      <Link
-        to="/dashboard?newCategory=1"
-        className="flex h-11 items-center gap-2.5 rounded-lg py-0 pl-5 pr-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
-      >
-        <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
-        <span>New category</span>
-      </Link>
-      <RailLink
-        to="/dashboard?tab=in_progress"
-        active={isTab('in_progress')}
-        pole="bg-warning"
-        label="Started"
-        count={counts?.in_progress}
-      />
-      {/* Live recurring chains (2.3.0 review round) — an axis entry like
-          Unassigned/Archived, hence the neutral pole. */}
+      {/* Recurring + Unassigned sit directly under Ready (#336 revision —
+          the fixed axes group at the top, mirroring the Projects section's
+          pools-then-entries flow), neutral poles (they're axes, not statuses). */}
       <RailLink
         to="/dashboard?tab=recurring"
         active={isTab('recurring')}
@@ -152,6 +128,31 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         pole="bg-gray-400"
         label="Unassigned"
         count={counts?.unassigned}
+      />
+      {/* Category entries follow the fixed axes (#334/#336 — the way project
+          entries follow the Active pool; the separate Categories section is
+          gone). Inline with the rest, differentiated by the coloured TAG icon
+          instead of a pole square; each carries the inline EDIT affordance —
+          hover/focus reveals it at sm+, the drawer shows it always —
+          deep-linking the edit modal (?category=ID&editCategory=1). Delete
+          lives inside that modal; the old Dashboard-toolbar Edit/Delete is
+          gone. */}
+      {categories.map((c) => (
+        <CategoryRailRow key={c.id} category={c} active={activeCategoryId === c.id} />
+      ))}
+      <Link
+        to="/dashboard?newCategory=1"
+        className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
+      >
+        <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
+        <span>New category</span>
+      </Link>
+      <RailLink
+        to="/dashboard?tab=in_progress"
+        active={isTab('in_progress')}
+        pole="bg-warning"
+        label="Started"
+        count={counts?.in_progress}
       />
       <RailLink
         to="/dashboard?tab=done"
@@ -256,12 +257,16 @@ function RailHead({
 }
 
 /**
- * A category entry (#336): a RailLink-styled row, indented one step under
- * Ready, with an inline EDIT affordance. At sm+ the count fades on hover /
- * focus-within and the pencil takes its place; below sm (drawer) the pencil is
- * always visible beside the count (row padding reserves its slot). Visibility
- * uses opacity, not display — a display-hidden control would drop out of the
- * keyboard tab order, and group-focus-within is what reveals it when tabbed to.
+ * A category entry (#336): a RailLink-styled row sitting inline with the
+ * fixed entries — differentiated by a TAG icon in the category's palette
+ * colour (instead of the pole square; projects keep the square) — with an
+ * inline EDIT affordance. At sm+ the count fades on hover / focus-within and
+ * the pencil takes its place; below sm (drawer) the pencil is always visible
+ * beside the count (row padding reserves its slot). The hover highlight lives
+ * on `group-hover`, so hovering the pencil keeps the whole row lit. Pencil
+ * visibility uses opacity, not display — a display-hidden control would drop
+ * out of the keyboard tab order, and group-focus-within reveals it when
+ * tabbed to.
  */
 function CategoryRailRow({ category, active }: { category: Category; active: boolean }) {
   return (
@@ -269,16 +274,21 @@ function CategoryRailRow({ category, active }: { category: Category; active: boo
       <Link
         to={`/dashboard?category=${category.id}`}
         aria-current={active ? 'true' : undefined}
-        className={`flex h-11 items-center gap-2.5 rounded-lg py-0 pl-5 pr-2.5 text-sm max-sm:pr-12 sm:h-8 ${
+        className={`flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm max-sm:pr-12 sm:h-8 ${
           active
             ? 'bg-primary-tint font-semibold text-primary-ink'
-            : 'text-gray-700 hover:bg-field-hover'
+            : 'text-gray-700 group-hover:bg-field-hover'
         }`}
       >
-        <span
-          className={`h-2 w-2 flex-none rounded-[3px] ${projectPole(category.color)}`}
-          aria-hidden
-        />
+        {/* Centered in the pole square's 8px slot so every rail label shares
+            the same x — the 14px tag just overhangs symmetrically. */}
+        <span className="flex w-2 flex-none justify-center" aria-hidden>
+          <Tag
+            className="h-3.5 w-3.5 flex-none"
+            style={{ color: projectHex(category.color) }}
+            strokeWidth={2.25}
+          />
+        </span>
         <span className="min-w-0 flex-1 truncate">{category.name}</span>
         <span
           className={`text-xs tabular-nums transition-opacity sm:group-hover:opacity-0 sm:group-focus-within:opacity-0 ${
