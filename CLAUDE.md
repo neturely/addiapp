@@ -418,8 +418,12 @@ to the old Node API.
   #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
   returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
   range; global `counts` on every page) — the toolbar reads **"{selection} ·
-  newest first · N tasks ready to do"** (selection mirrors the rail; ready =
-  `counts.backlog`; the sort text is a TOGGLE button flipping newest/oldest via
+  newest first · N tasks {tab wording}"** (selection mirrors the rail; the count
+  scopes to the active tab, #363: Ready **and All** = `counts.backlog` "ready to
+  do" (All deliberately keeps the actionable figure — it matches the rail's Ready
+  badge), Started/Unassigned/Done/Archived/Recurring each show their own
+  `counts` figure + wording, and project/category filters keep the scoped
+  "X of Y left to do"; the sort text is a TOGGLE button flipping newest/oldest via
   `?sort=oldest` + the server's validated `order=asc|desc` param) + range +
   prev/next pagers (top and foot), 25/page. **Default order: NEWEST FIRST**
   (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All tasks /
