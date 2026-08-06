@@ -45,11 +45,14 @@ export function RightColumn() {
   const fillPct = Math.min(((mult - 1) / (cap - 1)) * 100, 100)
 
   return (
-    // pl-0 + pr-6 (#256 review): the gap to the table is the content pane's own
-    // pr-6, and the right page margin matches it — even 24px on both sides.
+    // pr-6 keeps the right page margin even with the content side (#256
+    // review). pl-3 (was pl-0): the content pane's scrollbar renders at the
+    // pane's edge — flush against this column — so the cards need their own
+    // small gutter or a long task list's scrollbar touches them; the width
+    // grew by the same 0.75rem so the cards kept their size.
     <aside
       aria-label="Play and today"
-      className="w-[19.5rem] flex-none overflow-y-auto pb-4 pl-0 pr-6 pt-14"
+      className="w-[20.25rem] flex-none overflow-y-auto pb-4 pl-3 pr-6 pt-14"
     >
       <PlayColumnCard onCompleted={() => setStatsRefresh((n) => n + 1)} />
 
