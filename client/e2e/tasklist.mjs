@@ -540,5 +540,61 @@ await page.evaluate(
   pillProbe,
 )
 
+// --- Recurring-badge column alignment (#364) ---
+// The ↻ badge slot renders on EVERY row (invisible without a rule), so a list
+// mixing recurring + plain rows keeps the min/pts cell at one right edge.
+const recurProbe = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: `e2e recur align probe ${Date.now()}`,
+      complexity: 'low',
+      estimatedMinutes: 5,
+      recurrence: { unit: 'day', interval: 1 },
+    }),
+  })
+  const { task } = await r.json()
+  return task.id
+})
+// The backlog tab is status-homogeneous, so every row carries the same
+// trailing controls — any edge split would be the badge's fault.
+await page.goto(`${BASE}/dashboard?tab=backlog`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('ul[aria-label="Tasks"]')
+const recurAlign = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('ul[aria-label="Tasks"] > li')]
+  const edges = rows.map((li) =>
+    Math.round(li.querySelector('span.tabular-nums')?.getBoundingClientRect().right ?? -1),
+  )
+  const hasProbe = rows.some((li) => /e2e recur align probe/i.test(li.textContent || ''))
+  const slots = rows.every((li) => li.querySelector('svg.lucide-repeat'))
+  return { unique: [...new Set(edges)], hasProbe, slots }
+})
+ok(
+  recurAlign.hasProbe && recurAlign.slots && recurAlign.unique.length === 1,
+  `#364: mixed recurring/plain rows share one min/pts right edge (edges: ${recurAlign.unique.join(', ')})`,
+)
+// Only the recurring row's badge is exposed to AT (role=img); the reserved
+// slots on plain rows stay aria-hidden + invisible.
+const recurA11y = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('ul[aria-label="Tasks"] > li')]
+  const probe = rows.find((li) => /e2e recur align probe/i.test(li.textContent || ''))
+  const plain = rows.find((li) => !/e2e recur align probe/i.test(li.textContent || ''))
+  return {
+    probeImg: !!probe?.querySelector('[role=img][aria-label=Repeats]'),
+    plainImg: !!plain?.querySelector('[role=img][aria-label=Repeats]'),
+    plainHidden: !!plain?.querySelector('span.invisible[aria-hidden] svg.lucide-repeat'),
+  }
+})
+ok(
+  recurA11y.probeImg && !recurA11y.plainImg && recurA11y.plainHidden,
+  '#364: badge semantics only on the recurring row; plain rows aria-hidden + invisible',
+)
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  recurProbe,
+)
+
 await browser.close()
 process.exit(done())

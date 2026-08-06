@@ -366,7 +366,9 @@ to the old Node API.
   `availableFrom` (Y-m-d | null) + `recurrence` (`{unit,interval}` | `{dayOfMonth}` |
   null) on POST/PATCH, both on `mapTask`. Client: TaskView **Repeat** cell (None /
   Daily / Weekly / Every 2 weeks / Monthly on a day / Custom every-N-days|weeks|months)
-  + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows. Locked by
+  + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows (the
+  badge SLOT renders on every row — invisible + aria-hidden without a rule — so
+  the min/pts column keeps one right edge, #364). Locked by
   `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
