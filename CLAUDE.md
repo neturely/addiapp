@@ -371,6 +371,49 @@ to the old Node API.
   cell stays the row's last element, so the column keeps one right edge with no
   reserved whitespace on ruleless rows; #364 + user-feedback follow-ups). Locked by
   `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
+- **In-app notifications (#366)**: avatar unread indicator + a `/notifications`
+  view; first (only, v1) type = **`recurring_activated`** — a #250 clone's
+  `available_from` date arriving. No persistent process on this hosting, so
+  activation is detected by a **lazy sweep on `GET /api/notifications`**: one
+  `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
+  `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
+  (the #74 pattern); `created_at` = the activation date (not the sweep moment);
+  the same fetch **prunes read/dismissed rows > 30 days** (unread-undismissed
+  never pruned). **A notification lives with its task** (user feedback
+  2026-08-06): the task FK **CASCADEs** on delete, and the completing PATCH
+  calls `Notifications::removeForTask` — a done/deleted task leaves no stale
+  "it came back" notice. A USER dismiss (`DELETE /api/notifications/{id}`,
+  404-not-403) is a **SOFT delete** (`dismissed_at`) — the row must survive as
+  the dedupe anchor or the next sweep would re-insert it for a still-due task.
+  `notifications` table (migration 031) carries a JSON `data` snapshot
+  (title + rule) the client renders. Sweep/prune/removeForTask SQL in
+  `api/src/Notifications/Notifications.php`; thin `NotificationsController`
+  (`GET /api/notifications` → `{ notifications, unreadCount }`, last 50
+  newest-first, dismissed excluded; `POST /api/notifications/read` = mark ALL
+  read — the v1 model: **opening the view marks everything read**, decided
+  provisionally 2026-08-06 pending the user's localhost look). Client:
+  `lib/notifications.ts` (+ **`recurrenceLabel()`** — the shared rule→text
+  vocabulary, "every 2 weeks" etc.; message = "<title> was added — repeats
+  {label}."), `notifications/NotificationsProvider` (InProgressProvider
+  pattern: fetch on mount + route change, NO polling) feeding the Header
+  **avatar dot — total-based, two-state (user decision 2026-08-06)**: shown
+  while the view has ANY items, **green** (`bg-success`) at rest (revised from
+  amber — it read too close to the red; blue would blend into the accent-tint
+  avatar), **red**
+  (`bg-primary`) when some are unread; the served **`totalCount`** (not the
+  capped list's length) drives presence + the menu count, `unreadCount` only
+  escalates the colour (the `aria-label` carries whichever count applies —
+  e2e matchers prefix-match "Account menu" for this) and a **Notifications
+  item with the total count**
+  in the avatar disclosure → `pages/Notifications.tsx`, styled as the
+  **Dashboard row list** (user feedback: surface rows + gap-px, leading dot
+  cell = unread primary / read grey, bold-lead "Title was added — repeats …"
+  message, date cell, trailing **X dismiss** action, optimistic with restore).
+  It does its OWN fetch → render → mark-read → provider refresh, deliberately
+  not the provider's list — the route-change refetch would race the mark-read
+  and strip the unread styling; empty state = shared `empty` mascot.
+  Deliberately out of v1: per-item read, email/push, real-time, other types.
+  Locked by `tests/Db/NotificationsTest.php` + `e2e/notifications.mjs`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task

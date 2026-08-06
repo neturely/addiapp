@@ -125,13 +125,13 @@ await noHScroll('the Play choice card')
 // --- #116: chrome + Play touch targets at 375px ---
 const navIcon = await hitHeight('a[aria-label="Play"]')
 ok(navIcon >= 44, `#116: header nav icon hit area ≥44px (${navIcon}px)`)
-const avatar = await hitHeight('button[aria-label="Account menu"]')
+const avatar = await hitHeight('button[aria-label^="Account menu"]')
 ok(avatar >= 44, `#116: avatar trigger hit area ≥44px (${avatar}px)`)
 const pill = await hitHeight('[role="radio"]')
 ok(pill >= 44, `#116: Choice time pill hit area ≥44px (${pill}px)`)
 
 // Avatar menu rows are real 44px rows on mobile (stacked — no halo overlap).
-await page.click('button[aria-label="Account menu"]')
+await page.click('button[aria-label^="Account menu"]')
 await sleep(150)
 const menuRow = await page.evaluate(
   () =>

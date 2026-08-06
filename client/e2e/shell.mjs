@@ -88,7 +88,7 @@ ok(
 
 // --- avatar menu disclosure ---
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
-await page.click('button[aria-label="Account menu"]')
+await page.click('button[aria-label^="Account menu"]')
 await sleep(100)
 ok(
   await page.evaluate(() => /sign out/i.test(document.body.textContent || '')),
@@ -105,7 +105,7 @@ ok(
   '#260: Escape closes the avatar menu',
 )
 ok(
-  await page.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Account menu'),
+  await page.evaluate(() => document.activeElement?.getAttribute('aria-label')?.startsWith('Account menu')),
   '#260: focus returns to the avatar trigger on Escape',
 )
 
