@@ -26,18 +26,20 @@ import {
 import { fetchPoints } from '@/lib/points'
 import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { projectPole, projectTint } from '@/lib/projectColors'
-import { fetchProjects, type Project } from '@/lib/projects'
+import { fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { deleteCategory, fetchCategories, type Category } from '@/lib/categories'
 import { Button } from '@/components/Button'
 import { CategoryModal } from '@/components/CategoryModal'
 import { Mascot } from '@/components/Mascot'
 import { Modal } from '@/components/Modal'
+import { CategoriesView } from '@/components/CategoriesView'
+import { ProjectModal } from '@/components/ProjectModal'
 import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
 type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
-type View = 'tasks' | 'projects'
+type View = 'tasks' | 'projects' | 'categories'
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -106,10 +108,13 @@ export function Dashboard() {
   const { showToast } = useToast()
   const { search } = useShell()
 
-  // Tasks vs Projects view, URL-driven (`?view=`) — navigated from the rail's
-  // linkable section headings (the in-page toggle was removed on #256 review).
+  // Tasks vs Projects vs Categories view (#336), URL-driven (`?view=`) —
+  // navigated from the rail's linkable section headings (the in-page toggle
+  // was removed on #256 review).
   const [searchParams, setSearchParams] = useSearchParams()
-  const view: View = searchParams.get('view') === 'projects' ? 'projects' : 'tasks'
+  const viewParam = searchParams.get('view')
+  const view: View =
+    viewParam === 'projects' ? 'projects' : viewParam === 'categories' ? 'categories' : 'tasks'
 
   // `?project=ID`: with `tab=unassigned` it's the #236 assign ride-along target;
   // without it's the #260 rail per-project filter (every status).
@@ -242,6 +247,17 @@ export function Dashboard() {
   function closeEditCategory() {
     const params = new URLSearchParams(searchParams)
     params.delete('editCategory')
+    setSearchParams(params)
+  }
+
+  // `?project=ID&editProject=1` (#336) — the rail project pencil's deep link,
+  // the categories pattern applied to projects: the edit modal opens on the
+  // project's own task list.
+  const editProjectParam = searchParams.get('editProject') === '1'
+
+  function closeEditProject() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('editProject')
     setSearchParams(params)
   }
 
@@ -429,6 +445,8 @@ export function Dashboard() {
 
       {view === 'projects' ? (
         <ProjectsView />
+      ) : view === 'categories' ? (
+        <CategoriesView />
       ) : (
         <>
           {/* (The old project-filter banner is gone, #256 review — the toolbar's
@@ -734,6 +752,31 @@ export function Dashboard() {
           onSaved={(saved) => {
             closeNewCategory()
             navigate(`/dashboard?category=${saved.id}`)
+          }}
+        />
+      )}
+      {/* Edit project (#336) — deep-linked from the rail's project pencil
+          (?project=ID&editProject=1); Archive lives inside the modal. */}
+      {editProjectParam && filterProject && (
+        <ProjectModal
+          project={filterProject}
+          onClose={closeEditProject}
+          onSaved={(saved) => {
+            closeEditProject()
+            setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
+          }}
+          onArchive={() => {
+            const target = filterProject
+            closeEditProject()
+            void (async () => {
+              try {
+                const saved = await updateProject(target.id, { status: 'archived' })
+                setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
+                showToast({ message: `Project archived: ${target.name}`, icon: Archive, tone: 'neutral' })
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Could not archive the project.')
+              }
+            })()
           }}
         />
       )}

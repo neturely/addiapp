@@ -224,7 +224,12 @@ to the old Node API.
   review feedback (an sr-only h1 remains) — Projects is a **self-contained `ProjectsView`** grid (cards
   with the count, a kebab Edit/Archive **disclosure** — NOT a `role=menu` widget — and Add
   task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
-  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
+  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **The edit
+  modal carries an in-row ARCHIVE icon square right of Save (#336 — active projects
+  only; the CategoryModal-delete placement in the calmer secondary tone), and rail
+  project entries carry a pencil edit affordance deep-linking
+  `?project=ID&editProject=1` — the Dashboard hosts that modal on the project's own
+  task list, the categories pattern.** **AddTask** reads
   `?project=ID`, resolves it against active projects, shows a read-only "Adding to <project>"
   line, and passes `projectId` to `createTask`.
   **B (#236) — Unassigned tab + assign flow:** `GET /api/tasks?unassigned=1` filters
@@ -301,15 +306,20 @@ to the old Node API.
   Play pick (composes with size/time AND `mode=projects`). Client: `lib/categories.ts`
   (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
   the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
-  "New category" row → the `?newCategory=1` modal). **Management lives in the
-  rail (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN
-  rail section (between Tasks and Projects; plain non-link head, its + → the
-  `?newCategory=1` modal), entries led by a **coloured TAG icon** in the
-  category's palette hue (`projectHex()`; centered in the pole square's 8px
-  slot so all rail labels share one x — **per-project entries lead with a
-  FOLDER icon the same way**, the fixed pool rows keep pole squares:
-  tag = category, folder = project), and each carries an inline **edit
-  affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
+  "New category" row → the `?newCategory=1` modal). **Categories gained an
+  optional `description` (#336, migration 032 — the projects shape:
+  varchar(1000), empty→NULL, same validator; on `mapCategory`, the modal
+  textarea, and the categories view rows).** **Management lives in the rail
+  (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN rail
+  section (between Tasks and Projects; the head links **`?view=categories`** —
+  `CategoriesView`, a Dashboard-style row list: tag icon · bold name + muted
+  description · "X of Y left to do" · trailing pencil; a row opens the
+  category's task list — and its + → the `?newCategory=1` modal), entries led
+  by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
+  centered in the pole square's 8px slot so all rail labels share one x —
+  **per-project entries lead with a FOLDER icon the same way**, the fixed pool
+  rows keep pole squares: tag = category, folder = project), and each carries
+  an inline **edit affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
   sm+ via opacity, never `display:none`, so it stays in the tab order; always
   visible in the drawer; the hover highlight sits on `group-hover`, so
   hovering the pencil keeps the row lit) deep-linking

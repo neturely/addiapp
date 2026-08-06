@@ -99,5 +99,51 @@ ok(
   `#308: Random rolls one of the 16 spectrum hues (got "${randomColor}")`,
 )
 
+// #336: project rail entries carry the same pencil edit affordance as
+// categories, deep-linking the edit modal (with the in-modal Archive button)
+// onto the project's task list. Archiving doubles as the probe's cleanup.
+const probeId = await page.evaluate(async (n) => {
+  const { projects } = await fetch('/api/projects', { credentials: 'include' }).then((r) => r.json())
+  return projects.find((p) => p.name === n)?.id ?? null
+}, randomName)
+const editHref = await page.evaluate(
+  (n) =>
+    [...document.querySelectorAll('#app-rail a')]
+      .find((a) => a.getAttribute('aria-label') === `Edit project ${n}`)
+      ?.getAttribute('href') ?? null,
+  randomName,
+)
+ok(
+  editHref === `/dashboard?project=${probeId}&editProject=1`,
+  `#336: rail project entry carries the edit affordance (got ${editHref})`,
+)
+await page.goto(`${BASE}${editHref}`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('[role=dialog] #project-name', { timeout: 5000 })
+ok(
+  await page.evaluate((n) => document.querySelector('#project-name')?.value === n, randomName),
+  '#336: edit deep link opens the project modal prefilled',
+)
+await page.evaluate(() =>
+  document.querySelector('[role=dialog] button[aria-label="Archive this project"]')?.click(),
+)
+await page.waitForFunction(
+  (n) => ![...document.querySelectorAll('#app-rail a')].some((a) => a.textContent?.includes(n)),
+  { timeout: 5000 },
+  randomName,
+)
+ok(true, '#336: in-modal Archive files the project (rail entry gone)')
+// Archive the first probe too so the runs don't accumulate active projects.
+await page.evaluate(async (n) => {
+  const { projects } = await fetch('/api/projects', { credentials: 'include' }).then((r) => r.json())
+  const p = projects.find((x) => x.name === n)
+  if (p)
+    await fetch(`/api/projects/${p.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' }),
+    })
+}, name)
+
 await browser.close()
 process.exit(done())

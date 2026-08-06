@@ -71,16 +71,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
   const projectParam = Number(searchParams.get('project'))
   const categoryParam = Number(searchParams.get('category'))
 
-  const isAll = onDashboard && !tab && view !== 'projects' && !projectParam && !categoryParam
+  // `view` is null on the tasks list; 'projects' and 'categories' (#336) are
+  // the other grids — the per-entry active states only apply on the tasks list.
+  const isAll = onDashboard && !tab && !view && !projectParam && !categoryParam
   const isTab = (t: string) => onDashboard && tab === t
-  const activeCategoryId =
-    onDashboard && view !== 'projects' && categoryParam > 0 ? categoryParam : null
+  const activeCategoryId = onDashboard && !view && categoryParam > 0 ? categoryParam : null
   const isArchived = onDashboard && view === 'projects' && archived
   const isDone = onDashboard && view === 'projects' && !archived && statusParam === 'done'
   const activeProjectId =
-    onDashboard && view !== 'projects' && tab !== 'unassigned' && projectParam > 0
-      ? projectParam
-      : null
+    onDashboard && !view && tab !== 'unassigned' && projectParam > 0 ? projectParam : null
 
   return (
     <nav
@@ -153,19 +152,30 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         count={counts?.archived}
       />
 
-      {/* Categories get their OWN section again (#336, user review — the
-          in-Tasks placement was tried across two rounds and rejected): head
-          plus → the ?newCategory=1 modal (the old "+ New category" row is
-          gone), entries keep the tag icon + inline edit affordance. The head
-          is a plain label — there is no aggregate categories view to link. */}
+      {/* Categories get their OWN section (#336, user review — the in-Tasks
+          placement was tried across two rounds and rejected): the head links
+          the categories VIEW (?view=categories, the row-list grid), its plus
+          → the ?newCategory=1 modal (the old "+ New category" row is gone),
+          entries keep the tag icon + inline edit affordance. */}
       <RailHead
         label="Categories"
+        to="/dashboard?view=categories"
         plusTo="/dashboard?newCategory=1"
         plusLabel="New category"
         className="mt-6"
       />
       {categories.map((c) => (
-        <CategoryRailRow key={c.id} category={c} active={activeCategoryId === c.id} />
+        <EntryRow
+          key={c.id}
+          to={`/dashboard?category=${c.id}`}
+          editTo={`/dashboard?category=${c.id}&editCategory=1`}
+          editLabel={`Edit category ${c.name}`}
+          Icon={Tag}
+          color={projectHex(c.color)}
+          label={c.name}
+          count={c.remainingCount}
+          active={activeCategoryId === c.id}
+        />
       ))}
 
       <RailHead
@@ -186,15 +196,20 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
       />
       {/* Per-project entries lead with a FOLDER icon in the project's colour
           (#336 review — the per-entry icon pattern from categories' tag; the
-          fixed pool rows keep their pole squares). */}
+          fixed pool rows keep their pole squares) and carry the same pencil
+          edit affordance, deep-linking the edit modal on the project's own
+          task list (?project=ID&editProject=1). */}
       {activeProjects.map((p) => (
-        <RailLink
+        <EntryRow
           key={p.id}
           to={`/dashboard?project=${p.id}`}
-          active={activeProjectId === p.id}
-          leadIcon={{ Icon: Folder, color: projectHex(p.color) }}
+          editTo={`/dashboard?project=${p.id}&editProject=1`}
+          editLabel={`Edit project ${p.name}`}
+          Icon={Folder}
+          color={projectHex(p.color)}
           label={p.name}
           count={p.remainingCount}
+          active={activeProjectId === p.id}
         />
       ))}
       {/* The Done pool (#310) sits above Archived: auto-completed projects,
@@ -261,22 +276,40 @@ function RailHead({
 }
 
 /**
- * A category entry (#336): a RailLink-styled row sitting inline with the
- * fixed entries — differentiated by a TAG icon in the category's palette
- * colour (instead of the pole square; projects keep the square) — with an
- * inline EDIT affordance. At sm+ the count fades on hover / focus-within and
- * the pencil takes its place; below sm (drawer) the pencil is always visible
- * beside the count (row padding reserves its slot). The hover highlight lives
- * on `group-hover`, so hovering the pencil keeps the whole row lit. Pencil
- * visibility uses opacity, not display — a display-hidden control would drop
- * out of the keyboard tab order, and group-focus-within reveals it when
- * tabbed to.
+ * A per-entry rail row (#336) — categories AND projects share it: an icon
+ * lead in the entry's palette colour (tag = category, folder = project;
+ * centered in the pole square's 8px slot so every rail label shares one x)
+ * plus an inline EDIT affordance. At sm+ the count fades on hover /
+ * focus-within and the pencil takes its place; below sm (drawer) the pencil
+ * is always visible beside the count (row padding reserves its slot). The
+ * hover highlight lives on `group-hover`, so hovering the pencil keeps the
+ * whole row lit. Pencil visibility uses opacity, not display — a
+ * display-hidden control would drop out of the keyboard tab order, and
+ * group-focus-within reveals it when tabbed to.
  */
-function CategoryRailRow({ category, active }: { category: Category; active: boolean }) {
+function EntryRow({
+  to,
+  editTo,
+  editLabel,
+  Icon,
+  color,
+  label,
+  count,
+  active,
+}: {
+  to: string
+  editTo: string
+  editLabel: string
+  Icon: LucideIcon
+  color: string
+  label: string
+  count: number
+  active: boolean
+}) {
   return (
     <div className="group relative">
       <Link
-        to={`/dashboard?category=${category.id}`}
+        to={to}
         aria-current={active ? 'true' : undefined}
         className={`flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm max-sm:pr-12 sm:h-8 ${
           active
@@ -284,27 +317,21 @@ function CategoryRailRow({ category, active }: { category: Category; active: boo
             : 'text-gray-700 group-hover:bg-field-hover'
         }`}
       >
-        {/* Centered in the pole square's 8px slot so every rail label shares
-            the same x — the 14px tag just overhangs symmetrically. */}
         <span className="flex w-2 flex-none justify-center" aria-hidden>
-          <Tag
-            className="h-3.5 w-3.5 flex-none"
-            style={{ color: projectHex(category.color) }}
-            strokeWidth={2.25}
-          />
+          <Icon className="h-3.5 w-3.5 flex-none" style={{ color }} strokeWidth={2.25} />
         </span>
-        <span className="min-w-0 flex-1 truncate">{category.name}</span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
         <span
           className={`text-xs tabular-nums transition-opacity sm:group-hover:opacity-0 sm:group-focus-within:opacity-0 ${
             active ? 'text-primary-ink' : 'text-muted'
           }`}
         >
-          {category.remainingCount}
+          {count}
         </span>
       </Link>
       <Link
-        to={`/dashboard?category=${category.id}&editCategory=1`}
-        aria-label={`Edit category ${category.name}`}
+        to={editTo}
+        aria-label={editLabel}
         className="pointer-events-none absolute right-0.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-muted opacity-0 transition hover:bg-field-hover hover:text-primary-ink max-sm:pointer-events-auto max-sm:opacity-100 sm:h-7 sm:w-7 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
       >
         <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
@@ -317,17 +344,12 @@ function RailLink({
   to,
   active,
   pole,
-  leadIcon,
   label,
   count,
 }: {
   to: string
   active: boolean
-  /** Fixed entries' colour square; per-entry rows pass `leadIcon` instead. */
-  pole?: string
-  /** Icon lead (#336 — projects' folder): centered in the pole square's 8px
-   * slot so every rail label shares the same x. */
-  leadIcon?: { Icon: LucideIcon; color: string }
+  pole: string
   label: string
   count?: number
 }) {
@@ -342,17 +364,7 @@ function RailLink({
           : 'text-gray-700 hover:bg-field-hover'
       }`}
     >
-      {leadIcon ? (
-        <span className="flex w-2 flex-none justify-center" aria-hidden>
-          <leadIcon.Icon
-            className="h-3.5 w-3.5 flex-none"
-            style={{ color: leadIcon.color }}
-            strokeWidth={2.25}
-          />
-        </span>
-      ) : (
-        <span className={`h-2 w-2 flex-none rounded-[3px] ${pole}`} aria-hidden />
-      )}
+      <span className={`h-2 w-2 flex-none rounded-[3px] ${pole}`} aria-hidden />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {count != null && (
         <span className={`text-xs tabular-nums ${active ? 'text-primary-ink' : 'text-muted'}`}>

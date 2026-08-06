@@ -53,6 +53,8 @@ ok(
 await page.goto(`${BASE}/dashboard?newCategory=1`, { waitUntil: 'networkidle0' })
 await page.waitForSelector('[role=dialog] #category-name', { timeout: 5000 })
 await page.type('#category-name', CAT_NAME)
+// #336: categories carry an optional description (the projects shape).
+await page.type('#category-description', 'e2e description probe')
 await page.evaluate(() =>
   [...document.querySelectorAll('[role=dialog] button')]
     .find((b) => /create category/i.test(b.textContent || ''))
@@ -126,6 +128,52 @@ const railCount = await page.evaluate((name) => {
   return link?.querySelector('span.tabular-nums')?.textContent?.trim() ?? null
 }, CAT_NAME)
 ok(railCount === '1', `#276: rail entry carries the remaining count (got ${railCount})`)
+
+// #336: the Categories heading links the categories VIEW — a Dashboard-style
+// row list (tag icon · name + description · count · trailing pencil); a row
+// opens the category's task list.
+const headHref = await page.evaluate(() => {
+  const a = [...document.querySelectorAll('#app-rail a')].find(
+    (el) => el.textContent?.trim() === 'Categories',
+  )
+  return a?.getAttribute('href') ?? null
+})
+ok(headHref === '/dashboard?view=categories', `#336: Categories head links the view (got ${headHref})`)
+await page.goto(`${BASE}/dashboard?view=categories`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('ul[aria-label="Categories"]', { timeout: 5000 })
+const catRow = await page.evaluate((name) => {
+  const li = [...document.querySelectorAll('ul[aria-label="Categories"] li')].find((el) =>
+    (el.textContent || '').includes(name),
+  )
+  if (!li) return null
+  return {
+    text: li.textContent || '',
+    hasOpen: !!li.querySelector('button[aria-label^="Open "]'),
+    hasPencil: !!li.querySelector('button[aria-label^="Edit category"]'),
+    hasTag: !!li.querySelector('svg.lucide-tag'),
+  }
+}, CAT_NAME)
+ok(
+  catRow !== null &&
+    /e2e description probe/.test(catRow.text) &&
+    catRow.hasOpen &&
+    catRow.hasPencil &&
+    catRow.hasTag,
+  '#336: categories-view row = tag icon + name + description + open + pencil',
+)
+await page.evaluate(
+  (name) =>
+    [...document.querySelectorAll('button[aria-label^="Open "]')]
+      .find((b) => (b.getAttribute('aria-label') || '').includes(name))
+      ?.click(),
+  CAT_NAME,
+)
+await page.waitForFunction(
+  (id) => window.location.search.includes(`category=${id}`),
+  { timeout: 5000 },
+  categoryId,
+)
+ok(true, "#336: view row opens the category's task list")
 
 // TaskView: the Category select exists and reflects the assignment.
 await page.goto(`${BASE}/tasks/${taskId}`, { waitUntil: 'networkidle0' })

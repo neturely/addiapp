@@ -107,6 +107,30 @@ final class CategoriesTest extends DbTestCase
         self::assertNull($body['task']['categoryId']);
     }
 
+    public function testDescriptionRoundTrip(): void
+    {
+        [, $sid] = $this->makeSessionUser('cat-desc@test.local');
+
+        // Invalid shapes → 400 (the projects validator, #336).
+        [$status] = $this->dispatch('POST', '/api/categories', $sid, ['name' => 'D', 'description' => 42]);
+        self::assertSame(400, $status);
+        [$status] = $this->dispatch('POST', '/api/categories', $sid, ['name' => 'D', 'description' => str_repeat('x', 1001)]);
+        self::assertSame(400, $status);
+
+        // Create with one; empty string normalizes to NULL on PATCH.
+        [$status, $body] = $this->dispatch('POST', '/api/categories', $sid, ['name' => 'Errands', 'description' => ' weekly shopping runs ']);
+        self::assertSame(201, $status);
+        $catId = (int) $body['category']['id'];
+        self::assertSame('weekly shopping runs', $body['category']['description']);
+
+        [$status, $body] = $this->dispatch('PATCH', "/api/categories/{$catId}", $sid, ['description' => '']);
+        self::assertSame(200, $status);
+        self::assertNull($body['category']['description']);
+
+        [, $body] = $this->dispatch('GET', '/api/categories', $sid);
+        self::assertNull($body['categories'][0]['description']);
+    }
+
     public function testNextScopesToTheCategory(): void
     {
         [$userId, $sid] = $this->makeSessionUser('cat-next@test.local');

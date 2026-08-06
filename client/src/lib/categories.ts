@@ -8,6 +8,8 @@ import { apiRequest } from './api'
 export type Category = {
   id: number
   name: string
+  /** Optional free-text description (#336) — the projects shape; null when none. */
+  description: string | null
   /** Palette index into PROJECT_COLORS — the shared #268 palette. */
   color: number
   totalCount: number
@@ -18,6 +20,8 @@ export type Category = {
 
 export type CategoryInput = {
   name: string
+  /** '' normalizes to NULL server-side (the projects convention). */
+  description?: string
   color?: number
 }
 

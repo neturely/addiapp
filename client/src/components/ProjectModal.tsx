@@ -17,10 +17,14 @@ export function ProjectModal({
   project,
   onClose,
   onSaved,
+  onArchive,
 }: {
   project?: Project
   onClose: () => void
   onSaved: (saved: Project) => void
+  /** Edit mode (#336): Archive lives in the modal's action row — the
+   * CategoryModal-delete placement. The caller owns the actual PATCH. */
+  onArchive?: () => void
 }) {
   const { showToast } = useToast()
   const editing = project !== undefined
@@ -50,6 +54,7 @@ export function ProjectModal({
         submittingLabel={editing ? 'Saving…' : 'Creating…'}
         onSubmit={handleSubmit}
         onCancel={onClose}
+        onArchive={editing && project.status === 'active' ? onArchive : undefined}
       />
       {/* Rendered last so the first focusable element is the name field, not this. */}
       <button

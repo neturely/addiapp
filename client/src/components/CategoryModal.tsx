@@ -9,6 +9,7 @@ import { useToast } from '@/toast/useToast'
 
 const TITLE_ID = 'category-modal-title'
 const MAX_NAME = 255
+const MAX_DESCRIPTION = 1000
 
 /**
  * New / Edit category dialog (#276) on the shared Modal primitive (#218) —
@@ -33,6 +34,7 @@ export function CategoryModal({
   const editing = category !== undefined
 
   const [name, setName] = useState(category?.name ?? '')
+  const [description, setDescription] = useState(category?.description ?? '')
   // 'random' is the default on New (#308) — resolves to a concrete index on save.
   const [color, setColor] = useState<number | 'random'>(category?.color ?? 'random')
   const [error, setError] = useState<string | null>(null)
@@ -49,9 +51,10 @@ export function CategoryModal({
     setSubmitting(true)
     try {
       const concrete = color === 'random' ? randomSpectrumColor() : color
+      const input = { name: trimmed, description: description.trim(), color: concrete }
       const saved = editing
-        ? await updateCategory(category.id, { name: trimmed, color: concrete })
-        : await createCategory({ name: trimmed, color: concrete })
+        ? await updateCategory(category.id, input)
+        : await createCategory(input)
       showToast({
         message: `${editing ? 'Category updated' : 'Category created'}: ${trimmed}`,
         icon: CircleCheck,
@@ -82,6 +85,24 @@ export function CategoryModal({
             placeholder="e.g. Errands"
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="category-description"
+            className="mb-2 block text-sm font-medium text-gray-600"
+          >
+            Description <span className="text-muted">(optional)</span>
+          </label>
+          <textarea
+            id="category-description"
+            rows={2}
+            value={description}
+            maxLength={MAX_DESCRIPTION}
+            placeholder="What goes in this list?"
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full resize-y rounded-lg bg-gray-100 p-2.5 transition hover:bg-gray-200 field-focus"
           />
         </div>
 
