@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
-import { Plus } from 'lucide-react'
-import { projectPole } from '@/lib/projectColors'
+import { Folder, Pencil, Plus, Tag, type LucideIcon } from 'lucide-react'
+import { projectHex } from '@/lib/projectColors'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
 import { fetchTasksPage, type TaskCounts } from '@/lib/tasks'
@@ -71,16 +71,15 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
   const projectParam = Number(searchParams.get('project'))
   const categoryParam = Number(searchParams.get('category'))
 
-  const isAll = onDashboard && !tab && view !== 'projects' && !projectParam && !categoryParam
+  // `view` is null on the tasks list; 'projects' and 'categories' (#336) are
+  // the other grids — the per-entry active states only apply on the tasks list.
+  const isAll = onDashboard && !tab && !view && !projectParam && !categoryParam
   const isTab = (t: string) => onDashboard && tab === t
-  const activeCategoryId =
-    onDashboard && view !== 'projects' && categoryParam > 0 ? categoryParam : null
+  const activeCategoryId = onDashboard && !view && categoryParam > 0 ? categoryParam : null
   const isArchived = onDashboard && view === 'projects' && archived
   const isDone = onDashboard && view === 'projects' && !archived && statusParam === 'done'
   const activeProjectId =
-    onDashboard && view !== 'projects' && tab !== 'unassigned' && projectParam > 0
-      ? projectParam
-      : null
+    onDashboard && !view && tab !== 'unassigned' && projectParam > 0 ? projectParam : null
 
   return (
     <nav
@@ -112,36 +111,9 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Ready"
         count={counts?.backlog}
       />
-      {/* Category entries live in the Tasks section, directly under Ready
-          (#334 — the way project entries sit under the Active pool; the
-          separate Categories section is gone). Edit/Delete stay on the
-          Dashboard toolbar when an entry's filter is active (#276). */}
-      {categories.map((c) => (
-        <RailLink
-          key={c.id}
-          to={`/dashboard?category=${c.id}`}
-          active={activeCategoryId === c.id}
-          pole={projectPole(c.color)}
-          label={c.name}
-          count={c.remainingCount}
-        />
-      ))}
-      <Link
-        to="/dashboard?newCategory=1"
-        className="flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-8"
-      >
-        <Plus className="h-3.5 w-3.5 flex-none" strokeWidth={2.5} aria-hidden />
-        <span>New category</span>
-      </Link>
-      <RailLink
-        to="/dashboard?tab=in_progress"
-        active={isTab('in_progress')}
-        pole="bg-warning"
-        label="Started"
-        count={counts?.in_progress}
-      />
-      {/* Live recurring chains (2.3.0 review round) — an axis entry like
-          Unassigned/Archived, hence the neutral pole. */}
+      {/* Recurring + Unassigned sit directly under Ready (#336 revision —
+          the fixed axes group at the top, mirroring the Projects section's
+          pools-then-entries flow), neutral poles (they're axes, not statuses). */}
       <RailLink
         to="/dashboard?tab=recurring"
         active={isTab('recurring')}
@@ -155,6 +127,13 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         pole="bg-gray-400"
         label="Unassigned"
         count={counts?.unassigned}
+      />
+      <RailLink
+        to="/dashboard?tab=in_progress"
+        active={isTab('in_progress')}
+        pole="bg-warning"
+        label="Started"
+        count={counts?.in_progress}
       />
       <RailLink
         to="/dashboard?tab=done"
@@ -173,6 +152,32 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         count={counts?.archived}
       />
 
+      {/* Categories get their OWN section (#336, user review — the in-Tasks
+          placement was tried across two rounds and rejected): the head links
+          the categories VIEW (?view=categories, the row-list grid), its plus
+          → the ?newCategory=1 modal (the old "+ New category" row is gone),
+          entries keep the tag icon + inline edit affordance. */}
+      <RailHead
+        label="Categories"
+        to="/dashboard?view=categories"
+        plusTo="/dashboard?newCategory=1"
+        plusLabel="New category"
+        className="mt-6"
+      />
+      {categories.map((c) => (
+        <EntryRow
+          key={c.id}
+          to={`/dashboard?category=${c.id}`}
+          editTo={`/dashboard?category=${c.id}&editCategory=1`}
+          editLabel={`Edit category ${c.name}`}
+          Icon={Tag}
+          color={projectHex(c.color)}
+          label={c.name}
+          count={c.remainingCount}
+          active={activeCategoryId === c.id}
+        />
+      ))}
+
       <RailHead
         label="Projects"
         to="/dashboard?view=projects"
@@ -189,14 +194,22 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
         label="Active"
         count={activeProjects.length}
       />
+      {/* Per-project entries lead with a FOLDER icon in the project's colour
+          (#336 review — the per-entry icon pattern from categories' tag; the
+          fixed pool rows keep their pole squares) and carry the same pencil
+          edit affordance, deep-linking the edit modal on the project's own
+          task list (?project=ID&editProject=1). */}
       {activeProjects.map((p) => (
-        <RailLink
+        <EntryRow
           key={p.id}
           to={`/dashboard?project=${p.id}`}
-          active={activeProjectId === p.id}
-          pole={projectPole(p.color)}
+          editTo={`/dashboard?project=${p.id}&editProject=1`}
+          editLabel={`Edit project ${p.name}`}
+          Icon={Folder}
+          color={projectHex(p.color)}
           label={p.name}
           count={p.remainingCount}
+          active={activeProjectId === p.id}
         />
       ))}
       {/* The Done pool (#310) sits above Archived: auto-completed projects,
@@ -230,22 +243,26 @@ function RailHead({
 }: {
   label: string
   /** The section heading is itself a link (#256 review feedback) — Tasks →
-   * the task list, Projects → the projects grid. */
-  to: string
+   * the task list, Projects → the projects grid. Absent (Categories, #336):
+   * there is no aggregate view, the head is a plain label. */
+  to?: string
   plusTo: string
   plusLabel: string
   plusState?: unknown
   className?: string
 }) {
+  // h-11 below sm = a real touch target in the drawer (#270); text-size at sm+.
+  const headClasses =
+    'flex h-11 items-center text-[11px] font-semibold uppercase tracking-wider text-muted sm:h-auto'
   return (
     <div className={`mb-1 flex items-center justify-between pl-2.5 pr-1 ${className}`}>
-      <Link
-        to={to}
-        // h-11 below sm = a real touch target in the drawer (#270); text-size at sm+.
-        className="flex h-11 items-center text-[11px] font-semibold uppercase tracking-wider text-muted transition hover:text-primary-ink sm:h-auto"
-      >
-        {label}
-      </Link>
+      {to ? (
+        <Link to={to} className={`${headClasses} transition hover:text-primary-ink`}>
+          {label}
+        </Link>
+      ) : (
+        <span className={headClasses}>{label}</span>
+      )}
       <Link
         to={plusTo}
         state={plusState}
@@ -253,6 +270,71 @@ function RailHead({
         className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-6 sm:w-6"
       >
         <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} aria-hidden />
+      </Link>
+    </div>
+  )
+}
+
+/**
+ * A per-entry rail row (#336) — categories AND projects share it: an icon
+ * lead in the entry's palette colour (tag = category, folder = project;
+ * centered in the pole square's 8px slot so every rail label shares one x)
+ * plus an inline EDIT affordance. At sm+ the count fades on hover /
+ * focus-within and the pencil takes its place; below sm (drawer) the pencil
+ * is always visible beside the count (row padding reserves its slot). The
+ * hover highlight lives on `group-hover`, so hovering the pencil keeps the
+ * whole row lit. Pencil visibility uses opacity, not display — a
+ * display-hidden control would drop out of the keyboard tab order, and
+ * group-focus-within reveals it when tabbed to.
+ */
+function EntryRow({
+  to,
+  editTo,
+  editLabel,
+  Icon,
+  color,
+  label,
+  count,
+  active,
+}: {
+  to: string
+  editTo: string
+  editLabel: string
+  Icon: LucideIcon
+  color: string
+  label: string
+  count: number
+  active: boolean
+}) {
+  return (
+    <div className="group relative">
+      <Link
+        to={to}
+        aria-current={active ? 'true' : undefined}
+        className={`flex h-11 items-center gap-2.5 rounded-lg px-2.5 text-sm max-sm:pr-12 sm:h-8 ${
+          active
+            ? 'bg-primary-tint font-semibold text-primary-ink'
+            : 'text-gray-700 group-hover:bg-field-hover'
+        }`}
+      >
+        <span className="flex w-2 flex-none justify-center" aria-hidden>
+          <Icon className="h-3.5 w-3.5 flex-none" style={{ color }} strokeWidth={2.25} />
+        </span>
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span
+          className={`text-xs tabular-nums transition-opacity sm:group-hover:opacity-0 sm:group-focus-within:opacity-0 ${
+            active ? 'text-primary-ink' : 'text-muted'
+          }`}
+        >
+          {count}
+        </span>
+      </Link>
+      <Link
+        to={editTo}
+        aria-label={editLabel}
+        className="pointer-events-none absolute right-0.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-muted opacity-0 transition hover:bg-field-hover hover:text-primary-ink max-sm:pointer-events-auto max-sm:opacity-100 sm:h-7 sm:w-7 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+      >
+        <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
       </Link>
     </div>
   )

@@ -40,13 +40,21 @@ final class CategoriesController
         Response::json(['categories' => array_map([self::class, 'mapCategory'], $stmt->fetchAll())]);
     }
 
-    /** POST /api/categories — create a category (name + optional palette colour). */
+    /** POST /api/categories — create a category (name + optional description/colour). */
     public function create(Request $req, array $params): void
     {
         $name = self::name($req->input('name'));
         if ($name === null) {
             Response::error('Invalid input', 400);
             return;
+        }
+        $description = null;
+        if (array_key_exists('description', $req->body)) {
+            $description = self::description($req->input('description'));
+            if ($description === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
         }
         $color = 0;
         if (array_key_exists('color', $req->body)) {
@@ -59,8 +67,8 @@ final class CategoriesController
         }
 
         $pdo = Db::pdo();
-        $pdo->prepare('INSERT INTO task_categories (user_id, name, color) VALUES (?, ?, ?)')
-            ->execute([$req->userId, $name, $color]);
+        $pdo->prepare('INSERT INTO task_categories (user_id, name, description, color) VALUES (?, ?, ?, ?)')
+            ->execute([$req->userId, $name, $description, $color]);
 
         $created = self::loadWithCounts($pdo, (int) $pdo->lastInsertId(), (int) $req->userId);
         if ($created === null) {
@@ -70,7 +78,7 @@ final class CategoriesController
         Response::json(['category' => self::mapCategory($created)], 201);
     }
 
-    /** PATCH /api/categories/{id} — rename and/or recolour. */
+    /** PATCH /api/categories/{id} — rename, redescribe and/or recolour. */
     public function update(Request $req, array $params): void
     {
         $id = self::parseId($params['id']);
@@ -89,6 +97,15 @@ final class CategoriesController
             }
             $sets[] = 'name = ?';
             $args[] = $name;
+        }
+        if (array_key_exists('description', $req->body)) {
+            $description = self::description($req->input('description'));
+            if ($description === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $sets[] = 'description = ?';
+            $args[] = $description;
         }
         if (array_key_exists('color', $req->body)) {
             $color = self::color($req->input('color'));
@@ -186,6 +203,7 @@ final class CategoriesController
             'id' => (int) $r['id'],
             'userId' => (int) $r['user_id'],
             'name' => $r['name'],
+            'description' => $r['description'] ?? null,
             'color' => (int) $r['color'],
             'totalCount' => (int) ($r['total_count'] ?? 0),
             'remainingCount' => (int) ($r['remaining_count'] ?? 0),
@@ -212,5 +230,24 @@ final class CategoriesController
     private static function color(mixed $v): ?int
     {
         return is_int($v) && $v >= 0 && $v < ProjectsController::PALETTE_SIZE ? $v : null;
+    }
+
+    /**
+     * Optional description (#336): trimmed, empty → null. Returns null
+     * (absent/empty) | string (valid) | false (invalid). Mirrors ProjectsController.
+     */
+    private static function description(mixed $v): string|false|null
+    {
+        if ($v === null) {
+            return null;
+        }
+        if (!is_string($v)) {
+            return false;
+        }
+        $t = trim($v);
+        if (mb_strlen($t) > 1000) {
+            return false;
+        }
+        return $t === '' ? null : $t;
     }
 }

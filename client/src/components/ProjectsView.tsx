@@ -293,6 +293,15 @@ export function ProjectsView() {
           project={modal ?? undefined}
           onClose={() => setModal(undefined)}
           onSaved={onSaved}
+          onArchive={
+            modal
+              ? () => {
+                  const target = modal
+                  setModal(undefined)
+                  void onArchive(target)
+                }
+              : undefined
+          }
         />
       )}
 

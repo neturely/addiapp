@@ -25,19 +25,21 @@ import {
 } from '@/lib/tasks'
 import { fetchPoints } from '@/lib/points'
 import { elapsedSecondsSince, formatClock } from '@/lib/time'
-import { projectPole } from '@/lib/projectColors'
-import { fetchProjects, type Project } from '@/lib/projects'
+import { projectPole, projectTint } from '@/lib/projectColors'
+import { fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { deleteCategory, fetchCategories, type Category } from '@/lib/categories'
 import { Button } from '@/components/Button'
 import { CategoryModal } from '@/components/CategoryModal'
 import { Mascot } from '@/components/Mascot'
 import { Modal } from '@/components/Modal'
+import { CategoriesView } from '@/components/CategoriesView'
+import { ProjectModal } from '@/components/ProjectModal'
 import { ProjectsView } from '@/components/ProjectsView'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
 type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
-type View = 'tasks' | 'projects'
+type View = 'tasks' | 'projects' | 'categories'
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -106,10 +108,13 @@ export function Dashboard() {
   const { showToast } = useToast()
   const { search } = useShell()
 
-  // Tasks vs Projects view, URL-driven (`?view=`) — navigated from the rail's
-  // linkable section headings (the in-page toggle was removed on #256 review).
+  // Tasks vs Projects vs Categories view (#336), URL-driven (`?view=`) —
+  // navigated from the rail's linkable section headings (the in-page toggle
+  // was removed on #256 review).
   const [searchParams, setSearchParams] = useSearchParams()
-  const view: View = searchParams.get('view') === 'projects' ? 'projects' : 'tasks'
+  const viewParam = searchParams.get('view')
+  const view: View =
+    viewParam === 'projects' ? 'projects' : viewParam === 'categories' ? 'categories' : 'tasks'
 
   // `?project=ID`: with `tab=unassigned` it's the #236 assign ride-along target;
   // without it's the #260 rail per-project filter (every status).
@@ -210,11 +215,14 @@ export function Dashboard() {
     }
   }, [filter, projectFilterId])
 
-  // Categories (#276): the active filter's name/colour for the toolbar +
-  // Edit/Delete, and the `?newCategory=1` modal deep-link from the rail's plus.
+  // Categories (#276; management moved into the rail, #336): the active
+  // filter's name/colour for the toolbar, the `?newCategory=1` modal deep-link
+  // from the rail's plus, and `?editCategory=1` — the rail edit affordance's
+  // deep link, which rides ON a `?category=ID` filter (you land on the list
+  // you're managing; closing the modal leaves you there).
   const [categories, setCategories] = useState<Category[]>([])
   const newCategoryParam = searchParams.get('newCategory') === '1'
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const editCategoryParam = searchParams.get('editCategory') === '1'
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null)
   const [categoryBusy, setCategoryBusy] = useState(false)
   useEffect(() => {
@@ -233,6 +241,23 @@ export function Dashboard() {
   function closeNewCategory() {
     const params = new URLSearchParams(searchParams)
     params.delete('newCategory')
+    setSearchParams(params)
+  }
+
+  function closeEditCategory() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('editCategory')
+    setSearchParams(params)
+  }
+
+  // `?project=ID&editProject=1` (#336) — the rail project pencil's deep link,
+  // the categories pattern applied to projects: the edit modal opens on the
+  // project's own task list.
+  const editProjectParam = searchParams.get('editProject') === '1'
+
+  function closeEditProject() {
+    const params = new URLSearchParams(searchParams)
+    params.delete('editProject')
     setSearchParams(params)
   }
 
@@ -420,6 +445,8 @@ export function Dashboard() {
 
       {view === 'projects' ? (
         <ProjectsView />
+      ) : view === 'categories' ? (
+        <CategoriesView />
       ) : (
         <>
           {/* (The old project-filter banner is gone, #256 review — the toolbar's
@@ -469,26 +496,8 @@ export function Dashboard() {
             </span>
             <span className="h-[3px] w-[3px] flex-none rounded-full bg-gray-300" aria-hidden />
             <span className="font-medium text-gray-700 tabular-nums">{countLabel}</span>
-            {/* Manage the filtered category in place (#276) — mirrors the
-                project cards' kebab actions, surfaced in the toolbar. */}
-            {filterCategory && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setEditingCategory(filterCategory)}
-                  className="tap-44 cursor-pointer underline transition hover:text-primary-ink"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeletingCategory(filterCategory)}
-                  className="tap-44 cursor-pointer underline transition hover:text-danger-ink"
-                >
-                  Delete
-                </button>
-              </>
-            )}
+            {/* (The toolbar's category Edit/Delete is gone, #336 — management
+                lives on the rail entry's edit affordance → the modal.) */}
             <span className="flex-1" aria-hidden />
             <span className="tabular-nums">{rangeLabel}</span>
             <Pager />
@@ -643,15 +652,18 @@ export function Dashboard() {
                           from {shortDate(task.availableFrom!)}
                         </span>
                       )}
-                      {/* Category chip (#276) — the custom-list label, pole dot
-                          + name; hidden below sm where the row is tight. */}
-                      {task.category && (
-                        <span className="hidden max-w-28 flex-none items-center gap-1.5 rounded-full bg-field px-2.5 py-0.5 text-[11px] font-medium text-gray-700 sm:inline-flex">
-                          <span
-                            className={`h-1.5 w-1.5 flex-none rounded-full ${projectPole(task.category.color)}`}
-                            aria-hidden
-                          />
-                          <span className="truncate">{task.category.name}</span>
+                      {/* Category chip (#276; recoloured #336) — the label in
+                          the category's own palette tint (dark neutral text is
+                          AA on every slot's 18% tint), replacing the grey
+                          pill + dot; hidden below sm where the row is tight,
+                          and on the category's OWN filter view (redundant —
+                          every row there shares it). */}
+                      {task.category && categoryFilterId === null && (
+                        <span
+                          className="hidden max-w-28 flex-none truncate rounded-full px-2.5 py-0.5 text-[11px] font-medium text-gray-700 sm:inline-block"
+                          style={{ backgroundColor: projectTint(task.category.color) }}
+                        >
+                          {task.category.name}
                         </span>
                       )}
                       {/* Started rows carry their own live clock (#256 review
@@ -743,13 +755,45 @@ export function Dashboard() {
           }}
         />
       )}
-      {editingCategory && (
-        <CategoryModal
-          category={editingCategory}
-          onClose={() => setEditingCategory(null)}
+      {/* Edit project (#336) — deep-linked from the rail's project pencil
+          (?project=ID&editProject=1); Archive lives inside the modal. */}
+      {editProjectParam && filterProject && (
+        <ProjectModal
+          project={filterProject}
+          onClose={closeEditProject}
           onSaved={(saved) => {
-            setEditingCategory(null)
+            closeEditProject()
+            setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
+          }}
+          onArchive={() => {
+            const target = filterProject
+            closeEditProject()
+            void (async () => {
+              try {
+                const saved = await updateProject(target.id, { status: 'archived' })
+                setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
+                showToast({ message: `Project archived: ${target.name}`, icon: Archive, tone: 'neutral' })
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Could not archive the project.')
+              }
+            })()
+          }}
+        />
+      )}
+      {/* Edit category (#336) — deep-linked from the rail's inline edit
+          affordance (?category=ID&editCategory=1). Delete lives inside it,
+          handing off to the confirm dialog below. */}
+      {editCategoryParam && filterCategory && (
+        <CategoryModal
+          category={filterCategory}
+          onClose={closeEditCategory}
+          onSaved={(saved) => {
+            closeEditCategory()
             setCategories((cs) => cs.map((c) => (c.id === saved.id ? saved : c)))
+          }}
+          onDelete={() => {
+            closeEditCategory()
+            setDeletingCategory(filterCategory)
           }}
         />
       )}
