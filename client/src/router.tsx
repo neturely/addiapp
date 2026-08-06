@@ -11,6 +11,7 @@ import { InProgress } from '@/pages/InProgress'
 import { TaskView } from '@/pages/TaskView'
 import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
+import { Notifications } from '@/pages/Notifications'
 import { Settings } from '@/pages/Settings'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
           { path: '/tasks/:id/edit', element: <TaskView /> },
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/stats', element: <Stats /> },
+          { path: '/notifications', element: <Notifications /> },
           { path: '/settings', element: <Settings /> },
         ],
       },

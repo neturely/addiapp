@@ -9,6 +9,7 @@ use App\Controllers\AccountController;
 use App\Controllers\AuthController;
 use App\Controllers\CategoriesController;
 use App\Controllers\HealthController;
+use App\Controllers\NotificationsController;
 use App\Controllers\PointsController;
 use App\Controllers\ProjectsController;
 use App\Controllers\TasksController;
@@ -68,6 +69,7 @@ $points = new PointsController();
 $account = new AccountController();
 $projects = new ProjectsController();
 $categories = new CategoriesController();
+$notifications = new NotificationsController();
 
 $router->get('/api/health', [$health, 'index']);
 
@@ -105,6 +107,10 @@ $router->get('/api/projects', [$projects, 'index'], true);
 $router->post('/api/projects', [$projects, 'create'], true);
 $router->patch('/api/projects/{id}', [$projects, 'update'], true);
 $router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
+
+// Notifications (#366) — all require auth. GET runs the lazy activation sweep.
+$router->get('/api/notifications', [$notifications, 'index'], true);
+$router->post('/api/notifications/read', [$notifications, 'readAll'], true);
 
 // Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);

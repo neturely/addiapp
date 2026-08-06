@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useInProgress } from '@/inprogress/useInProgress'
+import { useNotifications } from '@/notifications/useNotifications'
 import { useShell } from '@/shell/useShell'
 import { TimerChip } from './TimerChip'
 import type { AuthUser } from '@/auth/authContext'
@@ -49,6 +50,7 @@ export function Header() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   const { activeTask, activeTasks } = useInProgress()
+  const { unreadCount } = useNotifications()
   const {
     search,
     setSearch,
@@ -190,7 +192,11 @@ export function Header() {
               ref={avatarRef}
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Account menu"
+              aria-label={
+                unreadCount > 0
+                  ? `Account menu (${unreadCount} unread notification${unreadCount === 1 ? '' : 's'})`
+                  : 'Account menu'
+              }
               aria-expanded={menuOpen}
               className="tap-44 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
             >
@@ -205,6 +211,14 @@ export function Header() {
                 initialsFor(user)
               )}
             </button>
+            {/* Unread indicator (#366) — outside the clipped avatar button; the
+                surface ring separates it from any gravatar underneath. */}
+            {unreadCount > 0 && (
+              <span
+                className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-surface"
+                aria-hidden
+              />
+            )}
             {menuOpen && (
               <div
                 ref={menuRef}
@@ -217,6 +231,18 @@ export function Header() {
                   <p className="truncate text-xs text-muted">{user.email}</p>
                 </div>
                 <div className="mb-1 h-px bg-field" aria-hidden />
+                <Link
+                  to="/notifications"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex h-11 w-full items-center justify-between rounded-lg px-3 text-sm text-gray-700 hover:bg-page sm:h-9"
+                >
+                  Notifications
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-primary-tint px-2 py-0.5 text-[11px] font-semibold tabular-nums text-primary-ink">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Link>
                 <Link
                   to="/settings"
                   onClick={() => setMenuOpen(false)}

@@ -370,6 +370,33 @@ to the old Node API.
   badge SLOT renders on every row — invisible + aria-hidden without a rule — so
   the min/pts column keeps one right edge, #364). Locked by
   `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
+- **In-app notifications (#366)**: avatar unread indicator + a `/notifications`
+  view; first (only, v1) type = **`recurring_activated`** — a #250 clone's
+  `available_from` date arriving. No persistent process on this hosting, so
+  activation is detected by a **lazy sweep on `GET /api/notifications`**: one
+  `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
+  `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
+  (the #74 pattern); `created_at` = the activation date (not the sweep moment);
+  the same fetch **prunes read rows > 30 days** (unread never pruned).
+  `notifications` table (migration 031): task FK **SET NULL** + a JSON `data`
+  snapshot (title + rule) so the message survives task deletion. Sweep/prune
+  SQL in `api/src/Notifications/Notifications.php`; thin
+  `NotificationsController` (`GET /api/notifications` → `{ notifications,
+  unreadCount }`, last 50 newest-first; `POST /api/notifications/read` = mark
+  ALL read — the v1 model: **opening the view marks everything read**, decided
+  provisionally 2026-08-06 pending the user's localhost look). Client:
+  `lib/notifications.ts` (+ **`recurrenceLabel()`** — the shared rule→text
+  vocabulary, "every 2 weeks" etc.; message = "<title> was added — repeats
+  {label}."), `notifications/NotificationsProvider` (InProgressProvider
+  pattern: fetch on mount + route change, NO polling) feeding the Header
+  **avatar dot** (+ unread count in the avatar `aria-label` — e2e matchers
+  prefix-match "Account menu" for this) and a **Notifications item with count**
+  in the avatar disclosure → `pages/Notifications.tsx` (does its OWN fetch →
+  render → mark-read → provider refresh, deliberately not the provider's list —
+  the route-change refetch would race the mark-read and strip the unread tint;
+  empty state = shared `empty` mascot). Deliberately out of v1: per-item read,
+  email/push, real-time, other types. Locked by `tests/Db/NotificationsTest.php`
+  + `e2e/notifications.mjs`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
