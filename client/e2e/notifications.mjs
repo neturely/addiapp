@@ -1,6 +1,8 @@
 // Notification system checks (#366): the lazy activation sweep surfacing a
-// recurring arrival, the header avatar dot + menu count, the /notifications
-// view (message wording, unread tint, task link), and open-marks-all-read.
+// recurring arrival, the header avatar dot + menu count, the Dashboard-style
+// /notifications row list (message wording, unread dot, open action),
+// open-marks-all-read, the row DISMISS (soft — must not resurrect on the next
+// sweep), and completion removing the task's notification.
 import { launch, login, reporter, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -9,31 +11,40 @@ const page = await browser.newPage()
 await page.setViewport({ width: 1400, height: 900 })
 await login(page)
 
-// Baseline: mark anything pre-existing read so OUR probe drives the unread state.
+// Baseline: mark anything pre-existing read so OUR probes drive unread state.
 await page.evaluate(async () => {
   await fetch('/api/notifications', { credentials: 'include' })
   await fetch('/api/notifications/read', { method: 'POST', credentials: 'include' })
 })
 
-// Seed a recurring task already due (availableFrom today) — the next
-// notifications fetch sweeps it into a notification.
+// Seed two recurring tasks already due — A drives the main flow + dismiss,
+// B drives the completion-removes-notification path.
 const today = new Date().toLocaleDateString('sv-SE')
-const probeTask = await page.evaluate(async (date) => {
-  const r = await fetch('/api/tasks', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: `e2e notify probe ${Date.now()}`,
-      complexity: 'low',
-      estimatedMinutes: 5,
-      availableFrom: date,
-      recurrence: { unit: 'week', interval: 2 },
-    }),
-  })
-  const { task } = await r.json()
-  return task.id
-}, today)
+const seed = (title, recurrence) =>
+  page.evaluate(
+    async (t, rec, date) => {
+      const r = await fetch('/api/tasks', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: t,
+          complexity: 'low',
+          estimatedMinutes: 5,
+          availableFrom: date,
+          recurrence: rec,
+        }),
+      })
+      const { task } = await r.json()
+      return task.id
+    },
+    title,
+    recurrence,
+    today,
+  )
+const stamp = Date.now()
+const taskA = await seed(`e2e notify probe A ${stamp}`, { unit: 'week', interval: 2 })
+const taskB = await seed(`e2e notify probe B ${stamp}`, { unit: 'day', interval: 1 })
 
 // A route change makes the provider refetch → sweep runs → avatar dot appears.
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
@@ -56,30 +67,33 @@ ok(
   `#366: avatar menu has a Notifications item with the count (got "${menuItem}")`,
 )
 
-// Open the view: message wording (shared Repeat vocabulary), unread tint, link.
+// Open the view: Dashboard-style rows — message wording (shared Repeat
+// vocabulary), unread dot, Open action, trailing dismiss.
 await page.evaluate(() =>
   [...document.querySelectorAll('a')]
     .find((a) => a.getAttribute('href') === '/notifications')
     ?.click(),
 )
 await page.waitForSelector('ul[aria-label="Notifications"]', { timeout: 5000 })
-const row = await page.evaluate(() => {
+const rowA = await page.evaluate(() => {
   const li = [...document.querySelectorAll('ul[aria-label="Notifications"] li')].find((el) =>
-    /e2e notify probe/i.test(el.textContent || ''),
+    /e2e notify probe A/i.test(el.textContent || ''),
   )
   if (!li) return null
   return {
     text: li.textContent || '',
-    href: li.querySelector('a')?.getAttribute('href') ?? null,
-    tinted: !!li.querySelector('a[class*="bg-primary-tint"]'),
+    hasOpen: !!li.querySelector('button[aria-label^="Open "]'),
+    unreadDot: !!li.querySelector('span.bg-primary'),
+    hasDismiss: !!li.querySelector('button[aria-label^="Dismiss notification"]'),
   }
 })
 ok(
-  row !== null && /was added — repeats every 2 weeks\./.test(row.text),
+  rowA !== null && /was added — repeats every 2 weeks\./.test(rowA.text),
   `#366: message reads "<title> was added — repeats every 2 weeks."`,
 )
-ok(row?.href === `/tasks/${probeTask}`, `#366: row links to the task (got ${row?.href})`)
-ok(row?.tinted === true, '#366: unread row is visually distinct (tint)')
+ok(rowA?.hasOpen === true, '#366: row carries the Open-task action')
+ok(rowA?.unreadDot === true, '#366: unread row shows the primary dot')
+ok(rowA?.hasDismiss === true, '#366: row carries a trailing Dismiss button')
 
 // Opening marked everything read: the badge is gone and the server agrees.
 await page.waitForFunction(
@@ -94,24 +108,55 @@ const serverUnread = await page.evaluate(async () => {
 })
 ok(serverUnread === 0, `#366: opening the view marked all read (server unread: ${serverUnread})`)
 
-// A revisit shows the row un-tinted (read state persisted).
-await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
-await page.goto(`${BASE}/notifications`, { waitUntil: 'networkidle0' })
-await page.waitForSelector('ul[aria-label="Notifications"]', { timeout: 5000 })
-const revisit = await page.evaluate(() => {
-  const li = [...document.querySelectorAll('ul[aria-label="Notifications"] li')].find((el) =>
-    /e2e notify probe/i.test(el.textContent || ''),
-  )
-  return li ? { tinted: !!li.querySelector('a[class*="bg-primary-tint"]') } : null
-})
-ok(revisit !== null && revisit.tinted === false, '#366: revisit shows the row read (no tint)')
-
-// Cleanup: delete the probe task (the notification keeps its snapshot, taskId
-// goes null — verified at the DB tier; here we just tidy the task list).
-await page.evaluate(
-  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
-  probeTask,
+// Dismiss A: the row leaves, and — the task still being due + backlog — the
+// next sweep must NOT resurrect it (soft delete anchors the dedupe).
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => /^Dismiss notification: e2e notify probe A/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
 )
+await page.waitForFunction(
+  () => !/e2e notify probe A/i.test(document.querySelector('ul[aria-label="Notifications"]')?.textContent || ''),
+  { timeout: 5000 },
+)
+const afterDismiss = await page.evaluate(async () => {
+  const { notifications } = await fetch('/api/notifications', { credentials: 'include' }).then(
+    (r) => r.json(),
+  )
+  return notifications.some((n) => /e2e notify probe A/i.test(n.data.title || ''))
+})
+ok(afterDismiss === false, '#366: dismissed notification stays gone through the next sweep')
+
+// Completing B removes its notification (no dangling "it came back" notice).
+await page.evaluate(
+  (tid) =>
+    fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'done' }),
+    }),
+  taskB,
+)
+const afterComplete = await page.evaluate(async () => {
+  const { notifications } = await fetch('/api/notifications', { credentials: 'include' }).then(
+    (r) => r.json(),
+  )
+  return notifications.some((n) => /e2e notify probe B/i.test(n.data.title || ''))
+})
+ok(afterComplete === false, "#366: completing the task removes the task's notification")
+
+// Cleanup: delete both probe tasks + the clone B's completion spawned (task
+// deletion cascades any remaining notification rows).
+await page.evaluate(async (ids) => {
+  for (const tid of ids) {
+    await fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' })
+  }
+  const { tasks } = await fetch('/api/tasks', { credentials: 'include' }).then((r) => r.json())
+  for (const t of tasks.filter((x) => /e2e notify probe/i.test(x.title))) {
+    await fetch(`/api/tasks/${t.id}`, { method: 'DELETE', credentials: 'include' })
+  }
+}, [taskA, taskB])
 
 await browser.close()
 process.exit(done())

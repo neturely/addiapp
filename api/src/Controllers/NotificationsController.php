@@ -30,13 +30,15 @@ final class NotificationsController
         Notifications::prune($pdo, $userId);
 
         $stmt = $pdo->prepare(
-            'SELECT * FROM notifications WHERE user_id = ?
+            'SELECT * FROM notifications WHERE user_id = ? AND dismissed_at IS NULL
              ORDER BY created_at DESC, id DESC LIMIT ' . Notifications::LIST_LIMIT,
         );
         $stmt->execute([$userId]);
         $rows = $stmt->fetchAll();
 
-        $unread = $pdo->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL');
+        $unread = $pdo->prepare(
+            'SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL AND dismissed_at IS NULL',
+        );
         $unread->execute([$userId]);
 
         Response::json([
@@ -48,8 +50,38 @@ final class NotificationsController
     /** POST /api/notifications/read — mark ALL read (v1 decision; per-item can wait). */
     public function readAll(Request $req, array $params): void
     {
-        Db::pdo()->prepare('UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL')
-            ->execute([$req->userId]);
+        Db::pdo()->prepare(
+            'UPDATE notifications SET read_at = NOW()
+             WHERE user_id = ? AND read_at IS NULL AND dismissed_at IS NULL',
+        )->execute([$req->userId]);
+        Response::json(['ok' => true]);
+    }
+
+    /**
+     * DELETE /api/notifications/{id} — dismiss one notification. A SOFT delete
+     * (`dismissed_at`): the row must survive as the sweep's dedupe anchor, or
+     * the next fetch would just re-insert a notification for a task that's
+     * still due (see the migration 031 comment). 404-not-403 (#129).
+     */
+    public function destroy(Request $req, array $params): void
+    {
+        $raw = $params['id'];
+        $id = ctype_digit($raw) && (int) $raw > 0 ? (int) $raw : null;
+        if ($id === null) {
+            Response::error('Invalid notification id', 400);
+            return;
+        }
+
+        $pdo = Db::pdo();
+        $stmt = $pdo->prepare(
+            'UPDATE notifications SET dismissed_at = NOW(), read_at = IFNULL(read_at, NOW())
+             WHERE id = ? AND user_id = ? AND dismissed_at IS NULL',
+        );
+        $stmt->execute([$id, $req->userId]);
+        if ($stmt->rowCount() === 0) {
+            Response::error('Notification not found', 404);
+            return;
+        }
         Response::json(['ok' => true]);
     }
 

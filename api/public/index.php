@@ -108,9 +108,11 @@ $router->post('/api/projects', [$projects, 'create'], true);
 $router->patch('/api/projects/{id}', [$projects, 'update'], true);
 $router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
 
-// Notifications (#366) — all require auth. GET runs the lazy activation sweep.
+// Notifications (#366) — all require auth. GET runs the lazy activation sweep;
+// DELETE is a soft dismiss (the row anchors the sweep's dedupe).
 $router->get('/api/notifications', [$notifications, 'index'], true);
 $router->post('/api/notifications/read', [$notifications, 'readAll'], true);
+$router->delete('/api/notifications/{id}', [$notifications, 'destroy'], true);
 
 // Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Db;
 use App\Http\Request;
 use App\Http\Response;
+use App\Notifications\Notifications;
 use App\Points\Award;
 use App\Points\PointsConfig;
 use App\Projects\Lifecycle;
@@ -729,6 +730,9 @@ final class TasksController
         $pointsAwarded = null;
         $projectCompleted = null;
         if ($completing) {
+            // A completed task's notifications are moot (#366) — remove them.
+            // (Task deletion needs no hook: the notifications FK cascades.)
+            Notifications::removeForTask($pdo, (int) $updated['id'], (int) $req->userId);
             $pointsAwarded = Award::awardTaskCompletion(
                 (int) $updated['id'],
                 (int) $updated['user_id'],

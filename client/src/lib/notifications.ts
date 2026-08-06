@@ -37,6 +37,16 @@ export async function markNotificationsRead(): Promise<void> {
 }
 
 /**
+ * Dismiss one notification. Server-side this is a SOFT delete — the row stays
+ * as the sweep's dedupe anchor so a still-due task isn't re-notified on the
+ * next fetch. (Completing or deleting the task removes its notification
+ * without this call.)
+ */
+export async function dismissNotification(id: number): Promise<void> {
+  await apiRequest(`/notifications/${id}`, { method: 'DELETE' })
+}
+
+/**
  * Human label for a recurrence rule — the TaskView Repeat vocabulary (#250),
  * lowercased mid-sentence: "daily", "weekly", "every 2 weeks", "monthly on
  * day 15", "every 3 days". One source so notifications never invent a phrasing.

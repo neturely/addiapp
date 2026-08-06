@@ -58,13 +58,32 @@ final class Notifications
         $stmt->execute([self::TYPE_RECURRING_ACTIVATED, $userId, $today]);
     }
 
-    /** Retention (#366 decision): read rows older than 30 days go; unread never. */
+    /**
+     * Retention (#366 decision): read or dismissed rows older than 30 days go;
+     * unread-and-undismissed never. (A pruned dismissed row whose task is STILL
+     * due releases the dedupe anchor — a 30-days-later re-notify for a task
+     * still sitting in the backlog is accepted, arguably a feature.)
+     */
     public static function prune(PDO $pdo, int $userId): void
     {
         $pdo->prepare(
             'DELETE FROM notifications
-             WHERE user_id = ? AND read_at IS NOT NULL
-               AND read_at < (NOW() - INTERVAL ' . self::PRUNE_READ_AFTER_DAYS . ' DAY)',
+             WHERE user_id = ?
+               AND ((read_at IS NOT NULL AND read_at < (NOW() - INTERVAL ' . self::PRUNE_READ_AFTER_DAYS . ' DAY))
+                 OR (dismissed_at IS NOT NULL AND dismissed_at < (NOW() - INTERVAL ' . self::PRUNE_READ_AFTER_DAYS . ' DAY)))',
         )->execute([$userId]);
+    }
+
+    /**
+     * Hard-remove a task's notifications — the completion path's cleanup
+     * (#366 user feedback: a done task's "it came back" notice is moot). Task
+     * DELETION needs no call — the FK cascades. Safe to hard-delete here,
+     * unlike a user dismiss: a done task fails the sweep's backlog condition,
+     * so nothing resurrects.
+     */
+    public static function removeForTask(PDO $pdo, int $taskId, int $userId): void
+    {
+        $pdo->prepare('DELETE FROM notifications WHERE task_id = ? AND user_id = ?')
+            ->execute([$taskId, $userId]);
     }
 }

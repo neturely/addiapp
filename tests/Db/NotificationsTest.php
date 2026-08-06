@@ -6,22 +6,27 @@ namespace Tests\Db;
 
 use App\Auth\Sessions;
 use App\Controllers\NotificationsController;
+use App\Controllers\TasksController;
 use App\Http\Request;
 use App\Http\Router;
 
 /**
  * In-app notifications (#366), request-level: the lazy activation sweep (who
- * gets notified, dedupe, scoping), mark-all-read, retention pruning, and the
- * snapshot surviving task deletion.
+ * gets notified, dedupe, scoping), mark-all-read, retention pruning, the
+ * soft dismiss (which must NOT resurrect on the next sweep), and the
+ * task-lifecycle cleanup (completion removes, deletion cascades).
  */
 final class NotificationsTest extends DbTestCase
 {
     private function router(): Router
     {
         $n = new NotificationsController();
+        $tasks = new TasksController();
         $router = new Router();
         $router->get('/api/notifications', [$n, 'index'], true);
         $router->post('/api/notifications/read', [$n, 'readAll'], true);
+        $router->delete('/api/notifications/{id}', [$n, 'destroy'], true);
+        $router->patch('/api/tasks/{id}', [$tasks, 'update'], true);
         return $router;
     }
 
@@ -155,7 +160,7 @@ final class NotificationsTest extends DbTestCase
         self::assertSame('old unread', $body['notifications'][0]['data']['title']);
     }
 
-    public function testNotificationSurvivesTaskDeletion(): void
+    public function testTaskDeletionCascadesNotificationAway(): void
     {
         $userId = $this->makeUser('notif-f@test.local');
         $sid = Sessions::create($userId);
@@ -165,8 +170,50 @@ final class NotificationsTest extends DbTestCase
         $this->pdo->prepare('DELETE FROM tasks WHERE id = ?')->execute([$taskId]);
 
         [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
-        self::assertCount(1, $body['notifications']);
-        self::assertNull($body['notifications'][0]['taskId']);
-        self::assertSame('water the plants', $body['notifications'][0]['data']['title']);
+        self::assertSame(0, $body['unreadCount']);
+        self::assertCount(0, $body['notifications']);
+    }
+
+    public function testCompletingTheTaskRemovesNotification(): void
+    {
+        $userId = $this->makeUser('notif-g@test.local');
+        $sid = Sessions::create($userId);
+        $taskId = $this->makeRecurringTask($userId, '2020-01-01');
+        [, $before] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(1, $before['notifications']);
+
+        [$status] = $this->dispatch('PATCH', "/api/tasks/{$taskId}", $sid, ['status' => 'done']);
+        self::assertSame(200, $status);
+
+        // Gone — and NOT resurrected by the sweep (a done task fails its
+        // backlog condition; the spawned #250 clone is future-dated).
+        [, $after] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertSame(0, $after['unreadCount']);
+        self::assertCount(0, $after['notifications']);
+    }
+
+    public function testDismissHidesWithoutResurrection(): void
+    {
+        $userId = $this->makeUser('notif-h@test.local');
+        $sid = Sessions::create($userId);
+        $this->makeRecurringTask($userId, '2020-01-01');
+        [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
+        $nid = $body['notifications'][0]['id'];
+
+        [$status] = $this->dispatch('DELETE', "/api/notifications/{$nid}", $sid);
+        self::assertSame(200, $status);
+
+        // The task is STILL due+backlog, but the soft-deleted row anchors the
+        // dedupe — the next sweep must not re-insert.
+        [, $after] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertSame(0, $after['unreadCount']);
+        self::assertCount(0, $after['notifications']);
+
+        // Re-dismiss and foreign/unknown ids → 404 (non-enumerating, #129).
+        [$again] = $this->dispatch('DELETE', "/api/notifications/{$nid}", $sid);
+        self::assertSame(404, $again);
+        $other = $this->makeUser('notif-h2@test.local');
+        [$foreign] = $this->dispatch('DELETE', "/api/notifications/{$nid}", Sessions::create($other));
+        self::assertSame(404, $foreign);
     }
 }
