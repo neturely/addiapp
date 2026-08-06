@@ -662,12 +662,19 @@ export function Dashboard() {
                         ) : null}
                       </span>
                       {/* Recurring badge (#250; review round 2: trailing, to
-                          the RIGHT of the time/points cell). */}
-                      {task.recurrence && (
-                        <span role="img" className="flex-none text-muted" aria-label="Repeats">
-                          <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-                        </span>
-                      )}
+                          the RIGHT of the time/points cell). The slot renders
+                          on EVERY row (#364) so the min/pts column keeps one
+                          straight right edge in mixed lists — non-recurring
+                          rows just hide the icon (`invisible` keeps the
+                          width; the a11y img semantics only on real ones). */}
+                      <span
+                        className={`flex-none text-muted ${task.recurrence ? '' : 'invisible'}`}
+                        {...(task.recurrence
+                          ? { role: 'img', 'aria-label': 'Repeats' }
+                          : { 'aria-hidden': true })}
+                      >
+                        <Repeat className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+                      </span>
                     </button>
                     {/* Below sm there's no hover for the pole swap, so ready
                         rows keep a trailing always-visible play button there. */}
