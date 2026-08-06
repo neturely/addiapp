@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { ShellContext } from './shellContext'
 

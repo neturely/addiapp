@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Archive, Check } from 'lucide-react'
 import { Mascot } from './Mascot'
 import { CONFETTI } from './confetti'

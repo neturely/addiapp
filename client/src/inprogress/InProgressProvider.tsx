@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router'
 import { fetchTasks, type Task } from '@/lib/tasks'
 import { InProgressContext } from './inProgressContext'
 

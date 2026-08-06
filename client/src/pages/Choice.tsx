@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router'
 import { Layers, Mountain, Play, Zap } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { Mascot } from '@/components/Mascot'

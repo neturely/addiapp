@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Plus, RotateCw } from 'lucide-react'
 import { buttonClasses } from './buttonClasses'
 import { Mascot } from './Mascot'

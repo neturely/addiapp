@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import type { Task } from '@/lib/tasks'
 import { formatClock, elapsedSecondsSince } from '@/lib/time'
 

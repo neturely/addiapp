@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router'
 import { CircleCheck, Play } from 'lucide-react'
 import { buttonClasses } from './buttonClasses'
 import { CONFETTI } from './confetti'
