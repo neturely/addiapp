@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router'
 import { Header } from './Header'
 import { Footer } from './Footer'
 import { Rail } from './Rail'
 import { RightColumn } from './RightColumn'
 import { InProgressProvider } from '@/inprogress/InProgressProvider'
+import { NotificationsProvider } from '@/notifications/NotificationsProvider'
 import { ShellProvider } from '@/shell/ShellProvider'
 import { useShell } from '@/shell/useShell'
 import { ToastProvider } from '@/toast/ToastProvider'
@@ -105,11 +106,13 @@ function ShellFrame() {
 export function AppLayout() {
   return (
     <InProgressProvider>
-      <ToastProvider>
-        <ShellProvider>
-          <ShellFrame />
-        </ShellProvider>
-      </ToastProvider>
+      <NotificationsProvider>
+        <ToastProvider>
+          <ShellProvider>
+            <ShellFrame />
+          </ShellProvider>
+        </ToastProvider>
+      </NotificationsProvider>
     </InProgressProvider>
   )
 }

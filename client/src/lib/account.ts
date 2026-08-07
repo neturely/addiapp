@@ -26,6 +26,32 @@ export async function deleteAccount(password: string): Promise<void> {
   })
 }
 
+/** Start TOTP 2FA enrollment (#319) — password re-auth; returns the staged
+ *  secret + otpauth URI for the authenticator app. Not armed until confirmed. */
+export async function setupTotp(password: string): Promise<{ secret: string; otpauthUri: string }> {
+  return apiRequest<{ secret: string; otpauthUri: string }>('/account/totp/setup', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  })
+}
+
+/** Arm TOTP 2FA with one valid code (#319). Returns the single-use backup
+ *  codes — shown exactly once, never retrievable again. */
+export async function confirmTotp(code: string): Promise<{ backupCodes: string[] }> {
+  return apiRequest<{ backupCodes: string[] }>('/account/totp/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  })
+}
+
+/** Disable TOTP 2FA (#319) — password + an authenticator (or backup) code. */
+export async function disableTotp(password: string, code: string): Promise<void> {
+  await apiRequest<void>('/account/totp/disable', {
+    method: 'POST',
+    body: JSON.stringify({ password, code }),
+  })
+}
+
 /** Change the password (#187) — requires the current one; keeps this session. */
 export async function changePassword(input: {
   currentPassword: string

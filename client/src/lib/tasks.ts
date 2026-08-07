@@ -17,13 +17,26 @@ export type Task = {
   /** Joined project name + palette colour (#268) — present on LIST responses
    * only (the server's LEFT JOIN); null when unassigned. */
   project?: { name: string; color: number } | null
+  /** Owning category id (#276); null when uncategorized. */
+  categoryId?: number | null
+  /** Joined category name + palette colour (#276) — LIST responses only. */
+  category?: { name: string; color: number } | null
   /** Points actually earned on completion (LIST only; null until done). */
   earnedPoints?: number | null
   /** ISO timestamp set when the task moved to in_progress (issue #33 timer). */
   startedAt?: string | null
+  /** ISO timestamp when the task was filed away (#312); null = not archived. */
+  archivedAt?: string | null
+  /** Snooze-until date (#250, plain Y-m-d); Play skips the task before it. */
+  availableFrom?: string | null
+  /** Recurrence rule (#250); null/absent = not recurring. */
+  recurrence?: Recurrence | null
   /** ISO creation timestamp — the task view's "added N days ago" line (#262). */
   createdAt?: string
 }
+
+/** Recurrence rule (#250): every N days/weeks/months, XOR monthly on day D. */
+export type Recurrence = { unit: 'day' | 'week' | 'month'; interval: number } | { dayOfMonth: number }
 
 /** Points breakdown returned when a task is completed (issue #28). */
 export type AwardResult = {
@@ -53,6 +66,12 @@ export type NewTaskInput = {
   estimatedMinutes: number
   /** Optional project to create the task into (#234); must be an active owned project. */
   projectId?: number
+  /** Optional category to create the task into (#276); must be owned. */
+  categoryId?: number
+  /** Snooze-until date (#250, Y-m-d); null/absent = available now. */
+  availableFrom?: string | null
+  /** Recurrence rule (#250); null clears it on update. */
+  recurrence?: Recurrence | null
 }
 
 /** Play-mode pick strategy. Default (win-type) unless `projects` (#238). */
@@ -66,6 +85,8 @@ export type NextTaskFilters = {
   exclude?: number
   /** "Focus on projects" mode (#238): win-type ignored; pick from active projects. */
   mode?: PlayMode
+  /** Scope the pick to one owned category (#276) — composes with every mode. */
+  category?: number
 }
 
 /** Which Play Choice options can produce a task at any time (#306). */
@@ -118,6 +139,11 @@ export type TaskCounts = {
   in_progress: number
   done: number
   unassigned: number
+  /** Filed-away done tasks (#312) — outside every other figure. */
+  archived: number
+  /** Live recurring chains (2.3.0 review round): rule-carrying tasks that
+   * aren't done/archived — the rail's Recurring entry. */
+  recurring: number
 }
 
 /** One page of the dashboard task list (#262 — offset pagination, superseding
@@ -141,6 +167,13 @@ export async function fetchTasksPage(opts: {
   /** #260 rail per-project filter (backend half of #245): one owned project's
    * tasks, any status. Non-enumerating — a foreign id 404s. */
   projectId?: number
+  /** #276 rail per-category filter — same rules as projectId. */
+  categoryId?: number
+  /** #312 archive view: only filed-away tasks (default lists exclude them). */
+  archived?: boolean
+  /** Recurring view (2.3.0 review round): the live occurrence of every
+   * recurring chain (rule-carrying, not done, not archived). */
+  recurring?: boolean
   limit: number
   offset?: number
   /** Row order: 'asc' (oldest first, the default) or 'desc' (newest first). */
@@ -150,6 +183,9 @@ export async function fetchTasksPage(opts: {
   if (opts.status) params.set('status', opts.status)
   if (opts.unassigned) params.set('unassigned', '1')
   if (opts.projectId != null) params.set('projectId', String(opts.projectId))
+  if (opts.categoryId != null) params.set('categoryId', String(opts.categoryId))
+  if (opts.archived) params.set('archived', '1')
+  if (opts.recurring) params.set('recurring', '1')
   params.set('limit', String(opts.limit))
   if (opts.offset) params.set('offset', String(opts.offset))
   if (opts.order === 'desc') params.set('order', 'desc')
@@ -160,9 +196,13 @@ export async function fetchTasksPage(opts: {
  * `projectId: null` unassigns (#236 semantics). */
 export async function updateTask(
   id: number,
-  patch: Partial<Omit<NewTaskInput, 'projectId'>> & {
+  patch: Partial<Omit<NewTaskInput, 'projectId' | 'categoryId'>> & {
     status?: TaskStatus
     projectId?: number | null
+    /** #276 semantics mirror projectId: an int assigns, null unlabels. */
+    categoryId?: number | null
+    /** #312 archive flag — the task view sends false to un-file (#330). */
+    archived?: boolean
   },
 ): Promise<Task> {
   const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
@@ -198,6 +238,20 @@ export async function assignTaskToProject(id: number, projectId: number | null):
   return task
 }
 
+/**
+ * Archive or unarchive a DONE task (#312) — a flag beside status, not a status
+ * transition (the server rejects archiving a non-done task). Pings the rail so
+ * the Done/Archived counts move without a navigation.
+ */
+export async function archiveTask(id: number, archived: boolean): Promise<Task> {
+  const { task } = await requestJson<{ task: Task }>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ archived }),
+  })
+  notifyProjectsChanged()
+  return task
+}
+
 /** Play-mode selection (issue #31). Returns one matching backlog task, or null. */
 export async function fetchNextTask(filters: NextTaskFilters): Promise<Task | null> {
   const params = new URLSearchParams()
@@ -205,6 +259,7 @@ export async function fetchNextTask(filters: NextTaskFilters): Promise<Task | nu
   else if (filters.size) params.set('size', filters.size) // win-type is ignored in projects mode
   if (filters.minutes != null) params.set('minutes', String(filters.minutes))
   if (filters.exclude != null) params.set('exclude', String(filters.exclude))
+  if (filters.category != null) params.set('category', String(filters.category))
   const qs = params.toString()
   const { task } = await requestJson<{ task: Task | null }>(`/tasks/next${qs ? `?${qs}` : ''}`)
   return task
@@ -233,14 +288,22 @@ export type ProjectCompletion = { projectId: number; name: string; bonus: number
  * `pointsAwarded` is present the first time and omitted if it was already done.
  * `projectCompleted` (#240) is present only when this completion finished the
  * task's project (all its tasks done) — the once-ever project bonus.
+ * `recursAt` (#250) is present when completing a recurring task spawned its
+ * next occurrence — the Y-m-d date it comes back.
  */
 export async function completeTask(
   id: number,
-): Promise<{ task: Task; pointsAwarded?: AwardResult; projectCompleted?: ProjectCompletion }> {
+): Promise<{
+  task: Task
+  pointsAwarded?: AwardResult
+  projectCompleted?: ProjectCompletion
+  recursAt?: string
+}> {
   const res = await requestJson<{
     task: Task
     pointsAwarded?: AwardResult
     projectCompleted?: ProjectCompletion
+    recursAt?: string
   }>(`/tasks/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'done' }),

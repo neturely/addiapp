@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-08-06
+### Changed
+- Categories v2: management moved into the sidebar (per-entry edit pencil on categories AND projects; delete/archive live inside the edit modals), categories get their own sidebar section, a `?view=categories` row-list view, and an optional description; entries are led by a coloured tag icon (categories) or folder icon (projects); task-row category chips render in the category's own colour ([#336](https://github.com/neturely/addiapp/issues/336))
+### Security
+- Upgrade routing to react-router v8 (react-router-dom is retired in v8), clearing the npm-audit advisory GHSA-qwww-vcr4-c8h2; CI/deploy build on Node 22 ([#359](https://github.com/neturely/addiapp/issues/359))
+### Fixed
+- Shell polish: the right column keeps a gutter so a long task list's scrollbar no longer touches its cards, and scrollbars app-wide drop the off-white track for a flat transparent one ([#373](https://github.com/neturely/addiapp/pull/373), [#374](https://github.com/neturely/addiapp/pull/374))
+- Dashboard rows read "Title ↻ Description" — the recurring badge sits inline between title and description (no more min/pts column misalignment) and the " — " separator is gone ([#364](https://github.com/neturely/addiapp/issues/364))
+- Dashboard toolbar count now scopes to the active tab ("N tasks done/started/unassigned/archived/recurring") instead of always showing the backlog's "ready to do" figure ([#363](https://github.com/neturely/addiapp/issues/363))
+### Added
+- In-app notifications: an avatar indicator (green when the view has items, red when some are new) with a notifications view; the first type fires when a recurring task's next occurrence becomes available. Notifications can be dismissed and are removed automatically when their task is completed or deleted ([#366](https://github.com/neturely/addiapp/issues/366))
+
+## [2.3.0] - 2026-08-04
+### Added
+- Display names now pass a small profanity blocklist on register and account update ([#340](https://github.com/neturely/addiapp/issues/340))
+- Recurring tasks + "snooze until": tasks can repeat (every N days/weeks/months, or monthly on a day) — completing one spawns the next occurrence, dated and excluded from Play until then; any task can be snoozed to a future date ([#250](https://github.com/neturely/addiapp/issues/250))
+- A "Recurring" rail entry under Started — one view of every live recurring task, with its own count ([#355](https://github.com/neturely/addiapp/pull/355))
+### Changed
+- Inputs have a new focus treatment: the field washes in the brand tint with a soft glow and its label lights up — the old blue focus ring is gone everywhere ([#355](https://github.com/neturely/addiapp/pull/355), [#357](https://github.com/neturely/addiapp/pull/357))
+- Play Choice: the category scope reads "From inside of", and the time filter is now fuzzy durations (Any time / A little time / A few hours / A day) instead of concrete minutes ([#355](https://github.com/neturely/addiapp/pull/355))
+- Task view: "Snooze" and Repeat each sit on their own full row (control left, description/custom options right); the recurring ↻ marker on task rows moved to the end of the row ([#355](https://github.com/neturely/addiapp/pull/355), [#356](https://github.com/neturely/addiapp/pull/356))
+- Settings/TaskView/rail polish: Gravatar mentioned in the avatar helper text, 2FA section moved below Password, Play strategy list reordered with a Uniform-random descriptor, inline "+" to create a project/category from the task view, Projects "Done" rail pole now green ([#341](https://github.com/neturely/addiapp/issues/341))
+### Fixed
+- Password managers now recognize the login 2FA code field as a one-time-code input instead of a username box ([#343](https://github.com/neturely/addiapp/issues/343))
+### Security
+- The display-name blocklist got a leetspeak pass and a wider vetted wordlist ([#355](https://github.com/neturely/addiapp/pull/355))
+- Dependency bumps clear all open Dependabot/audit findings with in-range fixes (ip-address, brace-expansion, react-router 7.18.1); the router RSC advisory needs the v8 major and is tracked as [#359](https://github.com/neturely/addiapp/issues/359) ([#358](https://github.com/neturely/addiapp/pull/358))
+
+## [2.2.0] - 2026-08-04
+### Added
+- Optional two-factor authentication — 6-digit authenticator-app codes (TOTP) with single-use backup codes; enable and disable from Settings, no third-party service involved ([#319](https://github.com/neturely/addiapp/issues/319))
+- Task categories — your own custom task lists beside projects: rail entries under Ready with live counts, a per-category task view with edit/delete, a Category field on every task, a category chip on task rows, and a "From" scope on the Play choice screen ([#276](https://github.com/neturely/addiapp/issues/276), placement refined in [#334](https://github.com/neturely/addiapp/issues/334))
+- Task archiving — file done tasks away: a one-tap archive shortcut on the Play completion screen, one-click Archive on done task rows and done project cards, an Archived rail view with permanent delete, and an "Archived" state on the task view's Status field to bring a task back ([#312](https://github.com/neturely/addiapp/issues/312), [#321](https://github.com/neturely/addiapp/issues/321), [#330](https://github.com/neturely/addiapp/issues/330))
+### Changed
+- The All-tasks list's row pill now shows each task's status (Ready/Started/Done/Archived) instead of its difficulty; the status-filtered tabs keep the difficulty pill ([#322](https://github.com/neturely/addiapp/issues/322))
+- Archived tasks stay visible in All tasks with an "Archived" pill (and an indicator on the task view), while the Ready/Started/Done tabs remain working lists without them ([#332](https://github.com/neturely/addiapp/issues/332))
+- Settings: the sign-out and delete-account sections are consolidated into one "Account" section, and the task view's Status field moved beside the Estimate ([#330](https://github.com/neturely/addiapp/issues/330), [#332](https://github.com/neturely/addiapp/issues/332))
+### Security
+- Bumped the transitive postcss dependency past GHSA-r28c-9q8g-f849 (source-map path traversal); the react-router RSC advisory was triaged as not applicable (no RSC code paths) ([#325](https://github.com/neturely/addiapp/issues/325))
+
 ## [2.1.0] - 2026-08-03
 ### Fixed
 - Avatar menu no longer flickers closed/reopen when the click lands on the avatar image/initials — the outside-click check now uses `contains()` like the panel check ([#301](https://github.com/neturely/addiapp/issues/301))
@@ -130,7 +170,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/neturely/addiapp/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/neturely/addiapp/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/neturely/addiapp/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/neturely/addiapp/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/neturely/addiapp/compare/v1.9.0...v2.0.0
 [1.9.0]: https://github.com/neturely/addiapp/compare/v1.8.0...v1.9.0

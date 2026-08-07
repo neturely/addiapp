@@ -6,9 +6,12 @@ import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
 import {
   changePassword,
+  confirmTotp,
   deleteAccount,
+  disableTotp,
   logoutOtherDevices,
   requestEmailChange,
+  setupTotp,
   updateAccount,
 } from '@/lib/account'
 
@@ -31,14 +34,16 @@ import {
  */
 const STRATEGIES: { value: string; label: string }[] = [
   { value: 'weightedByAge', label: 'Weighted random — favours older tasks' },
+  { value: 'uniformRandom', label: 'Uniform random — every task has an equal chance' },
   { value: 'oldestFirst', label: 'Oldest first' },
-  { value: 'uniformRandom', label: 'Uniform random' },
 ]
 
 const FIELD =
-  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
-const LABEL = 'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted'
+  'w-full rounded-control bg-field p-2.5 text-sm text-gray-800 transition hover:bg-field-hover field-focus'
+const LABEL =
+  'mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted transition group-focus-within:text-primary-ink'
 const DELETE_TITLE_ID = 'account-delete-title'
+const TOTP_TITLE_ID = 'totp-enroll-title'
 
 function Section({
   title,
@@ -57,6 +62,271 @@ function Section({
       <p className="mb-4 mt-0.5 text-[13px] leading-relaxed text-muted">{lede}</p>
       <div className="flex max-w-md flex-col gap-3.5">{children}</div>
     </section>
+  )
+}
+
+/**
+ * Two-factor authentication (#319): optional TOTP, off by default. Enrollment
+ * is password → secret/otpauth URI (manual entry — no QR dependency, v1) →
+ * code confirm → backup codes shown exactly once behind an "I saved these"
+ * acknowledgement. Disable needs password + a current code (or a backup code).
+ */
+function TotpSection() {
+  const { user, updateUser } = useAuth()
+  const { showToast } = useToast()
+  const enabled = user?.totpEnabled === true
+
+  // Enable flow
+  const [setupPassword, setSetupPassword] = useState('')
+  const [startingSetup, setStartingSetup] = useState(false)
+  const [setupError, setSetupError] = useState<string | null>(null)
+  const [enrollment, setEnrollment] = useState<{ secret: string; otpauthUri: string } | null>(null)
+  const [confirmCode, setConfirmCode] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Disable flow
+  const [disablePassword, setDisablePassword] = useState('')
+  const [disableCode, setDisableCode] = useState('')
+  const [disabling, setDisabling] = useState(false)
+  const [disableError, setDisableError] = useState<string | null>(null)
+
+  async function startSetup(e: FormEvent) {
+    e.preventDefault()
+    setSetupError(null)
+    setStartingSetup(true)
+    try {
+      const staged = await setupTotp(setupPassword)
+      setEnrollment(staged)
+      setConfirmCode('')
+      setConfirmError(null)
+      setBackupCodes(null)
+      setCopied(false)
+      setSetupPassword('')
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : 'Could not start the setup.')
+    } finally {
+      setStartingSetup(false)
+    }
+  }
+
+  async function confirmEnrollment(e: FormEvent) {
+    e.preventDefault()
+    setConfirmError(null)
+    setConfirming(true)
+    try {
+      const { backupCodes: codes } = await confirmTotp(confirmCode)
+      setBackupCodes(codes)
+      if (user) updateUser({ ...user, totpEnabled: true })
+    } catch (err) {
+      setConfirmError(err instanceof Error ? err.message : 'Could not confirm the code.')
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  function finishEnrollment() {
+    setEnrollment(null)
+    setBackupCodes(null)
+    showToast({ message: 'Two-factor authentication is on', icon: CircleCheck, tone: 'success' })
+  }
+
+  async function submitDisable(e: FormEvent) {
+    e.preventDefault()
+    setDisableError(null)
+    setDisabling(true)
+    try {
+      await disableTotp(disablePassword, disableCode)
+      if (user) updateUser({ ...user, totpEnabled: false })
+      setDisablePassword('')
+      setDisableCode('')
+      showToast({ message: 'Two-factor authentication is off', icon: CircleCheck, tone: 'neutral' })
+    } catch (err) {
+      setDisableError(err instanceof Error ? err.message : 'Could not turn off two-factor auth.')
+    } finally {
+      setDisabling(false)
+    }
+  }
+
+  async function copySecret() {
+    if (!enrollment) return
+    try {
+      await navigator.clipboard.writeText(enrollment.secret)
+      setCopied(true)
+    } catch {
+      // Clipboard unavailable — the secret is selectable text, so no toast needed.
+    }
+  }
+
+  return (
+    <>
+      <Section
+        title="Two-factor authentication"
+        lede={
+          enabled
+            ? 'On — signing in asks for a code from your authenticator app. Turning it off needs your password and a current code (or a backup code).'
+            : 'Add a second sign-in step: a 6-digit code from an authenticator app (Google Authenticator, 1Password, Aegis…). Optional, and you get backup codes in case you lose the app.'
+        }
+      >
+        {enabled ? (
+          <form onSubmit={submitDisable} className="flex flex-col gap-3.5">
+            <div className="group">
+              <label htmlFor="totpDisablePassword" className={LABEL}>
+                Your password
+              </label>
+              <input
+                id="totpDisablePassword"
+                type="password"
+                autoComplete="current-password"
+                value={disablePassword}
+                onChange={(e) => setDisablePassword(e.target.value)}
+                className={FIELD}
+              />
+            </div>
+            <div className="group">
+              <label htmlFor="totpDisableCode" className={LABEL}>
+                Authenticator or backup code
+              </label>
+              <input
+                id="totpDisableCode"
+                type="text"
+                autoComplete="one-time-code"
+                value={disableCode}
+                onChange={(e) => setDisableCode(e.target.value)}
+                className={FIELD}
+              />
+            </div>
+            {disableError && (
+              <p role="alert" className="text-sm text-danger-ink">
+                {disableError}
+              </p>
+            )}
+            <div>
+              <Button
+                type="submit"
+                variant="danger"
+                disabled={disabling || disablePassword === '' || disableCode.trim() === ''}
+              >
+                {disabling ? 'Turning off…' : 'Turn off two-factor auth'}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={startSetup} className="flex flex-col gap-3.5">
+            <div className="group">
+              <label htmlFor="totpSetupPassword" className={LABEL}>
+                Your password
+              </label>
+              <input
+                id="totpSetupPassword"
+                type="password"
+                autoComplete="current-password"
+                value={setupPassword}
+                onChange={(e) => setSetupPassword(e.target.value)}
+                className={FIELD}
+              />
+            </div>
+            {setupError && (
+              <p role="alert" className="text-sm text-danger-ink">
+                {setupError}
+              </p>
+            )}
+            <div>
+              <Button type="submit" disabled={startingSetup || setupPassword === ''}>
+                {startingSetup ? 'Starting…' : 'Set up two-factor auth'}
+              </Button>
+            </div>
+          </form>
+        )}
+      </Section>
+
+      {enrollment && (
+        <Modal
+          titleId={TOTP_TITLE_ID}
+          onClose={() => {
+            // Backup codes are shown exactly once — closing that step is the
+            // same as acknowledging them. A merely-staged secret is harmless
+            // to abandon (login is untouched until confirm).
+            if (backupCodes) finishEnrollment()
+            else if (!confirming) setEnrollment(null)
+          }}
+        >
+          {backupCodes ? (
+            <>
+              <h2 id={TOTP_TITLE_ID} className="mb-3 text-xl font-bold text-gray-800">
+                Save your backup codes
+              </h2>
+              <p className="mb-3 text-sm leading-relaxed text-muted">
+                Each code signs you in once if you lose your authenticator. This is the only
+                time they're shown — keep them somewhere safe.
+              </p>
+              <ul className="mb-4 grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-lg bg-field px-4 py-3 font-mono text-sm text-gray-800">
+                {backupCodes.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+              <div className="flex justify-end">
+                <Button onClick={finishEnrollment}>I saved these codes</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 id={TOTP_TITLE_ID} className="mb-3 text-xl font-bold text-gray-800">
+                Connect your authenticator
+              </h2>
+              <p className="mb-3 text-sm leading-relaxed text-muted">
+                Add AddiApp in your authenticator app by entering this secret key (or pasting
+                the setup link), then confirm with the 6-digit code it shows.
+              </p>
+              <div className="mb-3 rounded-lg bg-field px-4 py-3">
+                <p className={LABEL}>Secret key</p>
+                <p className="font-mono text-sm break-all text-gray-800">{enrollment.secret}</p>
+                <button
+                  type="button"
+                  onClick={() => void copySecret()}
+                  className="tap-44 mt-1.5 text-sm text-primary-ink underline"
+                >
+                  {copied ? 'Copied' : 'Copy secret'}
+                </button>
+              </div>
+              <p className="mb-3 text-xs break-all text-muted">{enrollment.otpauthUri}</p>
+              <form onSubmit={confirmEnrollment} className="flex flex-col gap-3.5">
+                <div className="group">
+                  <label htmlFor="totpConfirmCode" className={LABEL}>
+                    6-digit code
+                  </label>
+                  <input
+                    id="totpConfirmCode"
+                    type="text"
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    placeholder="123456"
+                    value={confirmCode}
+                    onChange={(e) => setConfirmCode(e.target.value)}
+                    className={FIELD}
+                  />
+                </div>
+                {confirmError && (
+                  <p role="alert" className="text-sm text-danger-ink">
+                    {confirmError}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" disabled={confirming} onClick={() => setEnrollment(null)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={confirming || confirmCode.trim().length !== 6}>
+                    {confirming ? 'Confirming…' : 'Turn on'}
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
+        </Modal>
+      )}
+    </>
   )
 }
 
@@ -202,10 +472,10 @@ export function Settings() {
           <Section
             first
             title="Profile"
-            lede="Shown on your avatar. Leave blank to use your email initial."
+            lede="Shown on your avatar. Leave blank to use your email initial. If your email is associated with a Gravatar account, your Gravatar icon is shown instead."
           >
             <form onSubmit={saveProfile} className="flex flex-col gap-3.5">
-              <div>
+              <div className="group">
                 <label htmlFor="displayName" className={LABEL}>
                   Display name
                 </label>
@@ -236,7 +506,7 @@ export function Settings() {
             lede="We'll send a confirmation link to the new address. Your email changes only once you click it, and you'll be signed out on your other devices."
           >
             <form onSubmit={saveEmail} className="flex flex-col gap-3.5">
-              <div>
+              <div className="group">
                 <label htmlFor="currentEmail" className={LABEL}>
                   Current email
                 </label>
@@ -248,7 +518,7 @@ export function Settings() {
                   className={`${FIELD} text-muted`}
                 />
               </div>
-              <div>
+              <div className="group">
                 <label htmlFor="newEmail" className={LABEL}>
                   New email
                 </label>
@@ -288,7 +558,7 @@ export function Settings() {
             lede="At least 8 characters. Changing it signs out your other devices."
           >
             <form onSubmit={savePassword} className="flex flex-col gap-3.5">
-              <div>
+              <div className="group">
                 <label htmlFor="currentPassword" className={LABEL}>
                   Current password
                 </label>
@@ -301,7 +571,7 @@ export function Settings() {
                   className={FIELD}
                 />
               </div>
-              <div>
+              <div className="group">
                 <label htmlFor="newPassword" className={LABEL}>
                   New password
                 </label>
@@ -327,8 +597,10 @@ export function Settings() {
             </form>
           </Section>
 
+          <TotpSection />
+
           <Section title="Play" lede="How AddiApp picks the next task when you press Play.">
-            <div>
+            <div className="group">
               <label htmlFor="selectionStrategy" className={LABEL}>
                 Selection
               </label>
@@ -352,11 +624,13 @@ export function Settings() {
             </div>
           </Section>
 
+          {/* ONE danger section (#330 — consolidates the #304 Sign out and #266
+              Delete sections): two same-size buttons. */}
           <Section
-            title="Sign out"
-            lede="Ends your session on every device, including this one. You'll just need to sign back in."
+            title="Account"
+            lede="Sign out everywhere ends your session on every device, including this one — you just sign back in. Deleting your account removes every task, project and point permanently; nothing is recoverable."
           >
-            <div>
+            <div className="flex flex-wrap gap-2.5">
               <Button
                 variant="danger"
                 disabled={signingOutAll}
@@ -364,15 +638,7 @@ export function Settings() {
               >
                 {signingOutAll ? 'Signing out…' : 'Sign out everywhere'}
               </Button>
-            </div>
-          </Section>
-
-          <Section
-            title="Delete account"
-            lede="Removes your account, every task and project, and your whole points history. This can't be undone and nothing is recoverable afterwards."
-          >
-            <div>
-              <Button variant="danger" size="lg" onClick={() => setConfirmingDelete(true)}>
+              <Button variant="danger" onClick={() => setConfirmingDelete(true)}>
                 Delete my account
               </Button>
             </div>
@@ -390,7 +656,7 @@ export function Settings() {
             restore any of it.
           </div>
           <form onSubmit={confirmDelete} className="flex flex-col gap-3.5">
-            <div>
+            <div className="group">
               <label htmlFor="deleteConfirm" className={LABEL}>
                 Type “delete” to confirm
               </label>
@@ -404,7 +670,7 @@ export function Settings() {
                 className={FIELD}
               />
             </div>
-            <div>
+            <div className="group">
               <label htmlFor="deletePassword" className={LABEL}>
                 Your password
               </label>

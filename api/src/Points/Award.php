@@ -131,10 +131,15 @@ final class Award
         }
 
         // Task tallies + remaining-effort basis, grouped so base points stay in
-        // PointsConfig (not baked into SQL).
+        // PointsConfig (not baked into SQL). Recurring tasks (#250) are excluded
+        // from the all-done check AND the bonus basis — a rule-carrying task
+        // never finishes (each completion spawns the next occurrence), so
+        // counting it would make its project's bonus unreachable.
         $g = $pdo->prepare(
             "SELECT complexity, COUNT(*) AS c, SUM(status = 'done') AS done_c
-             FROM tasks WHERE project_id = ? AND user_id = ? GROUP BY complexity",
+             FROM tasks WHERE project_id = ? AND user_id = ?
+               AND recur_unit IS NULL AND recur_day_of_month IS NULL
+             GROUP BY complexity",
         );
         $g->execute([$projectId, $userId]);
         $total = 0;

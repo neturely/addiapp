@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router'
 import { CircleCheck } from 'lucide-react'
 import { confirmEmailChange } from '@/lib/account'
 

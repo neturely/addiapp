@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
 import {
   ChevronLeft,
   CircleCheck,
   Flame,
   Mountain,
   Play,
+  Plus,
   Trash2,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/Button'
+import { CategoryModal } from '@/components/CategoryModal'
 import { Modal } from '@/components/Modal'
+import { ProjectModal } from '@/components/ProjectModal'
 import { ApiError } from '@/lib/apiError'
 import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
+import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, type Project } from '@/lib/projects'
 import {
   createTask,
@@ -22,6 +26,7 @@ import {
   getTask,
   startTask,
   updateTask,
+  type Recurrence,
   type Task,
   type TaskComplexity,
   type TaskStatus,
@@ -64,9 +69,42 @@ function addedLabel(createdAt: string | undefined): string | null {
 }
 
 const FIELD =
-  'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent'
-const FIELD_LABEL = 'text-xs font-semibold uppercase tracking-wider text-muted'
+  'h-10 w-full rounded-control bg-field px-3 text-sm text-gray-800 transition hover:bg-field-hover field-focus'
+const FIELD_LABEL =
+  'text-xs font-semibold uppercase tracking-wider text-muted transition group-focus-within:text-primary-ink'
 const DELETE_TITLE_ID = 'task-delete-title'
+
+/** The Repeat select's presets (#250); '' = not recurring. */
+type RepeatPreset = '' | 'daily' | 'weekly' | 'biweekly' | 'monthly-day' | 'custom'
+
+/** Task recurrence → the Repeat control's state (preset + sub-inputs). */
+function repeatStateFrom(rec: Recurrence | null | undefined): {
+  repeat: RepeatPreset
+  domDay?: string
+  customN?: string
+  customUnit?: 'day' | 'week' | 'month'
+} {
+  if (!rec) return { repeat: '' }
+  if ('dayOfMonth' in rec) return { repeat: 'monthly-day', domDay: String(rec.dayOfMonth) }
+  if (rec.unit === 'day' && rec.interval === 1) return { repeat: 'daily' }
+  if (rec.unit === 'week' && rec.interval === 1) return { repeat: 'weekly' }
+  if (rec.unit === 'week' && rec.interval === 2) return { repeat: 'biweekly' }
+  return { repeat: 'custom', customN: String(rec.interval), customUnit: rec.unit }
+}
+
+/** The label-row plus (#341) — rail-plus styling, tap-44 for the touch target. */
+function FieldPlusButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className="tap-44 -my-1 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
+    >
+      <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+    </button>
+  )
+}
 
 /**
  * The open-in-place task view (#262) — THE one edit path, replacing the old
@@ -93,6 +131,7 @@ export function TaskView() {
 
   const [task, setTask] = useState<Task | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [points, setPoints] = useState<PointsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -100,29 +139,46 @@ export function TaskView() {
   const [title, setTitle] = useState('')
   const [complexity, setComplexity] = useState<TaskComplexity>('medium')
   const [minutes, setMinutes] = useState('')
-  const [status, setStatus] = useState<TaskStatus>('backlog')
+  // 'archived' (#330) is the #312 axis presented AS a status: a filed task
+  // shows it; picking a real status un-files (the edit page IS the unarchive
+  // path — the archive tab only offers Delete).
+  const [status, setStatus] = useState<TaskStatus | 'archived'>('backlog')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState<number | ''>('')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
+  // #250: snooze date ('' = available now) + the Repeat control's state — a
+  // preset select plus the sub-inputs the two non-preset choices need.
+  const [availableFrom, setAvailableFrom] = useState('')
+  const [repeat, setRepeat] = useState<RepeatPreset>('')
+  const [domDay, setDomDay] = useState('25')
+  const [customN, setCustomN] = useState('3')
+  const [customUnit, setCustomUnit] = useState<'day' | 'week' | 'month'>('day')
 
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // #341: inline create-from-the-field — the label-row plus opens the existing
+  // modal and the saved entity is appended + selected without leaving the task.
+  const [creatingEntity, setCreatingEntity] = useState<'project' | 'category' | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     if (creating) {
       const preselect = Number(searchParams.get('project'))
+      const preselectCategory = Number(searchParams.get('category'))
       // 'all' (#310): done/archived projects are assignable too — picking one
       // reactivates it server-side, so the select lists every owned project.
-      Promise.all([fetchProjects('all'), fetchPoints()])
-        .then(([p, pts]) => {
+      Promise.all([fetchProjects('all'), fetchCategories(), fetchPoints()])
+        .then(([p, cats, pts]) => {
           if (cancelled) return
           setProjects(p)
+          setCategories(cats)
           setPoints(pts)
-          // Pre-assign only when the id resolves to an owned project.
+          // Pre-assign only when the id resolves to an owned project/category.
           if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
+          if (cats.some((c) => c.id === preselectCategory)) setCategoryId(preselectCategory)
         })
         .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
         .finally(() => !cancelled && setLoading(false))
@@ -137,18 +193,26 @@ export function TaskView() {
       setLoading(false)
       return
     }
-    Promise.all([getTask(taskId), fetchProjects('all'), fetchPoints()])
-      .then(([t, p, pts]) => {
+    Promise.all([getTask(taskId), fetchProjects('all'), fetchCategories(), fetchPoints()])
+      .then(([t, p, cats, pts]) => {
         if (cancelled) return
         setTask(t)
         setProjects(p)
+        setCategories(cats)
         setPoints(pts)
         setTitle(t.title)
         setComplexity(t.complexity)
         setMinutes(String(t.estimatedMinutes))
-        setStatus(t.status)
+        setStatus(t.archivedAt ? 'archived' : t.status)
         setDescription(t.description ?? '')
         setProjectId(t.projectId ?? '')
+        setCategoryId(t.categoryId ?? '')
+        setAvailableFrom(t.availableFrom ?? '')
+        const rep = repeatStateFrom(t.recurrence)
+        setRepeat(rep.repeat)
+        if (rep.domDay) setDomDay(rep.domDay)
+        if (rep.customN) setCustomN(rep.customN)
+        if (rep.customUnit) setCustomUnit(rep.customUnit)
       })
       .catch((e) => {
         if (cancelled) return
@@ -191,6 +255,26 @@ export function TaskView() {
       setError('Estimated time must be a whole number of minutes (at least 1).')
       return
     }
+    // #250: Repeat state → the API recurrence object (null = not recurring).
+    let recurrence: Recurrence | null = null
+    if (repeat === 'daily') recurrence = { unit: 'day', interval: 1 }
+    else if (repeat === 'weekly') recurrence = { unit: 'week', interval: 1 }
+    else if (repeat === 'biweekly') recurrence = { unit: 'week', interval: 2 }
+    else if (repeat === 'monthly-day') {
+      const d = Number(domDay)
+      if (!Number.isInteger(d) || d < 1 || d > 31) {
+        setError('Pick a day of the month between 1 and 31.')
+        return
+      }
+      recurrence = { dayOfMonth: d }
+    } else if (repeat === 'custom') {
+      const n = Number(customN)
+      if (!Number.isInteger(n) || n < 1 || n > 365) {
+        setError('The repeat interval must be a whole number (at least 1).')
+        return
+      }
+      recurrence = { unit: customUnit, interval: n }
+    }
     setSaving(true)
     try {
       if (creating) {
@@ -200,6 +284,9 @@ export function TaskView() {
           estimatedMinutes: mins,
           description: description.trim(),
           ...(projectId !== '' ? { projectId } : {}),
+          ...(categoryId !== '' ? { categoryId } : {}),
+          ...(availableFrom !== '' ? { availableFrom } : {}),
+          ...(recurrence !== null ? { recurrence } : {}),
         })
         showToast({ message: `Task added: ${trimmed}`, icon: CircleCheck, tone: 'success' })
         // Create always lands on the dashboard (#256 review) — the Back button
@@ -208,16 +295,27 @@ export function TaskView() {
         return
       }
       const updated = await updateTask(task!.id, {
+        // 'archived' isn't a real status: keep 'done' and leave the flag alone.
+        // Any REAL status picked on a filed task un-files it — explicit
+        // archived:false covers staying 'done' (the #312 invariant already
+        // clears it when leaving 'done').
+        ...(status === 'archived'
+          ? { status: 'done' as TaskStatus }
+          : { status, ...(task!.archivedAt ? { archived: false } : {}) }),
         title: trimmed,
         complexity,
         estimatedMinutes: mins,
-        status,
         description: description.trim(),
         // #236 semantics: an int assigns to an active owned project; null unassigns.
         projectId: projectId === '' ? null : projectId,
+        // #276: same null-unlabels semantics for the category axis.
+        categoryId: categoryId === '' ? null : categoryId,
+        // #250: null clears the snooze / stops the recurrence.
+        availableFrom: availableFrom === '' ? null : availableFrom,
+        recurrence,
       })
       setTask({ ...task!, ...updated })
-      setStatus(updated.status)
+      setStatus(updated.archivedAt ? 'archived' : updated.status)
       showToast({ message: 'Task saved', icon: CircleCheck, tone: 'success' })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save the task.')
@@ -289,6 +387,13 @@ export function TaskView() {
           {creating ? 'Back' : 'All tasks'}
         </Button>
         <div className="flex items-center gap-2 px-1 text-xs text-muted">
+          {/* Filed-away indicator (#332) — the archived state visible at a
+              glance, beyond the Status select. */}
+          {!creating && task?.archivedAt && (
+            <span className="rounded-full bg-field px-2.5 py-0.5 text-[11px] font-semibold text-muted">
+              Archived
+            </span>
+          )}
           <span
             className={`h-2.5 w-2.5 flex-none rounded-[3px] ${project ? projectPole(project.color) : 'bg-gray-300'}`}
             aria-hidden
@@ -312,14 +417,17 @@ export function TaskView() {
             placeholder={creating ? 'What needs doing?' : undefined}
             // -ml only (not -mx): a full-width input with symmetric negative
             // margins overflows a 375px viewport (#270).
-            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field focus:bg-field focus:outline-none"
+            className="-ml-2 mb-6 w-full rounded-control bg-transparent px-2 py-1 text-2xl font-bold tracking-tight text-gray-900 placeholder:text-gray-300 hover:bg-field field-focus"
           />
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="task-project" className={FIELD_LABEL}>
-                Project
-              </label>
+            <div className="group flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="task-project" className={FIELD_LABEL}>
+                  Project
+                </label>
+                <FieldPlusButton label="New project" onClick={() => setCreatingEntity('project')} />
+              </div>
               {/* Grouped Active / Done / Archived (#310) — picking a non-active
                   project is a deliberate reactivation, so it's labelled. */}
               <select
@@ -349,7 +457,30 @@ export function TaskView() {
               </select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="group flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="task-category" className={FIELD_LABEL}>
+                  Category
+                </label>
+                <FieldPlusButton label="New category" onClick={() => setCreatingEntity('category')} />
+              </div>
+              {/* User-defined lists (#276) — flat set, no lifecycle groups. */}
+              <select
+                id="task-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value === '' ? '' : Number(e.target.value))}
+                className={FIELD}
+              >
+                <option value="">No category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="group flex flex-col gap-1.5">
               <label htmlFor="task-minutes" className={FIELD_LABEL}>
                 Estimate (minutes)
               </label>
@@ -364,7 +495,118 @@ export function TaskView() {
               />
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            {/* Status sits beside Estimate (#330 — was stranded below the
+                Difficulty tiles leaving dead space here). A filed task shows
+                "Archived"; picking a real status un-files it on save. */}
+            <div className={`group flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
+              <label htmlFor="task-status" className={FIELD_LABEL}>
+                Status
+              </label>
+              <select
+                id="task-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as TaskStatus | 'archived')}
+                className={FIELD}
+              >
+                {task?.archivedAt && <option value="archived">Archived</option>}
+                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Snooze + Repeat (#250; 2.3.0 review round: each on its own full
+                row — the control on the left, its description / sub-inputs in
+                the right half of the row). */}
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
+              <label htmlFor="task-available-from" className={FIELD_LABEL}>
+                Snooze
+              </label>
+              {/* Review round 2: the control takes the grid's LEFT half (the
+                  Project select's width); the right half is the description. */}
+              <div className="grid gap-2 sm:grid-cols-2 sm:items-center sm:gap-5">
+                <input
+                  id="task-available-from"
+                  type="date"
+                  value={availableFrom}
+                  onChange={(e) => setAvailableFrom(e.target.value)}
+                  className={FIELD}
+                />
+                <p className="text-xs text-muted">
+                  Play won’t suggest this task before then. Leave empty for “available now”.
+                </p>
+              </div>
+            </div>
+
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
+              <label htmlFor="task-repeat" className={FIELD_LABEL}>
+                Repeat
+              </label>
+              {/* Review round 2: same halves as Snooze — the preset select
+                  matches the Project select's width, the sub-inputs fill the
+                  other half. */}
+              <div className="grid gap-2 sm:grid-cols-2 sm:items-center sm:gap-5">
+                <select
+                  id="task-repeat"
+                  value={repeat}
+                  onChange={(e) => setRepeat(e.target.value as RepeatPreset)}
+                  className={FIELD}
+                >
+                  <option value="">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly-day">Monthly on a day</option>
+                  <option value="custom">Custom…</option>
+                </select>
+                {repeat === 'monthly-day' && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <label htmlFor="task-repeat-day" className="flex-none text-muted">
+                      on day
+                    </label>
+                    <input
+                      id="task-repeat-day"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={domDay}
+                      onChange={(e) => setDomDay(e.target.value)}
+                      className={FIELD}
+                    />
+                  </div>
+                )}
+                {repeat === 'custom' && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <label htmlFor="task-repeat-n" className="flex-none text-muted">
+                      every
+                    </label>
+                    <input
+                      id="task-repeat-n"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={customN}
+                      onChange={(e) => setCustomN(e.target.value)}
+                      className={FIELD}
+                    />
+                    <select
+                      aria-label="Repeat unit"
+                      value={customUnit}
+                      onChange={(e) => setCustomUnit(e.target.value as 'day' | 'week' | 'month')}
+                      className={`${FIELD} w-auto`}
+                    >
+                      <option value="day">days</option>
+                      <option value="week">weeks</option>
+                      <option value="month">months</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
               <span id="task-difficulty-label" className={FIELD_LABEL}>
                 Difficulty
               </span>
@@ -417,25 +659,7 @@ export function TaskView() {
               </div>
             </div>
 
-            <div className={`flex flex-col gap-1.5 ${creating ? 'hidden' : ''}`}>
-              <label htmlFor="task-status" className={FIELD_LABEL}>
-                Status
-              </label>
-              <select
-                id="task-status"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className={FIELD}
-              >
-                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <div className="group flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor="task-description" className={FIELD_LABEL}>
                 Description
               </label>
@@ -445,12 +669,12 @@ export function TaskView() {
                 maxLength={MAX_DESCRIPTION}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full resize-y rounded-control bg-field p-3 text-sm leading-relaxed text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full resize-y rounded-control bg-field p-3 text-sm leading-relaxed text-gray-800 transition hover:bg-field-hover field-focus"
               />
             </div>
           </div>
 
-          {status !== 'done' && base !== undefined && (
+          {status !== 'done' && status !== 'archived' && base !== undefined && (
             <div className="mt-6 flex items-center gap-4 rounded-xl bg-success-tint px-4 py-3.5 text-success-ink">
               <div className="text-2xl font-bold tabular-nums tracking-tight">{base}</div>
               <p className="text-sm leading-relaxed">
@@ -481,7 +705,7 @@ export function TaskView() {
               </Button>
             )}
             <span className="flex-1" aria-hidden />
-            {!creating && status !== 'done' && (
+            {!creating && status !== 'done' && status !== 'archived' && (
               <Button onClick={() => void startNow()}>
                 <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
                 {task?.status === 'in_progress' ? 'Resume' : 'Start now'}
@@ -509,6 +733,29 @@ export function TaskView() {
             </Button>
           </div>
         </Modal>
+      )}
+
+      {/* #341: inline create — the lib create calls already fire the
+          PROJECTS/CATEGORIES_CHANGED events, so the rail refreshes itself. */}
+      {creatingEntity === 'project' && (
+        <ProjectModal
+          onClose={() => setCreatingEntity(null)}
+          onSaved={(p) => {
+            setProjects((prev) => [...prev, p])
+            setProjectId(p.id)
+            setCreatingEntity(null)
+          }}
+        />
+      )}
+      {creatingEntity === 'category' && (
+        <CategoryModal
+          onClose={() => setCreatingEntity(null)}
+          onSaved={(c) => {
+            setCategories((prev) => [...prev, c])
+            setCategoryId(c.id)
+            setCreatingEntity(null)
+          }}
+        />
       )}
     </main>
   )

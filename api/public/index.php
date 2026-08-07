@@ -7,7 +7,9 @@ require dirname(__DIR__) . '/src/autoload.php';
 use App\Config;
 use App\Controllers\AccountController;
 use App\Controllers\AuthController;
+use App\Controllers\CategoriesController;
 use App\Controllers\HealthController;
+use App\Controllers\NotificationsController;
 use App\Controllers\PointsController;
 use App\Controllers\ProjectsController;
 use App\Controllers\TasksController;
@@ -66,6 +68,8 @@ $tasks = new TasksController();
 $points = new PointsController();
 $account = new AccountController();
 $projects = new ProjectsController();
+$categories = new CategoriesController();
+$notifications = new NotificationsController();
 
 $router->get('/api/health', [$health, 'index']);
 
@@ -77,6 +81,7 @@ $router->post('/api/auth/forgot-password', [$auth, 'forgotPassword']);
 $router->post('/api/auth/reset-password', [$auth, 'resetPassword']);
 $router->post('/api/auth/logout', [$auth, 'logout']);
 $router->post('/api/auth/confirm-email-change', [$auth, 'confirmEmailChange']);
+$router->post('/api/auth/verify-otp', [$auth, 'verifyOtp']);
 $router->get('/api/auth/me', [$auth, 'me'], true);
 
 // Tasks — all require auth. `/next` is registered before `/{id}` so it wins.
@@ -91,17 +96,32 @@ $router->delete('/api/tasks/{id}', [$tasks, 'destroy'], true);
 $router->get('/api/points', [$points, 'index'], true);
 $router->get('/api/points/stats', [$points, 'stats'], true);
 
+// Task categories (#276) — all require auth.
+$router->get('/api/categories', [$categories, 'index'], true);
+$router->post('/api/categories', [$categories, 'create'], true);
+$router->patch('/api/categories/{id}', [$categories, 'update'], true);
+$router->delete('/api/categories/{id}', [$categories, 'destroy'], true);
+
 // Projects (#234) — all require auth.
 $router->get('/api/projects', [$projects, 'index'], true);
 $router->post('/api/projects', [$projects, 'create'], true);
 $router->patch('/api/projects/{id}', [$projects, 'update'], true);
 $router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
 
+// Notifications (#366) — all require auth. GET runs the lazy activation sweep;
+// DELETE is a soft dismiss (the row anchors the sweep's dedupe).
+$router->get('/api/notifications', [$notifications, 'index'], true);
+$router->post('/api/notifications/read', [$notifications, 'readAll'], true);
+$router->delete('/api/notifications/{id}', [$notifications, 'destroy'], true);
+
 // Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);
 $router->post('/api/account/password', [$account, 'changePassword'], true);
 $router->post('/api/account/email', [$account, 'changeEmail'], true);
 $router->post('/api/auth/logout-others', [$account, 'logoutOthers'], true);
+$router->post('/api/account/totp/setup', [$account, 'totpSetup'], true);
+$router->post('/api/account/totp/confirm', [$account, 'totpConfirm'], true);
+$router->post('/api/account/totp/disable', [$account, 'totpDisable'], true);
 $router->delete('/api/account', [$account, 'destroy'], true);
 
 $router->dispatch(Request::fromGlobals());

@@ -35,6 +35,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
   }
 
+  async function verifyOtp(challenge: string, code: string) {
+    const data = await apiRequest<{ user: AuthUser }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ challenge, code }),
+    })
+    setSessionExpired(false)
+    setUser(data.user)
+  }
+
   async function register(
     email: string,
     password: string,
@@ -75,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         sessionExpired,
         login,
+        verifyOtp,
         register,
         verify,
         resendVerification,

@@ -69,6 +69,25 @@ the old app was never in real use.
   Idle sessions still lapse after 7 idle days; login GCs expired rows
   (`Sessions::purgeExpired`). Decided (#246): NO 24h idle logout — it fights
   the daily-habit loop for negligible security value at this threat model.
+  **Optional TOTP 2FA (#319):** per-user, off by default — dependency-free RFC 6238
+  (`Auth/Totp.php`, HMAC-SHA1/6-digit/30s, ±1 step drift, pinned to the RFC Appendix B
+  vectors in `tests/Unit/TotpTest.php`). Enrollment is staged-then-armed:
+  `POST /api/account/totp/setup` (password re-auth) stores a secret with
+  `users.totp_enabled=0` (migrations 018/019) and returns secret + otpauth URI (NO
+  QR dep — manual entry, v1); `/confirm` needs one valid code to arm and returns
+  **10 single-use backup codes** (bcrypt-hashed in `backup_codes`, migration 020,
+  plaintext shown exactly once; `Auth/BackupCodes.php`); `/disable` needs password
+  + a TOTP/backup code (staged-only cancel needs just the password). With 2FA on,
+  login answers **403 `totp_required` + a 5-min single-use challenge** (an
+  `email_tokens` `totp_challenge` row, migration 021; `EmailTokens::peek` validates
+  without consuming so a typo doesn't burn it) and `POST /api/auth/verify-otp`
+  (challenge + 6-digit code OR backup code; rate-limited ~10/challenge) consumes it
+  and mints the session. Password reset does NOT bypass or clear TOTP; backup codes
+  ARE the recovery. Client: Settings "Two-factor authentication" section (enroll
+  modal + inline disable), Login swaps to a code screen (`ApiError.details` carries
+  the challenge). Deliberately out of v1: QR rendering, remember-this-device,
+  WebAuthn. Locked by `tests/Db/TotpFlowTest.php` + the settings.mjs TOTP cycle
+  (which always leaves the dev user 2FA-off).
 - Styling: Tailwind CSS v4 (utility classes, no config file; coral brand accents
   as arbitrary values like `bg-[#D85A30]`).
 - Transactional email: **Resend** (direct curl from PHP; `RESEND_API_KEY`) for
@@ -205,7 +224,12 @@ to the old Node API.
   review feedback (an sr-only h1 remains) — Projects is a **self-contained `ProjectsView`** grid (cards
   with the count, a kebab Edit/Archive **disclosure** — NOT a `role=menu` widget — and Add
   task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
-  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
+  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **The edit
+  modal carries an in-row ARCHIVE icon square right of Save (#336 — active projects
+  only; the CategoryModal-delete placement in the calmer secondary tone), and rail
+  project entries carry a pencil edit affordance deep-linking
+  `?project=ID&editProject=1` — the Dashboard hosts that modal on the project's own
+  task list, the categories pattern.** **AddTask** reads
   `?project=ID`, resolves it against active projects, shows a read-only "Adding to <project>"
   line, and passes `projectId` to `createTask`.
   **B (#236) — Unassigned tab + assign flow:** `GET /api/tasks?unassigned=1` filters
@@ -267,6 +291,158 @@ to the old Node API.
   so table rows can render poles without an N+1 (single-task responses omit the key). Rail freshness:
   project mutations fire `PROJECTS_CHANGED_EVENT` (`lib/projects.ts`) — the rail refetches on route change
   AND that signal (modal create/archive doesn't navigate).
+- **Task categories (#276)**: user-defined custom lists in the rail — a **second
+  task axis beside status** (like the project axis; statuses/points/Play machinery
+  untouched), **one category per task** (nullable `tasks.category_id`, FK
+  `ON DELETE SET NULL` → deleting a category only unlabels; migrations 022–025,
+  incl. a `(user_id, category_id)` index). Decided over #179's tags (closed as
+  dupe): list-like, not multi-label. `task_categories` shares the **#268 palette**
+  (`color` = palette index, same `PALETTE_SIZE` bound). API: `GET/POST/PATCH/DELETE
+  /api/categories` (`CategoriesController` — ProjectsController's shape minus
+  lifecycle; counts = remaining/total; 404-not-403 #129; DELETE returns
+  `unlabelledTasks` for the toast), `GET /api/tasks?categoryId=` filter, the LIST
+  join ships `task.category = { name, color } | null`, POST/PATCH tasks accept
+  `categoryId` (null unlabels), and **`GET /api/tasks/next?category=N`** scopes the
+  Play pick (composes with size/time AND `mode=projects`). Client: `lib/categories.ts`
+  (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
+  the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
+  "New category" row → the `?newCategory=1` modal). **Categories gained an
+  optional `description` (#336, migration 032 — the projects shape:
+  varchar(1000), empty→NULL, same validator; on `mapCategory`, the modal
+  textarea, and the categories view rows).** **Management lives in the rail
+  (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN rail
+  section (between Tasks and Projects; the head links **`?view=categories`** —
+  `CategoriesView`, a Dashboard-style row list: tag icon · bold name + muted
+  description · "X of Y left to do" · trailing pencil; a row opens the
+  category's task list — and its + → the `?newCategory=1` modal), entries led
+  by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
+  centered in the pole square's 8px slot so all rail labels share one x —
+  **per-project entries lead with a FOLDER icon the same way**, the fixed pool
+  rows keep pole squares: tag = category, folder = project), and each carries
+  an inline **edit affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
+  sm+ via opacity, never `display:none`, so it stays in the tab order; always
+  visible in the drawer; the hover highlight sits on `group-hover`, so
+  hovering the pencil keeps the row lit) deep-linking
+  **`?category=ID&editCategory=1`** — the Dashboard opens the edit
+  `CategoryModal` on the filtered list itself; **Delete lives INSIDE that
+  modal** as a red Trash2 icon square in the action row, right of Save (lg
+  button height, danger-tint → danger-deep hover) → the existing tasks-survive
+  confirm dialog. The row **category chip** renders in the category's own
+  palette **tint** (`projectTint()` in `lib/projectColors.ts` — the hue
+  color-mixed 18% into white, dark neutral text AA on every slot; White falls
+  back to the field tone) — **hidden on the category's own filter view**
+  (redundant there, every row shares it) — a TaskView **Category select**
+  (+ `?category=` pre-assign on create), and a Play Choice **"From" select**
+  (renders only when categories exist) carried through the whole chain
+  (TaskPresented → InProgress → Completion "Keep going"). **#336 angles
+  deliberately deferred:** assign-from-list and the Choice "From" restyle. **`ColorSwatchPicker`**
+  (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
+  CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
+- **Task archiving (#312)**: an **Archived AXIS on tasks** (`tasks.archived_at`
+  datetime NULL, migration 026 — a flag beside status, NOT a status value),
+  completing the #310 lifecycle symmetry: done first, then archive from done, in
+  both rail sections. `PATCH /api/tasks/{id}` takes **`archived: true|false`**
+  (true requires the task to be — or become in the same PATCH — 'done', else
+  400; false unarchives; IFNULL keeps the original filing time on re-archive).
+  **Invariant: archived ⇒ done** — a status transition leaving 'done' clears
+  `archived_at`, so a filed task can never re-enter the Play backlog pool.
+  Visibility (**revised #332** — supersedes the original all-lists exclusion):
+  the **mixed "all" views (All tasks + per-project/category filters) INCLUDE
+  archived rows** ("All" means all — rendered with the "Archived" pill), while
+  the WORKING lists (status tabs + Unassigned) exclude them; `GET
+  /api/tasks?archived=1` is the archive-only view (ordered by `archived_at`,
+  newest-filed first under the default desc). `counts`: the status figures
+  exclude archived ("Done" = done-not-filed), **`all` includes them**, and an
+  **`archived`** key serves the tab.
+  No points effect. Client: `archiveTask(id, archived)` in `lib/tasks` (pings the
+  rail), a rail Tasks **"Archived" entry** below Done (`?tab=archived`), the
+  archived tab's trailing **Delete** row action (#330 — confirm modal; NOT
+  Unarchive: **un-filing is the task view's job** — its Status select shows
+  "Archived" for a filed task, picking Ready/Started un-files via the invariant
+  and picking Done sends explicit `archived:false`; archived rows' pill reads
+  **"Archived"**, never "Done", and TaskView's top bar carries an **"Archived"
+  chip**, #332), and a Play **Completion archive shortcut** — an `Archive`
+  icon button beside "Keep going" (`aria-label="Archive this task"`, flips to a
+  check + "Archived", no navigation). **One-click Archive on the Done views
+  (#321):** done task rows (`?tab=done`) carry a trailing **Archive** button in
+  the AssignControl style/placement (archives + refetches, the assign pattern),
+  and **done project cards** swap the footer's "Assign task" slot for a visible
+  **Archive** button (assigning would just revert a done project; Add task + the
+  kebab keep that path) — active cards unchanged. Locked by
+  `tests/Db/TaskArchiveTest.php` + the #312/#321 blocks in tasklist.mjs/play.mjs.
+- **Recurring tasks + "snooze until" (#250 — BUILT 2026-08-04)**: two features on one
+  mechanism. **Snooze**: `tasks.available_from DATE NULL` (migration 027) — Play
+  selection (`/api/tasks/next`, BOTH modes, and the #306 availability probe) excludes
+  rows dated after today (in `APP_TIMEZONE`); the task stays visible on the Dashboard
+  with a muted **"from Aug 25" chip** (backlog rows) and can still be started manually.
+  **Recurrence**: three columns (migrations 028–030), two **mutually exclusive
+  families** — `recur_unit ENUM('day','week','month')` + `recur_interval` (every N
+  units, **completion-relative**, month-end clamped) XOR `recur_day_of_month` (next
+  day-D **strictly after** completion, 29–31 clamp). All-NULL = not recurring. Date
+  math is pure in **`api/src/Tasks/Recur.php`** (unit-tested: clamping, year roll,
+  strictly-after). **Clone-per-occurrence**: the completing PATCH spawns ONE fresh
+  backlog clone (title/description/complexity/estimate/project/category + the rule,
+  `available_from` = next occurrence) — the spawn is **gated on the points award
+  winning its `UNIQUE(task_id)` race** (#74 pattern), so a concurrent double-complete
+  spawns once and a reopen-recomplete never re-spawns; the response carries a
+  **`recursAt`** rider (Y-m-d, completing call only) which Completion renders as
+  "↻ Comes back tomorrow / Aug 25". The newest occurrence IS the template (edit it to
+  change the rule; delete it to end the chain; `recurrence: null` on PATCH stops it).
+  **Recurring tasks sit OUTSIDE the project all-done tallies** in BOTH
+  `Award::awardProjectCompletion` (#240 — they'd make the bonus unreachable) and
+  `Lifecycle::sync` (#310 — a spawned clone must not flip a done project back to
+  active; a project with only recurring tasks is never auto-done). API:
+  `availableFrom` (Y-m-d | null) + `recurrence` (`{unit,interval}` | `{dayOfMonth}` |
+  null) on POST/PATCH, both on `mapTask`. Client: TaskView **Repeat** cell (None /
+  Daily / Weekly / Every 2 weeks / Monthly on a day / Custom every-N-days|weeks|months)
+  + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows
+  (inline in the title cluster — "Title ↻ Description"; the fixed-width min/pts
+  cell stays the row's last element, so the column keeps one right edge with no
+  reserved whitespace on ruleless rows; #364 + user-feedback follow-ups). Locked by
+  `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
+- **In-app notifications (#366)**: avatar unread indicator + a `/notifications`
+  view; first (only, v1) type = **`recurring_activated`** — a #250 clone's
+  `available_from` date arriving. No persistent process on this hosting, so
+  activation is detected by a **lazy sweep on `GET /api/notifications`**: one
+  `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
+  `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
+  (the #74 pattern); `created_at` = the activation date (not the sweep moment);
+  the same fetch **prunes read/dismissed rows > 30 days** (unread-undismissed
+  never pruned). **A notification lives with its task** (user feedback
+  2026-08-06): the task FK **CASCADEs** on delete, and the completing PATCH
+  calls `Notifications::removeForTask` — a done/deleted task leaves no stale
+  "it came back" notice. A USER dismiss (`DELETE /api/notifications/{id}`,
+  404-not-403) is a **SOFT delete** (`dismissed_at`) — the row must survive as
+  the dedupe anchor or the next sweep would re-insert it for a still-due task.
+  `notifications` table (migration 031) carries a JSON `data` snapshot
+  (title + rule) the client renders. Sweep/prune/removeForTask SQL in
+  `api/src/Notifications/Notifications.php`; thin `NotificationsController`
+  (`GET /api/notifications` → `{ notifications, unreadCount }`, last 50
+  newest-first, dismissed excluded; `POST /api/notifications/read` = mark ALL
+  read — the v1 model: **opening the view marks everything read**, decided
+  provisionally 2026-08-06 pending the user's localhost look). Client:
+  `lib/notifications.ts` (+ **`recurrenceLabel()`** — the shared rule→text
+  vocabulary, "every 2 weeks" etc.; message = "<title> was added — repeats
+  {label}."), `notifications/NotificationsProvider` (InProgressProvider
+  pattern: fetch on mount + route change, NO polling) feeding the Header
+  **avatar dot — total-based, two-state (user decision 2026-08-06)**: shown
+  while the view has ANY items, **green** (`bg-success`) at rest (revised from
+  amber — it read too close to the red; blue would blend into the accent-tint
+  avatar), **red**
+  (`bg-primary`) when some are unread; the served **`totalCount`** (not the
+  capped list's length) drives presence + the menu count, `unreadCount` only
+  escalates the colour (the `aria-label` carries whichever count applies —
+  e2e matchers prefix-match "Account menu" for this) and a **Notifications
+  item with the total count**
+  in the avatar disclosure → `pages/Notifications.tsx`, styled as the
+  **Dashboard row list** (user feedback: surface rows + gap-px, leading dot
+  cell = unread primary / read grey, bold-lead "Title was added — repeats …"
+  message, date cell, trailing **X dismiss** action, optimistic with restore).
+  It does its OWN fetch → render → mark-read → provider refresh, deliberately
+  not the provider's list — the route-change refetch would race the mark-read
+  and strip the unread styling; empty state = shared `empty` mascot.
+  Deliberately out of v1: per-item read, email/push, real-time, other types.
+  Locked by `tests/Db/NotificationsTest.php` + `e2e/notifications.mjs`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
@@ -293,7 +469,11 @@ to the old Node API.
   header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
-  name · effort tint pill · **title — description** (truncated) · ONE combined
+  name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
+  All tasks + the per-project/category filters; the homogeneous status tabs and
+  Unassigned/Archived keep the **effort** pill) · **title [↻] description** (truncated; no
+  separator — the bold title carries the split, and a recurring rule's ↻ sits inline
+  between the two, user feedback 2026-08-06) · ONE combined
   **"10 min / 5 pts"** cell (#256 review — minutes muted, points **gold**
   `text-warning-ink`, same size/weight; done rows show the EARNED "+N pts" in
   gold via the list's `points_log` join; base from `GET /api/points`). Ready
@@ -303,9 +483,10 @@ to the old Node API.
   (`pages/TaskView.tsx`) — THE one edit path**: the old inline row-swap edit, the
   #218 `EditTaskModal`, and the `EditTask` page are **deleted** (`/tasks/:id/edit`
   deep links land on the same view). The task view: back bar → borderless title
-  input → an **extensible field grid** (Project select / Estimate / Difficulty
-  roving-radiogroup / Status / Description — future fields like #250's recurring
-  rules slot in as more cells) → a served points-forecast panel (base + max speed
+  input → an **extensible field grid** (Project select / Category select (#276) /
+  Estimate / **Status beside Estimate** (#330; shows "Archived" for a filed task —
+  see the #312 block) / Difficulty roving-radiogroup / Description — future fields
+  like #250's recurring rules slot in as more cells) → a served points-forecast panel (base + max speed
   bonus + today's multiplier; `speedBonus` config now rides `GET /api/points`) →
   Save · Delete (shared-`Modal` **confirm dialog** — the undo-toast delete is
   retired) · Start now/Resume. **Status display labels: `backlog` = "Ready",
@@ -314,8 +495,12 @@ to the old Node API.
   #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
   returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
   range; global `counts` on every page) — the toolbar reads **"{selection} ·
-  newest first · N tasks ready to do"** (selection mirrors the rail; ready =
-  `counts.backlog`; the sort text is a TOGGLE button flipping newest/oldest via
+  newest first · N tasks {tab wording}"** (selection mirrors the rail; the count
+  scopes to the active tab, #363: Ready **and All** = `counts.backlog` "ready to
+  do" (All deliberately keeps the actionable figure — it matches the rail's Ready
+  badge), Started/Unassigned/Done/Archived/Recurring each show their own
+  `counts` figure + wording, and project/category filters keep the scoped
+  "X of Y left to do"; the sort text is a TOGGLE button flipping newest/oldest via
   `?sort=oldest` + the server's validated `order=asc|desc` param) + range +
   prev/next pagers (top and foot), 25/page. **Default order: NEWEST FIRST**
   (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All tasks /
@@ -335,8 +520,10 @@ to the old Node API.
   header Stats icon (shown when the right column isn't rendered — which on /stats
   itself is always); the #37 PointsCard was retired into the shell's right column.
 - **Settings (#187, #200; consolidated #266)**: `/settings` — ONE sectioned surface
-  (Profile / Email / Password / **Play** / **Sign out everywhere** / **Delete
-  account**, hairline dividers — replaced the three FormCards). `AccountController`:
+  (Profile / Email / Password / **Play** / **Two-factor authentication** (#319) /
+  **Account** (#330/#332 — ONE danger section, titled "Account", two same-size md
+  danger buttons: Sign out everywhere + Delete my account), hairline dividers —
+  replaced the three FormCards). `AccountController`:
   `PATCH /api/account` (display name and/or **`selectionStrategy`**, #266; shared
   `AuthController::displayName` validator, ≤50 chars, empty→NULL, also enforced on
   register) + `POST /api/account/password` (needs current password, keeps this
@@ -440,8 +627,19 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Rail** (`Rail.tsx`, `w-56`, collapsible; below `sm` it's an **overlay drawer**,
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
-  (All tasks / Ready / Started / Unassigned / Done → the Dashboard's `?tab=`
-  filters, counts from the server `counts`) + Projects section (per-project entries → **`?project=ID`**, the
+  (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
+  the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
+  the #312 task-archive axis → `?tab=archived`). **Tasks section order (#336):
+  the fixed axes group under Ready** — All tasks / Ready / Recurring /
+  Unassigned / Started / Done / Archived. **Categories then get their OWN
+  section between Tasks and Projects (#336 final round — the in-Tasks
+  placement was tried twice and rejected):** a plain non-link head (no
+  aggregate view exists) whose **+ → the `?newCategory=1` modal** (the old
+  "+ New category" row is GONE); entries led by a coloured **tag icon**, each
+  → `?category=ID` with its remaining count and an inline **edit affordance**
+  (hover/focus-revealed pencil → `?category=ID&editCategory=1`; Delete inside
+  the modal — see the #276 What's-built entry).
+  Then the Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).
 - **Right column** (`RightColumn.tsx`, `w-72`, needs **≥1240px** + toggle, hidden in
@@ -755,11 +953,6 @@ Genuinely still open:
   responsive pass; a real phone design pass (360px-class, row content choices,
   touch running-task UX, dvh/safe-areas, real-device verification) is deferred
   post-#256.
-- [ ] Recurring tasks + "snooze until" — **#250** (spec agreed 2026-07-29, ready to
-  build): clone-per-occurrence on completion + a nullable `available_from` date
-  (excluded from Play selection), per-task rules (every-N-days/weeks or
-  monthly-on-day-D). Recurring is a task attribute, NOT an auto project; recurring
-  tasks are excluded from the #240 project all-done check. Full spec in the issue.
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes super-light card
   drop-shadows + button polish, which would revise the long-standing flat "no shadows/borders"
   rule; **triage / not adopted** (the flat rule holds until it ships). The mascot half-out
@@ -769,6 +962,9 @@ Genuinely still open:
 
 Resolved (kept for reference):
 
+- [x] Recurring tasks + "snooze until" — **#250, BUILT 2026-08-04** (see the
+  What's-built entry): clone-per-occurrence + `available_from`, recurring excluded
+  from the #240/#310 all-done tallies.
 - [x] Backend language — **PHP 8.2 + PDO** (Node isn't available on the plan; #77)
 - [x] Hosting — **same KnownHost Basic Plus Reseller box as wptips** (not a separate plan)
 - [x] SSH availability — **yes**; deploy is Actions + rsync + SSH migrate (#39)

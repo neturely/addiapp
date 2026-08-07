@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router'
 import {
   Archive,
   ArchiveRestore,
@@ -293,6 +293,15 @@ export function ProjectsView() {
           project={modal ?? undefined}
           onClose={() => setModal(undefined)}
           onSaved={onSaved}
+          onArchive={
+            modal
+              ? () => {
+                  const target = modal
+                  setModal(undefined)
+                  void onArchive(target)
+                }
+              : undefined
+          }
         />
       )}
 
@@ -416,16 +425,31 @@ function ProjectCard({
 
       {/* mt-auto anchors the footer to the card's bottom edge (#256 review —
           cards without a description left the buttons floating); Assign left,
-          Add task right. */}
+          Add task right. On DONE cards (#321) the leading slot is a first-class
+          Archive button instead — on a finished project archiving is the
+          natural next action, while assigning would just revert it to active
+          (that path stays available via Add task / the kebab). */}
       <div className="mt-auto flex items-center justify-between gap-2 pt-4">
-        {/* Assign existing tasks — deep-links into the Tasks view's Unassigned tab
-            with this project as the ride-along target (#236). */}
-        <Link
-          to={`/dashboard?tab=unassigned&project=${project.id}`}
-          className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
-        >
-          Assign task
-        </Link>
+        {project.status === 'done' ? (
+          <button
+            type="button"
+            onClick={onArchive}
+            aria-label={`Archive ${project.name}`}
+            className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover sm:min-h-0"
+          >
+            <Archive className="h-4 w-4" aria-hidden />
+            Archive
+          </button>
+        ) : (
+          /* Assign existing tasks — deep-links into the Tasks view's Unassigned
+             tab with this project as the ride-along target (#236). */
+          <Link
+            to={`/dashboard?tab=unassigned&project=${project.id}`}
+            className="inline-flex items-center rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-200"
+          >
+            Assign task
+          </Link>
+        )}
         <Link
           to={`/tasks/new?project=${project.id}`}
           state={{ from: '/dashboard?view=projects' }}

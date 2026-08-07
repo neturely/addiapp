@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { PlayCard } from '@/components/PlayCard'
@@ -61,6 +61,7 @@ export function InProgress() {
       ? sizeParam
       : undefined
   const minutes = parseMinutes(params.get('minutes'))
+  const category = parseMinutes(params.get('category')) // same positive-int guard (#276)
 
   const [task, setTask] = useState<Task | null>(null)
   const [points, setPoints] = useState<PointsStats | null>(null)
@@ -70,6 +71,7 @@ export function InProgress() {
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
   const [projectDone, setProjectDone] = useState<ProjectCompletion | null>(null) // #240
+  const [recursAt, setRecursAt] = useState<string | null>(null) // #250 comes-back date
   const [done, setDone] = useState(false)
   const [workingLabel] = useState(
     () => WORKING_LABELS[Math.floor(Math.random() * WORKING_LABELS.length)],
@@ -126,9 +128,10 @@ export function InProgress() {
     setCompleting(true)
     setError(null)
     try {
-      const { pointsAwarded, projectCompleted } = await completeTask(task.id)
+      const { pointsAwarded, projectCompleted, recursAt: nextAt } = await completeTask(task.id)
       setAwarded(pointsAwarded ?? null)
       setProjectDone(projectCompleted ?? null)
+      setRecursAt(nextAt ?? null)
       setDone(true)
       // Completion renders in place (no route change), so refresh the header
       // chip imperatively — otherwise it would linger on the finished task (#135).
@@ -165,12 +168,15 @@ export function InProgress() {
     return (
       <Completion
         title={task?.title ?? 'Task complete'}
+        taskId={task?.id}
         totalPoints={awarded?.totalPoints}
         multiplier={awarded?.multiplier}
         size={size}
         minutes={minutes}
         mode={mode}
+        category={category}
         projectBonus={projectDone}
+        recursAt={recursAt}
       />
     )
   }

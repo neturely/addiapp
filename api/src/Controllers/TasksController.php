@@ -7,10 +7,12 @@ namespace App\Controllers;
 use App\Db;
 use App\Http\Request;
 use App\Http\Response;
+use App\Notifications\Notifications;
 use App\Points\Award;
 use App\Points\PointsConfig;
 use App\Projects\Lifecycle;
 use App\Support\Timestamps;
+use App\Tasks\Recur;
 use App\Tasks\Selection;
 use PDO;
 
@@ -55,11 +57,34 @@ final class TasksController
             $args[] = $status;
         }
 
+        // Archived axis (#312, visibility revised #332): the WORKING lists —
+        // the status tabs and the Unassigned axis — exclude filed-away tasks,
+        // but the mixed "all" views (plain All tasks + the per-project/category
+        // filters) INCLUDE them ("All" means all; the client renders their
+        // pill as "Archived"). `archived=1` flips to the archive-only view.
+        $archived = $req->query('archived') === '1';
+        if ($archived) {
+            $conditions[] = 't.archived_at IS NOT NULL';
+        } elseif ($status !== null || $req->query('unassigned') === '1') {
+            $conditions[] = 't.archived_at IS NULL';
+        }
+
         // Unassigned filter (#236): tasks with no project, across all statuses (a
         // different axis than the status tabs). Covered by the (user_id, project_id)
         // index from #234's migration 010.
         if ($req->query('unassigned') === '1') {
             $conditions[] = 't.project_id IS NULL';
+        }
+
+        // Recurring filter (2.3.0 review round): the rail's Recurring entry —
+        // the LIVE occurrence of every recurring chain (rule-carrying, not yet
+        // done, not filed). Done occurrences keep their rule columns after the
+        // #250 spawn, so without the status guard every past occurrence would
+        // pile up here.
+        if ($req->query('recurring') === '1') {
+            $conditions[] = '(t.recur_unit IS NOT NULL OR t.recur_day_of_month IS NOT NULL)';
+            $conditions[] = "t.status <> 'done'";
+            $conditions[] = 't.archived_at IS NULL';
         }
 
         // Per-project filter (#260, the backend half of #245): all of one owned
@@ -81,12 +106,32 @@ final class TasksController
             $args[] = $projectId;
         }
 
-        // The list ships each row's project name + colour (#268) and, for done
-        // tasks, the points actually earned (#256 review — points_log join;
-        // UNIQUE(task_id) keeps it 1:1) — no N+1 either way.
+        // Per-category filter (#276): the rail's custom-list entries — same
+        // shape and non-enumeration rules as the project axis above.
+        $categoryParam = $req->query('categoryId');
+        if ($categoryParam !== null) {
+            $categoryId = self::positiveInt($categoryParam);
+            if ($categoryId === null) {
+                Response::error('Invalid category filter', 400);
+                return;
+            }
+            if (CategoriesController::findOwnedCategory(Db::pdo(), $categoryId, (int) $req->userId) === null) {
+                Response::error('Category not found', 404);
+                return;
+            }
+            $conditions[] = 't.category_id = ?';
+            $args[] = $categoryId;
+        }
+
+        // The list ships each row's project name + colour (#268), its category
+        // name + colour (#276), and, for done tasks, the points actually earned
+        // (#256 review — points_log join; UNIQUE(task_id) keeps it 1:1) — no
+        // N+1 any way round.
         $select = 'SELECT t.*, p.name AS project_name, p.color AS project_color,
+                    c.name AS category_name, c.color AS category_color,
                     pl.total_points AS earned_points
              FROM tasks t LEFT JOIN projects p ON p.id = t.project_id
+             LEFT JOIN task_categories c ON c.id = t.category_id
              LEFT JOIN points_log pl ON pl.task_id = t.id';
 
         $paginated = $req->query('limit') !== null;
@@ -137,8 +182,11 @@ final class TasksController
             return;
         }
         $order = $orderParam === 'desc' ? 'DESC' : 'ASC';
+        // The archive orders by WHEN it was filed (#312 — newest-archived first
+        // under the default desc), with id as a same-second tiebreak.
+        $orderCol = $archived ? 't.archived_at' : 't.id';
         $stmt = $pdo->prepare(
-            $select . $where . " ORDER BY t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
+            $select . $where . " ORDER BY {$orderCol} {$order}, t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
 
@@ -158,7 +206,12 @@ final class TasksController
      */
     private static function statusCounts(PDO $pdo, int $userId): array
     {
-        $stmt = $pdo->prepare('SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? GROUP BY status');
+        // Archived rows (#312) sit outside the STATUS figures — "Done" means
+        // "done, not filed away" — but `all` includes them (#332: the All view
+        // lists them), and they get their own count for the archive tab.
+        $stmt = $pdo->prepare(
+            'SELECT status, COUNT(*) AS c FROM tasks WHERE user_id = ? AND archived_at IS NULL GROUP BY status',
+        );
         $stmt->execute([$userId]);
         $counts = ['all' => 0, 'backlog' => 0, 'in_progress' => 0, 'done' => 0];
         foreach ($stmt->fetchAll() as $row) {
@@ -167,14 +220,29 @@ final class TasksController
             $counts['all'] += $n;
         }
 
-        $u = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL');
+        $u = $pdo->prepare(
+            'SELECT COUNT(*) FROM tasks WHERE user_id = ? AND project_id IS NULL AND archived_at IS NULL',
+        );
         $u->execute([$userId]);
         $counts['unassigned'] = (int) $u->fetchColumn();
+
+        $a = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND archived_at IS NOT NULL');
+        $a->execute([$userId]);
+        $counts['archived'] = (int) $a->fetchColumn();
+        $counts['all'] += $counts['archived'];
+
+        // Live recurring chains (2.3.0 review round) — mirrors the recurring=1
+        // filter above, so the rail entry's count matches its list.
+        $r = $pdo->prepare(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND (recur_unit IS NOT NULL OR recur_day_of_month IS NOT NULL) AND status <> 'done' AND archived_at IS NULL",
+        );
+        $r->execute([$userId]);
+        $counts['recurring'] = (int) $r->fetchColumn();
 
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&category=3 */
     public function next(Request $req, array $params): void
     {
         $mode = $req->query('mode');
@@ -193,10 +261,25 @@ final class TasksController
             return;
         }
 
+        // Category filter (#276): scope the pick to one owned custom list. An
+        // independent axis, so it composes with win-type/time AND projects mode.
+        $category = null;
+        if ($req->query('category') !== null) {
+            $category = self::positiveInt($req->query('category'));
+            if ($category === null) {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            if (CategoriesController::findOwnedCategory(Db::pdo(), $category, (int) $req->userId) === null) {
+                Response::error('Category not found', 404);
+                return;
+            }
+        }
+
         // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
         // the active project closest to done, respecting the time filter.
         if ($mode === 'projects') {
-            $this->nextInProjects($req, $minutes, $exclude);
+            $this->nextInProjects($req, $minutes, $exclude, $category);
             return;
         }
 
@@ -206,8 +289,10 @@ final class TasksController
             return;
         }
 
-        $conditions = ['user_id = ?', "status = 'backlog'"];
-        $args = [$req->userId];
+        // Availability cutoff (#250): future-dated ("snoozed") tasks are never
+        // suggested — also the anti-farming guard for daily recurring tasks.
+        $conditions = ['user_id = ?', "status = 'backlog'", '(available_from IS NULL OR available_from <= ?)'];
+        $args = [$req->userId, self::todayInTz()];
         if ($size !== null) {
             $set = self::WIN_TYPE_COMPLEXITY[$size];
             $conditions[] = 'complexity IN (' . implode(',', array_fill(0, count($set), '?')) . ')';
@@ -220,6 +305,10 @@ final class TasksController
         if ($exclude !== null) {
             $conditions[] = 'id <> ?';
             $args[] = $exclude;
+        }
+        if ($category !== null) {
+            $conditions[] = 'category_id = ?';
+            $args[] = $category;
         }
 
         $stmt = Db::pdo()->prepare('SELECT * FROM tasks WHERE ' . implode(' AND ', $conditions));
@@ -245,9 +334,10 @@ final class TasksController
              FROM tasks t
              LEFT JOIN projects p ON p.id = t.project_id AND p.user_id = t.user_id AND p.status = 'active'
              WHERE t.user_id = ? AND t.status = 'backlog'
+               AND (t.available_from IS NULL OR t.available_from <= ?)
              GROUP BY t.complexity",
         );
-        $stmt->execute([$req->userId]);
+        $stmt->execute([$req->userId, self::todayInTz()]);
 
         $byComplexity = ['low' => 0, 'medium' => 0, 'high' => 0];
         $inProjects = 0;
@@ -281,10 +371,11 @@ final class TasksController
      * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
      * shape as the default mode, so TaskPresented → InProgress is unchanged.
      */
-    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude): void
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null): void
     {
-        $conditions = ['t.user_id = ?', "t.status = 'backlog'"];
-        $args = [$req->userId];
+        // Same availability cutoff as the default mode (#250).
+        $conditions = ['t.user_id = ?', "t.status = 'backlog'", '(t.available_from IS NULL OR t.available_from <= ?)'];
+        $args = [$req->userId, self::todayInTz()];
         if ($minutes !== null) {
             $conditions[] = 't.estimated_minutes <= ?';
             $args[] = $minutes;
@@ -292,6 +383,10 @@ final class TasksController
         if ($exclude !== null) {
             $conditions[] = 't.id <> ?';
             $args[] = $exclude;
+        }
+        if ($category !== null) {
+            $conditions[] = 't.category_id = ?';
+            $args[] = $category;
         }
 
         $stmt = Db::pdo()->prepare(
@@ -339,13 +434,48 @@ final class TasksController
             }
         }
 
+        // Optional category (#276) — must be a category the caller owns.
+        $categoryId = null;
+        if (array_key_exists('categoryId', $req->body)) {
+            $categoryId = self::positiveIntValue($req->input('categoryId'));
+            if ($req->input('categoryId') !== null && $categoryId === null) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+
+        // Snooze date + recurrence rule (#250) — both optional at creation.
+        $availableFrom = null;
+        if (array_key_exists('availableFrom', $req->body)) {
+            $availableFrom = self::availableFrom($req->input('availableFrom'));
+            if ($availableFrom === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+        }
+        $recur = ['recur_unit' => null, 'recur_interval' => null, 'recur_day_of_month' => null];
+        if (array_key_exists('recurrence', $req->body)) {
+            $parsed = self::recurrence($req->input('recurrence'));
+            if ($parsed === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            if ($parsed !== null) {
+                $recur = $parsed;
+            }
+        }
+
         $pdo = Db::pdo();
         if ($projectId !== null && ProjectsController::findOwnedProject($pdo, $projectId, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
-        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id) VALUES (?, ?, ?, ?, ?, ?)')
-            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId]);
+        if ($categoryId !== null && CategoriesController::findOwnedCategory($pdo, $categoryId, (int) $req->userId) === null) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        $pdo->prepare('INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes, project_id, category_id, available_from, recur_unit, recur_interval, recur_day_of_month) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$req->userId, $title, $description, $complexity, $minutes, $projectId, $categoryId, $availableFrom, $recur['recur_unit'], $recur['recur_interval'], $recur['recur_day_of_month']]);
         $taskId = (int) $pdo->lastInsertId(); // before Lifecycle's writes clobber it
 
         // #310: assignment reactivates an archived target, and the new
@@ -447,6 +577,51 @@ final class TasksController
             $args[] = $assign;
         }
 
+        // Assign / clear a category (#276): same null-vs-absent semantics as
+        // projectId — `false` = key absent, null = "unlabel", int = assign.
+        $assignCategory = false;
+        if (array_key_exists('categoryId', $req->body)) {
+            $raw = $req->input('categoryId');
+            if ($raw === null) {
+                $assignCategory = null;
+            } else {
+                $assignCategory = self::positiveIntValue($raw);
+                if ($assignCategory === null) {
+                    Response::error('Invalid input', 400);
+                    return;
+                }
+            }
+            $sets[] = 'category_id = ?';
+            $args[] = $assignCategory;
+        }
+
+        // Snooze until (#250): null clears, a date sets. Same absent-vs-null
+        // discipline as projectId (absent = untouched).
+        if (array_key_exists('availableFrom', $req->body)) {
+            $availableFrom = self::availableFrom($req->input('availableFrom'));
+            if ($availableFrom === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $sets[] = 'available_from = ?';
+            $args[] = $availableFrom;
+        }
+
+        // Recurrence rule (#250): null clears all three columns ("stop
+        // recurring"); an object swaps the rule (families mutually exclusive).
+        if (array_key_exists('recurrence', $req->body)) {
+            $recur = self::recurrence($req->input('recurrence'));
+            if ($recur === false) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $recur ??= ['recur_unit' => null, 'recur_interval' => null, 'recur_day_of_month' => null];
+            foreach ($recur as $col => $val) {
+                $sets[] = "{$col} = ?";
+                $args[] = $val;
+            }
+        }
+
         $newStatus = null;
         if (array_key_exists('status', $req->body)) {
             $newStatus = self::enum($req->input('status'), self::STATUS);
@@ -456,7 +631,20 @@ final class TasksController
             }
         }
 
-        if (count($sets) === 0 && $newStatus === null) {
+        // Archive / unarchive (#312): a boolean AXIS flag beside status. Only a
+        // done task can be archived (done → archive, matching the project flow);
+        // the done-check runs below once the existing row is in hand.
+        $archivedFlag = null;
+        if (array_key_exists('archived', $req->body)) {
+            $rawArchived = $req->input('archived');
+            if (!is_bool($rawArchived)) {
+                Response::error('Invalid input', 400);
+                return;
+            }
+            $archivedFlag = $rawArchived;
+        }
+
+        if (count($sets) === 0 && $newStatus === null && $archivedFlag === null) {
             Response::error('No fields to update', 400);
             return;
         }
@@ -472,6 +660,10 @@ final class TasksController
         // (a foreign id → 400, not a silent write). Any status is assignable
         // (#310) — a done/archived target reactivates after the write below.
         if (is_int($assign) && ProjectsController::findOwnedProject($pdo, $assign, (int) $req->userId) === null) {
+            Response::error('Invalid input', 400);
+            return;
+        }
+        if (is_int($assignCategory) && CategoriesController::findOwnedCategory($pdo, $assignCategory, (int) $req->userId) === null) {
             Response::error('Invalid input', 400);
             return;
         }
@@ -498,7 +690,23 @@ final class TasksController
                     $sets[] = 'completed_at = NULL';
                     $sets[] = 'actual_minutes = NULL';
                 }
+                // Leaving 'done' un-files the task (#312) — the archived ⇒ done
+                // invariant keeps archived rows out of the Play backlog pool.
+                if ($newStatus !== 'done') {
+                    $sets[] = 'archived_at = NULL';
+                }
             }
+        }
+
+        if ($archivedFlag === true) {
+            if (($newStatus ?? $existing['status']) !== 'done') {
+                Response::error('Only done tasks can be archived', 400);
+                return;
+            }
+            // IFNULL keeps the original filing time on a redundant re-archive.
+            $sets[] = 'archived_at = IFNULL(archived_at, NOW())';
+        } elseif ($archivedFlag === false) {
+            $sets[] = 'archived_at = NULL';
         }
 
         $args[] = $id;
@@ -522,6 +730,9 @@ final class TasksController
         $pointsAwarded = null;
         $projectCompleted = null;
         if ($completing) {
+            // A completed task's notifications are moot (#366) — remove them.
+            // (Task deletion needs no hook: the notifications FK cascades.)
+            Notifications::removeForTask($pdo, (int) $updated['id'], (int) $req->userId);
             $pointsAwarded = Award::awardTaskCompletion(
                 (int) $updated['id'],
                 (int) $updated['user_id'],
@@ -536,6 +747,37 @@ final class TasksController
                     (int) $updated['project_id'],
                     (int) $updated['user_id'],
                 );
+            }
+        }
+
+        // Clone-per-occurrence (#250): completing a recurring task spawns ONE
+        // fresh backlog occurrence dated to the next recurrence. Gated on the
+        // points award actually winning — its UNIQUE(task_id) makes exactly one
+        // caller the winner under a concurrent double-complete (the #74
+        // pattern), and a reopened-then-recompleted task (award null) never
+        // spawns a duplicate of the clone it already produced.
+        $recursAt = null;
+        if ($completing && $pointsAwarded !== null && Recur::isRecurring($updated)) {
+            $recursAt = Recur::nextOccurrence($updated, self::todayInTz());
+            if ($recursAt !== null) {
+                $pdo->prepare(
+                    'INSERT INTO tasks (user_id, title, description, complexity, estimated_minutes,
+                                        project_id, category_id, available_from,
+                                        recur_unit, recur_interval, recur_day_of_month)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                )->execute([
+                    $updated['user_id'],
+                    $updated['title'],
+                    $updated['description'],
+                    $updated['complexity'],
+                    $updated['estimated_minutes'],
+                    $updated['project_id'],
+                    $updated['category_id'],
+                    $recursAt,
+                    $updated['recur_unit'],
+                    $updated['recur_interval'],
+                    $updated['recur_day_of_month'],
+                ]);
             }
         }
 
@@ -557,6 +799,11 @@ final class TasksController
         }
         if ($projectCompleted !== null) {
             $body['projectCompleted'] = $projectCompleted;
+        }
+        // The completing call reports when the spawned occurrence comes back
+        // (#250) — same rider pattern as projectCompleted.
+        if ($recursAt !== null) {
+            $body['recursAt'] = $recursAt;
         }
         Response::json($body);
     }
@@ -604,9 +851,20 @@ final class TasksController
             'estimatedMinutes' => (int) $r['estimated_minutes'],
             'status' => $r['status'],
             'projectId' => $r['project_id'] !== null ? (int) $r['project_id'] : null,
+            'categoryId' => ($r['category_id'] ?? null) !== null ? (int) $r['category_id'] : null,
             'startedAt' => Timestamps::iso($r['started_at']),
             'completedAt' => Timestamps::iso($r['completed_at']),
             'actualMinutes' => $r['actual_minutes'] !== null ? (int) $r['actual_minutes'] : null,
+            // Archived axis (#312); coalesced for narrow pre-migration SELECTs.
+            'archivedAt' => Timestamps::iso($r['archived_at'] ?? null),
+            // Scheduled availability + recurrence rule (#250). available_from is
+            // a plain DATE (no time component), so it ships as-is, not ISO-time.
+            'availableFrom' => $r['available_from'] ?? null,
+            'recurrence' => ($r['recur_day_of_month'] ?? null) !== null
+                ? ['dayOfMonth' => (int) $r['recur_day_of_month']]
+                : (($r['recur_unit'] ?? null) !== null
+                    ? ['unit' => $r['recur_unit'], 'interval' => (int) $r['recur_interval']]
+                    : null),
             'createdAt' => Timestamps::iso($r['created_at']),
             'updatedAt' => Timestamps::iso($r['updated_at']),
             // Joined project name + colour (#268) — present only on the list
@@ -615,6 +873,14 @@ final class TasksController
                 ? [
                     'project' => $r['project_name'] !== null
                         ? ['name' => $r['project_name'], 'color' => (int) $r['project_color']]
+                        : null,
+                ]
+                : []),
+            // Joined category name + colour (#276) — list only, like project.
+            ...(array_key_exists('category_name', $r)
+                ? [
+                    'category' => $r['category_name'] !== null
+                        ? ['name' => $r['category_name'], 'color' => (int) $r['category_color']]
                         : null,
                 ]
                 : []),
@@ -691,5 +957,63 @@ final class TasksController
             return null;
         }
         return $v >= 1 && $v <= self::MAX_MINUTES ? $v : null;
+    }
+
+    /** Today's calendar date (Y-m-d) in APP_TIMEZONE — the availability cutoff (#250). */
+    private static function todayInTz(): string
+    {
+        return (new \DateTimeImmutable('now', new \DateTimeZone(PointsConfig::timezone())))->format('Y-m-d');
+    }
+
+    /**
+     * Optional availableFrom (#250): null (clear/absent) | 'Y-m-d' (valid) |
+     * false (present but invalid). A real calendar date is required — the
+     * round-trip check rejects 2026-02-31-style overflow.
+     */
+    private static function availableFrom(mixed $v): string|false|null
+    {
+        if ($v === null) {
+            return null;
+        }
+        if (!is_string($v) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) {
+            return false;
+        }
+        $d = \DateTimeImmutable::createFromFormat('Y-m-d', $v, new \DateTimeZone('UTC'));
+        return $d !== false && $d->format('Y-m-d') === $v ? $v : false;
+    }
+
+    /**
+     * Optional recurrence object (#250): null (clear/absent) | array of the
+     * three column values (valid) | false (invalid). The two families are
+     * mutually exclusive: { unit, interval } XOR { dayOfMonth }.
+     *
+     * @return array{recur_unit:?string,recur_interval:?int,recur_day_of_month:?int}|false|null
+     */
+    private static function recurrence(mixed $v): array|false|null
+    {
+        if ($v === null) {
+            return null;
+        }
+        if (!is_array($v)) {
+            return false;
+        }
+        $hasInterval = array_key_exists('unit', $v) || array_key_exists('interval', $v);
+        $hasDay = array_key_exists('dayOfMonth', $v);
+        if ($hasInterval === $hasDay) { // both families, or an empty object
+            return false;
+        }
+        if ($hasDay) {
+            $day = $v['dayOfMonth'];
+            if (!is_int($day) || $day < 1 || $day > 31 || count($v) !== 1) {
+                return false;
+            }
+            return ['recur_unit' => null, 'recur_interval' => null, 'recur_day_of_month' => $day];
+        }
+        $unit = $v['unit'] ?? null;
+        $interval = $v['interval'] ?? null;
+        if (self::enum($unit, ['day', 'week', 'month']) === null || !is_int($interval) || $interval < 1 || $interval > 365 || count($v) !== 2) {
+            return false;
+        }
+        return ['recur_unit' => $unit, 'recur_interval' => $interval, 'recur_day_of_month' => null];
     }
 }
