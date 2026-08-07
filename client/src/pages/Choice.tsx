@@ -117,8 +117,12 @@ export function Choice() {
     return <EmptyState repick={false} />
   }
 
+  // Launch chips are deliberately SMALL (review round 2): the time pair sits
+  // right-aligned in its row (the Auto-picked pill's slot) so the small/big
+  // rows keep the same visual height as "Focus on projects"; the tap-44 halo
+  // keeps the touch target honest.
   const chipClass =
-    'tap-44 h-8 cursor-pointer rounded-lg bg-surface px-3.5 text-[13px] text-gray-700 transition hover:bg-field'
+    'tap-44 h-7 cursor-pointer rounded-lg bg-surface px-2.5 text-xs text-gray-700 transition hover:bg-field'
 
   return (
     // #264 (epic #256 D): one prototype-style choice card — mascot half-out on
@@ -147,8 +151,8 @@ export function Choice() {
         </h1>
 
         {showSmall && (
-          <div className="mb-2 flex w-full items-start gap-4 rounded-xl bg-page/70 p-3.5">
-            <span className="flex w-9 shrink-0 justify-center pt-0.5">
+          <div className="mb-2 flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5">
+            <span className="flex w-9 shrink-0 justify-center">
               <Zap className="h-7 w-7 text-success" fill="currentColor" strokeWidth={0} aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
@@ -156,25 +160,25 @@ export function Choice() {
                 Get small tasks done
               </span>
               <span className="mt-0.5 block text-xs text-muted">A quick, low-effort win</span>
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {SMALL_TIMES.map((opt) => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => go('small', opt.minutes)}
-                    className={chipClass}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+              {SMALL_TIMES.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => go('small', opt.minutes)}
+                  className={chipClass}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
         {showBig && (
-          <div className="mb-2 flex w-full items-start gap-4 rounded-xl bg-page/70 p-3.5">
-            <span className="flex w-9 shrink-0 justify-center pt-0.5">
+          <div className="mb-2 flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5">
+            <span className="flex w-9 shrink-0 justify-center">
               <Mountain className="h-7 w-7 text-primary" strokeWidth={2.25} aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
@@ -184,18 +188,18 @@ export function Choice() {
               <span className="mt-0.5 block text-xs text-muted">
                 Real progress, worth more points
               </span>
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {BIG_TIMES.map((opt) => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => go('big', opt.minutes)}
-                    className={chipClass}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+              {BIG_TIMES.map((opt) => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => go('big', opt.minutes)}
+                  className={chipClass}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -244,7 +248,7 @@ export function Choice() {
                     key={c.id}
                     type="button"
                     onClick={() => goCategory(c.id)}
-                    className="tap-44 h-8 max-w-40 cursor-pointer truncate rounded-lg px-3.5 text-[13px] font-medium text-gray-700 transition hover:brightness-95"
+                    className="tap-44 h-7 max-w-40 cursor-pointer truncate rounded-lg px-2.5 text-xs font-medium text-gray-700 transition hover:brightness-95"
                     style={{ backgroundColor: projectTint(c.color) }}
                   >
                     {c.name}
