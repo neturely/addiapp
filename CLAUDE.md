@@ -224,7 +224,12 @@ to the old Node API.
   review feedback (an sr-only h1 remains) — Projects is a **self-contained `ProjectsView`** grid (cards
   with the count, a kebab Edit/Archive **disclosure** — NOT a `role=menu` widget — and Add
   task / Assign task footer actions). New/Edit project uses the shared **`Modal` (#218)** via
-  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **AddTask** reads
+  `ProjectModal` + `ProjectForm` (its own small form, **not** `TaskForm`). **The edit
+  modal carries an in-row ARCHIVE icon square right of Save (#336 — active projects
+  only; the CategoryModal-delete placement in the calmer secondary tone), and rail
+  project entries carry a pencil edit affordance deep-linking
+  `?project=ID&editProject=1` — the Dashboard hosts that modal on the project's own
+  task list, the categories pattern.** **AddTask** reads
   `?project=ID`, resolves it against active projects, shows a read-only "Adding to <project>"
   line, and passes `projectId` to `createTask`.
   **B (#236) — Unassigned tab + assign flow:** `GET /api/tasks?unassigned=1` filters
@@ -301,12 +306,36 @@ to the old Node API.
   Play pick (composes with size/time AND `mode=projects`). Client: `lib/categories.ts`
   (+ `CATEGORIES_CHANGED_EVENT` rail signal), rail category entries **under Ready in
   the Tasks section** (#334 — entries → `?category=ID` with remaining counts + a
-  "New category" row → the `?newCategory=1` modal),
-  Dashboard category filter with toolbar **Edit/Delete** (confirm modal states the
-  tasks-survive consequence), a row **category chip**, a TaskView **Category
-  select** (+ `?category=` pre-assign on create), and a Play Choice **"From"
-  select** (renders only when categories exist) carried through the whole chain
-  (TaskPresented → InProgress → Completion "Keep going"). **`ColorSwatchPicker`**
+  "New category" row → the `?newCategory=1` modal). **Categories gained an
+  optional `description` (#336, migration 032 — the projects shape:
+  varchar(1000), empty→NULL, same validator; on `mapCategory`, the modal
+  textarea, and the categories view rows).** **Management lives in the rail
+  (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN rail
+  section (between Tasks and Projects; the head links **`?view=categories`** —
+  `CategoriesView`, a Dashboard-style row list: tag icon · bold name + muted
+  description · "X of Y left to do" · trailing pencil; a row opens the
+  category's task list — and its + → the `?newCategory=1` modal), entries led
+  by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
+  centered in the pole square's 8px slot so all rail labels share one x —
+  **per-project entries lead with a FOLDER icon the same way**, the fixed pool
+  rows keep pole squares: tag = category, folder = project), and each carries
+  an inline **edit affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
+  sm+ via opacity, never `display:none`, so it stays in the tab order; always
+  visible in the drawer; the hover highlight sits on `group-hover`, so
+  hovering the pencil keeps the row lit) deep-linking
+  **`?category=ID&editCategory=1`** — the Dashboard opens the edit
+  `CategoryModal` on the filtered list itself; **Delete lives INSIDE that
+  modal** as a red Trash2 icon square in the action row, right of Save (lg
+  button height, danger-tint → danger-deep hover) → the existing tasks-survive
+  confirm dialog. The row **category chip** renders in the category's own
+  palette **tint** (`projectTint()` in `lib/projectColors.ts` — the hue
+  color-mixed 18% into white, dark neutral text AA on every slot; White falls
+  back to the field tone) — **hidden on the category's own filter view**
+  (redundant there, every row shares it) — a TaskView **Category select**
+  (+ `?category=` pre-assign on create), and a Play Choice **"From" select**
+  (renders only when categories exist) carried through the whole chain
+  (TaskPresented → InProgress → Completion "Keep going"). **#336 angles
+  deliberately deferred:** assign-from-list and the Choice "From" restyle. **`ColorSwatchPicker`**
   (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
   CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
 - **Task archiving (#312)**: an **Archived AXIS on tasks** (`tasks.archived_at`
@@ -366,8 +395,54 @@ to the old Node API.
   `availableFrom` (Y-m-d | null) + `recurrence` (`{unit,interval}` | `{dayOfMonth}` |
   null) on POST/PATCH, both on `mapTask`. Client: TaskView **Repeat** cell (None /
   Daily / Weekly / Every 2 weeks / Monthly on a day / Custom every-N-days|weeks|months)
-  + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows. Locked by
+  + **Snooze until** date cell; Dashboard **↻ badge** on rule-carrying rows
+  (inline in the title cluster — "Title ↻ Description"; the fixed-width min/pts
+  cell stays the row's last element, so the column keeps one right edge with no
+  reserved whitespace on ruleless rows; #364 + user-feedback follow-ups). Locked by
   `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
+- **In-app notifications (#366)**: avatar unread indicator + a `/notifications`
+  view; first (only, v1) type = **`recurring_activated`** — a #250 clone's
+  `available_from` date arriving. No persistent process on this hosting, so
+  activation is detected by a **lazy sweep on `GET /api/notifications`**: one
+  `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
+  `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
+  (the #74 pattern); `created_at` = the activation date (not the sweep moment);
+  the same fetch **prunes read/dismissed rows > 30 days** (unread-undismissed
+  never pruned). **A notification lives with its task** (user feedback
+  2026-08-06): the task FK **CASCADEs** on delete, and the completing PATCH
+  calls `Notifications::removeForTask` — a done/deleted task leaves no stale
+  "it came back" notice. A USER dismiss (`DELETE /api/notifications/{id}`,
+  404-not-403) is a **SOFT delete** (`dismissed_at`) — the row must survive as
+  the dedupe anchor or the next sweep would re-insert it for a still-due task.
+  `notifications` table (migration 031) carries a JSON `data` snapshot
+  (title + rule) the client renders. Sweep/prune/removeForTask SQL in
+  `api/src/Notifications/Notifications.php`; thin `NotificationsController`
+  (`GET /api/notifications` → `{ notifications, unreadCount }`, last 50
+  newest-first, dismissed excluded; `POST /api/notifications/read` = mark ALL
+  read — the v1 model: **opening the view marks everything read**, decided
+  provisionally 2026-08-06 pending the user's localhost look). Client:
+  `lib/notifications.ts` (+ **`recurrenceLabel()`** — the shared rule→text
+  vocabulary, "every 2 weeks" etc.; message = "<title> was added — repeats
+  {label}."), `notifications/NotificationsProvider` (InProgressProvider
+  pattern: fetch on mount + route change, NO polling) feeding the Header
+  **avatar dot — total-based, two-state (user decision 2026-08-06)**: shown
+  while the view has ANY items, **green** (`bg-success`) at rest (revised from
+  amber — it read too close to the red; blue would blend into the accent-tint
+  avatar), **red**
+  (`bg-primary`) when some are unread; the served **`totalCount`** (not the
+  capped list's length) drives presence + the menu count, `unreadCount` only
+  escalates the colour (the `aria-label` carries whichever count applies —
+  e2e matchers prefix-match "Account menu" for this) and a **Notifications
+  item with the total count**
+  in the avatar disclosure → `pages/Notifications.tsx`, styled as the
+  **Dashboard row list** (user feedback: surface rows + gap-px, leading dot
+  cell = unread primary / read grey, bold-lead "Title was added — repeats …"
+  message, date cell, trailing **X dismiss** action, optimistic with restore).
+  It does its OWN fetch → render → mark-read → provider refresh, deliberately
+  not the provider's list — the route-change refetch would race the mark-read
+  and strip the unread styling; empty state = shared `empty` mascot.
+  Deliberately out of v1: per-item read, email/push, real-time, other types.
+  Locked by `tests/Db/NotificationsTest.php` + `e2e/notifications.mjs`.
 - **Points (#28)**: `GET /api/points` (card) and `GET /api/points/stats` (lifetime + streak).
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
@@ -396,7 +471,9 @@ to the old Node API.
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
   name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
   All tasks + the per-project/category filters; the homogeneous status tabs and
-  Unassigned/Archived keep the **effort** pill) · **title — description** (truncated) · ONE combined
+  Unassigned/Archived keep the **effort** pill) · **title [↻] description** (truncated; no
+  separator — the bold title carries the split, and a recurring rule's ↻ sits inline
+  between the two, user feedback 2026-08-06) · ONE combined
   **"10 min / 5 pts"** cell (#256 review — minutes muted, points **gold**
   `text-warning-ink`, same size/weight; done rows show the EARNED "+N pts" in
   gold via the list's `points_log` join; base from `GET /api/points`). Ready
@@ -418,8 +495,12 @@ to the old Node API.
   #100's keyset):** `GET /api/tasks` with `limit` takes a 0-based **`offset`** and
   returns `{ tasks, total, counts }` (filtered `total` for the exact "X–Y of Z"
   range; global `counts` on every page) — the toolbar reads **"{selection} ·
-  newest first · N tasks ready to do"** (selection mirrors the rail; ready =
-  `counts.backlog`; the sort text is a TOGGLE button flipping newest/oldest via
+  newest first · N tasks {tab wording}"** (selection mirrors the rail; the count
+  scopes to the active tab, #363: Ready **and All** = `counts.backlog` "ready to
+  do" (All deliberately keeps the actionable figure — it matches the rail's Ready
+  badge), Started/Unassigned/Done/Archived/Recurring each show their own
+  `counts` figure + wording, and project/category filters keep the scoped
+  "X of Y left to do"; the sort text is a TOGGLE button flipping newest/oldest via
   `?sort=oldest` + the server's validated `order=asc|desc` param) + range +
   prev/next pagers (top and foot), 25/page. **Default order: NEWEST FIRST**
   (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All tasks /
@@ -548,11 +629,16 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   hamburger, entries are ≥44px targets): Tasks section
   (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
   the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
-  the #312 task-archive axis → `?tab=archived`). **Category entries (#276, placed
-  #334)** sit directly under Ready — the way project entries sit under Active; NO
-  separate Categories section — each → `?category=ID` with its remaining count,
-  followed by a muted **"+ New category" row** → the `?newCategory=1` modal
-  (Edit/Delete live on the Dashboard toolbar when a category filter is active).
+  the #312 task-archive axis → `?tab=archived`). **Tasks section order (#336):
+  the fixed axes group under Ready** — All tasks / Ready / Recurring /
+  Unassigned / Started / Done / Archived. **Categories then get their OWN
+  section between Tasks and Projects (#336 final round — the in-Tasks
+  placement was tried twice and rejected):** a plain non-link head (no
+  aggregate view exists) whose **+ → the `?newCategory=1` modal** (the old
+  "+ New category" row is GONE); entries led by a coloured **tag icon**, each
+  → `?category=ID` with its remaining count and an inline **edit affordance**
+  (hover/focus-revealed pencil → `?category=ID&editCategory=1`; Delete inside
+  the modal — see the #276 What's-built entry).
   Then the Projects section (per-project entries → **`?project=ID`**, the
   client half of #245; **Archived** → `?view=projects&archived=1`, #248) with
   inline **plus** buttons (Add task → `/tasks/new`; New project → `?new=1`).

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Mail } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { Turnstile, TURNSTILE_SITE_KEY } from '@/components/Turnstile'

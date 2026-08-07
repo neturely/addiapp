@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { PlayCard } from '@/components/PlayCard'

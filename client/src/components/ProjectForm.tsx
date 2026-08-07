@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Archive } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { ColorSwatchPicker } from '@/components/ColorSwatchPicker'
 import { randomSpectrumColor } from '@/lib/projectColors'
@@ -21,6 +22,10 @@ type ProjectFormProps = {
   submittingLabel: string
   onSubmit: (values: ProjectFormValues) => Promise<void>
   onCancel?: () => void
+  /** Edit mode (#336): renders an Archive icon square right of Save — the
+   * CategoryModal-delete placement, in the calmer secondary tone (archive is
+   * reversible, not destructive). */
+  onArchive?: () => void
 }
 
 /**
@@ -35,6 +40,7 @@ export function ProjectForm({
   submittingLabel,
   onSubmit,
   onCancel,
+  onArchive,
 }: ProjectFormProps) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -128,6 +134,16 @@ export function ProjectForm({
         <Button type="submit" size="lg" className="flex-1" disabled={submitting}>
           {submitting ? submittingLabel : submitLabel}
         </Button>
+        {onArchive && (
+          <button
+            type="button"
+            onClick={onArchive}
+            aria-label="Archive this project"
+            className="inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-control bg-field text-gray-700 transition hover:bg-field-hover sm:h-[42px] sm:w-[42px]"
+          >
+            <Archive className="h-5 w-5" strokeWidth={2} aria-hidden />
+          </button>
+        )}
       </div>
     </form>
   )

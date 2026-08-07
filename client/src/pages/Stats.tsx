@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Flame, Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { fetchUserStats, type UserStats } from '@/lib/points'

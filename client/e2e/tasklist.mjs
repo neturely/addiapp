@@ -301,10 +301,29 @@ ok(
   await page.evaluate(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || '')),
   '#332: the Done tab still excludes archived tasks',
 )
+// #363: the toolbar count scopes to the tab — Done shows the done figure +
+// wording (was the global backlog's "ready to do" on every tab).
+const tabCounts = await page.evaluate(async () => {
+  const { counts } = await fetch('/api/tasks?limit=1', { credentials: 'include' }).then((r) =>
+    r.json(),
+  )
+  return counts
+})
+const doneCountText = `${tabCounts.done} ${tabCounts.done === 1 ? 'task' : 'tasks'} done`
+ok(
+  await page.evaluate((t) => (document.body.textContent || '').includes(t), doneCountText),
+  `#363: Done tab toolbar reads "${doneCountText}"`,
+)
 await page.goto(`${BASE}/dashboard?tab=archived`, { waitUntil: 'networkidle0' })
 ok(
   await page.evaluate(() => /e2e archive probe/i.test(document.body.textContent || '')),
   '#312: archived tab lists the filed task',
+)
+// #363: same on Archived — its own figure, not the backlog's.
+const archCountText = `${tabCounts.archived} ${tabCounts.archived === 1 ? 'task' : 'tasks'} archived`
+ok(
+  await page.evaluate((t) => (document.body.textContent || '').includes(t), archCountText),
+  `#363: Archived tab toolbar reads "${archCountText}"`,
 )
 // #330: the archived row's pill reads "Archived", never "Done".
 const archPill = await page.evaluate(() => {
@@ -519,6 +538,66 @@ ok(tabPill === 'High', `#322: status tab keeps the DIFFICULTY pill (got "${tabPi
 await page.evaluate(
   (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
   pillProbe,
+)
+
+// --- Recurring-badge placement + column alignment (#364; user feedback moved
+// the badge INLINE in the title cluster: "Title ↻ Description") ---
+// The fixed-width min/pts cell is always the row's last element, so the column
+// keeps one right edge whether or not the conditional badge renders — and
+// ruleless rows carry no reserved whitespace.
+const recurProbe = await page.evaluate(async () => {
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: `e2e recur align probe ${Date.now()}`,
+      complexity: 'low',
+      estimatedMinutes: 5,
+      recurrence: { unit: 'day', interval: 1 },
+    }),
+  })
+  const { task } = await r.json()
+  return task.id
+})
+// The backlog tab is status-homogeneous, so every row carries the same
+// trailing controls — any edge split would be the badge's fault.
+await page.goto(`${BASE}/dashboard?tab=backlog`, { waitUntil: 'networkidle0' })
+await page.waitForSelector('ul[aria-label="Tasks"]')
+const recurAlign = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('ul[aria-label="Tasks"] > li')]
+  const edges = rows.map((li) =>
+    Math.round(li.querySelector('span.tabular-nums')?.getBoundingClientRect().right ?? -1),
+  )
+  const hasProbe = rows.some((li) => /e2e recur align probe/i.test(li.textContent || ''))
+  return { unique: [...new Set(edges)], hasProbe }
+})
+ok(
+  recurAlign.hasProbe && recurAlign.unique.length === 1,
+  `#364: mixed recurring/plain rows share one min/pts right edge (edges: ${recurAlign.unique.join(', ')})`,
+)
+// The badge renders ONLY on the recurring row (role=img), inline in the title
+// cluster (before the min/pts cell); plain rows have no badge markup at all.
+const recurBadge = await page.evaluate(() => {
+  const rows = [...document.querySelectorAll('ul[aria-label="Tasks"] > li')]
+  const probe = rows.find((li) => /e2e recur align probe/i.test(li.textContent || ''))
+  const plain = rows.find((li) => !/e2e recur align probe/i.test(li.textContent || ''))
+  const badge = probe?.querySelector('[role=img][aria-label=Repeats]')
+  const cell = probe?.querySelector('span.tabular-nums')
+  return {
+    probeImg: !!badge,
+    badgeBeforeCell:
+      !!badge && !!cell && !!(badge.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING),
+    plainRepeat: !!plain?.querySelector('svg.lucide-repeat'),
+  }
+})
+ok(
+  recurBadge.probeImg && recurBadge.badgeBeforeCell && !recurBadge.plainRepeat,
+  '#364: ↻ only on the recurring row, inline in the title cluster',
+)
+await page.evaluate(
+  (tid) => fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' }),
+  recurProbe,
 )
 
 await browser.close()

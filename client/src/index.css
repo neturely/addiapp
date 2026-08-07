@@ -233,3 +233,26 @@
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/*
+ * Scrollbars (user feedback 2026-08-06): the default track painted an off-white
+ * strip against the cream page. Flat treatment instead — transparent track (the
+ * page/surface behind shows through) + a neutral translucent thumb that reads
+ * on both cream and white. `scrollbar-color` covers Chrome 121+/Firefox; the
+ * ::-webkit rules are the Safari fallback (Chrome ignores them once
+ * scrollbar-color is set).
+ */
+* {
+  scrollbar-color: rgb(0 0 0 / 0.22) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.22);
+  border-radius: 5px;
+}
