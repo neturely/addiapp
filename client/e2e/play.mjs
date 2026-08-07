@@ -38,7 +38,8 @@ const choice = await page.evaluate(() => {
     big: /take on bigger issues/i.test(text),
     projects: /focus on projects/i.test(text),
     time: /how much time do you have/i.test(text),
-    radios: document.querySelectorAll('[role=radio]').length,
+    // Scoped to the time group — #324's category chips are a second radiogroup.
+    radios: document.querySelectorAll('[aria-labelledby="time-label"] [role=radio]').length,
   }
 })
 ok(choice.small && choice.big, '#264: both win-type options render')

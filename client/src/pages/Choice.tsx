@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/EmptyState'
 import { Mascot } from '@/components/Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchCategories, type Category } from '@/lib/categories'
+import { projectTint } from '@/lib/projectColors'
 import { fetchTaskAvailability, type TaskAvailability, type WinSize } from '@/lib/tasks'
 
 /** Time-available presets (2.3.0 review round: fuzzy durations, not concrete
@@ -92,21 +93,37 @@ export function Choice() {
     navigate(`/play/task?${params.toString()}`)
   }
 
-  // Roving-tabindex radiogroup for the time presets (A11Y-5, #126): only the
-  // checked pill is tabbable; arrow keys move the selection AND focus together,
-  // matching the WAI-ARIA radio pattern.
-  const pillRefs = useRef<(HTMLButtonElement | null)[]>([])
-  function onPillKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const last = TIME_OPTIONS.length - 1
+  // Roving-tabindex radiogroups (A11Y-5, #126): only the checked pill is
+  // tabbable; arrow keys move the selection AND focus together, matching the
+  // WAI-ARIA radio pattern. `rove` resolves the target index; each row applies
+  // its own selection + focus.
+  function rove(e: KeyboardEvent<HTMLButtonElement>, index: number, last: number): number | null {
     let next = index
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
     else if (e.key === 'Home') next = 0
     else if (e.key === 'End') next = last
-    else return
+    else return null
     e.preventDefault()
+    return next
+  }
+
+  const pillRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onPillKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = rove(e, index, TIME_OPTIONS.length - 1)
+    if (next === null) return
     setMinutes(TIME_OPTIONS[next].minutes)
     pillRefs.current[next]?.focus()
+  }
+
+  // #324: the category chips are their own radiogroup — index 0 = "Anything"
+  // (no filter), then one chip per category.
+  const categoryRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onCategoryKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = rove(e, index, categories.length)
+    if (next === null) return
+    setCategory(next === 0 ? null : categories[next - 1].id)
+    categoryRefs.current[next]?.focus()
   }
 
   const showSmall = avail?.small ?? true
@@ -145,6 +162,59 @@ export function Choice() {
         <h1 className="mb-5 text-center text-xl font-bold tracking-tight text-gray-800">
           {heading}
         </h1>
+
+        {/* Category picker (#324 — promotes the old #276 "From inside of"
+            select to a first-class chip row, context before win type; only
+            when custom lists exist). Chips wear their category's palette tint
+            (#336's Dashboard-chip treatment); the selected one deepens the
+            tint. "Anything" keeps the default unscoped pick. */}
+        {categories.length > 0 && (
+          <>
+            <p id="category-label" className="mb-2.5 text-center text-xs text-muted">
+              What are you working from?
+            </p>
+            <div
+              role="radiogroup"
+              aria-labelledby="category-label"
+              className="mb-5 flex flex-wrap justify-center gap-1.5"
+            >
+              {[null, ...categories.map((c) => c.id)].map((id, i) => {
+                const active = category === id
+                const cat = id === null ? null : categories[i - 1]
+                return (
+                  <button
+                    key={id ?? 'any'}
+                    ref={(el) => {
+                      categoryRefs.current[i] = el
+                    }}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => setCategory(id)}
+                    onKeyDown={(e) => onCategoryKeyDown(e, i)}
+                    className={`tap-44 h-8 max-w-40 cursor-pointer truncate rounded-lg px-3.5 text-[13px] transition ${
+                      cat === null
+                        ? active
+                          ? 'bg-primary-deep font-semibold text-white'
+                          : 'bg-page/70 text-gray-700 hover:bg-field'
+                        : active
+                          ? 'font-semibold text-gray-900'
+                          : 'font-medium text-gray-700'
+                    }`}
+                    style={
+                      cat === null
+                        ? undefined
+                        : { backgroundColor: projectTint(cat.color, active ? 45 : 18) }
+                    }
+                  >
+                    {cat === null ? 'Anything' : cat.name}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
 
         {showSmall && (
         <button
@@ -203,29 +273,6 @@ export function Choice() {
             Auto-picked
           </span>
         </button>
-        )}
-
-        {/* Category filter (#276) — only when custom lists exist; "Anything"
-            keeps the default unscoped pick. */}
-        {categories.length > 0 && (
-          <div className="mt-5 flex items-center justify-center gap-2">
-            <label htmlFor="play-category" className="text-xs text-muted">
-              From inside of
-            </label>
-            <select
-              id="play-category"
-              value={category ?? ''}
-              onChange={(e) => setCategory(e.target.value === '' ? null : Number(e.target.value))}
-              className="h-8 cursor-pointer rounded-lg bg-page/70 px-2.5 text-[13px] text-gray-700 transition hover:bg-field field-focus"
-            >
-              <option value="">Anything</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
         )}
 
         <p id="time-label" className="mb-2.5 mt-5 text-center text-xs text-muted">

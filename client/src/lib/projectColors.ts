@@ -50,12 +50,16 @@ export function projectPole(color: number | undefined): string {
  * lightly into white, so a dark neutral text stays AA on every slot. The White
  * slot (no embedded hex) falls back to the neutral field tone so the chip
  * stays visible on the white row surface.
+ *
+ * `strength` (#324 — the Play Choice category chips) is the hue's share of the
+ * mix: 18 is the resting chip tint; the selected chip uses 45, still AA for
+ * dark neutral text on every slot (≥45% white keeps the mix light).
  */
-export function projectTint(color: number | undefined): string {
+export function projectTint(color: number | undefined, strength = 18): string {
   const slot = PROJECT_COLORS[color ?? 0] ?? PROJECT_COLORS[0]
   const hex = /#[0-9a-f]{6}/i.exec(slot.pole)?.[0]
   if (!hex) return 'var(--color-field)'
-  return `color-mix(in srgb, ${hex} 18%, white)`
+  return `color-mix(in srgb, ${hex} ${strength}%, white)`
 }
 
 /**

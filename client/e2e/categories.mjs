@@ -3,7 +3,7 @@
 // New-category modal (rail plus → ?newCategory=1), the per-category filter
 // (toolbar Edit/Delete GONE — edit deep-links ?category=ID&editCategory=1,
 // Delete lives inside that modal), the tinted row chip, the TaskView Category
-// select, and the Play Choice "From" scope. Cleans up after itself.
+// select, and the Play Choice category chip row (#324). Cleans up after itself.
 import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -183,10 +183,57 @@ ok(
   '#276: TaskView Category select shows the assigned category',
 )
 
-// Play Choice: the "From" category scope renders and carries into the URL.
+// Play Choice (#324 — supersedes the #276 "From inside of" select): the
+// category picker is a first-class tinted chip radiogroup ABOVE the option
+// rows — "Anything" default, one chip per category, selection rides
+// ?category= into the Play chain.
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
-await page.waitForSelector('#play-category', { timeout: 5000 })
-await page.select('#play-category', String(categoryId))
+await page.waitForSelector('[role=radiogroup][aria-labelledby="category-label"]', {
+  timeout: 5000,
+})
+const chipRow = await page.evaluate((name) => {
+  const group = document.querySelector('[role=radiogroup][aria-labelledby="category-label"]')
+  const chips = [...(group?.querySelectorAll('[role=radio]') ?? [])]
+  const anything = chips[0]
+  const mine = chips.find((c) => c.textContent?.trim() === name)
+  const options = document.querySelector('#category-label')
+  const firstOption = [...document.querySelectorAll('button')].find((b) =>
+    /get small tasks done/i.test(b.textContent || ''),
+  )
+  return {
+    defaultAnything:
+      anything?.textContent?.trim() === 'Anything' &&
+      anything?.getAttribute('aria-checked') === 'true',
+    tinted: !!mine && (mine.getAttribute('style') || '').includes('background'),
+    aboveOptions:
+      !!options &&
+      !!firstOption &&
+      !!(options.compareDocumentPosition(firstOption) & Node.DOCUMENT_POSITION_FOLLOWING),
+  }
+}, CAT_NAME)
+ok(chipRow.defaultAnything, '#324: chip row defaults to "Anything" (checked)')
+ok(chipRow.tinted, '#324: category chip carries the palette tint')
+ok(chipRow.aboveOptions, '#324: chip row sits above the win-type option rows')
+// Arrow-key roving moves selection AND focus together (the time-chip pattern).
+await page.evaluate(() =>
+  document
+    .querySelector('[role=radiogroup][aria-labelledby="category-label"] [role=radio]')
+    ?.focus(),
+)
+await page.keyboard.press('ArrowRight')
+const roved = await page.evaluate(() => {
+  const el = document.activeElement
+  return el?.getAttribute('role') === 'radio' && el.getAttribute('aria-checked') === 'true'
+    ? el.textContent?.trim()
+    : null
+})
+ok(roved !== null && roved !== 'Anything', `#324: arrow key roves selection + focus (got ${roved})`)
+// Picking the chip then a win type carries category= into the Play chain.
+await page.evaluate((name) => {
+  ;[...document.querySelectorAll('[role=radiogroup][aria-labelledby="category-label"] [role=radio]')]
+    .find((c) => c.textContent?.trim() === name)
+    ?.click()
+}, CAT_NAME)
 await page.evaluate(() =>
   [...document.querySelectorAll('button')]
     .find((b) => /get small tasks done/i.test(b.textContent || ''))
@@ -197,7 +244,7 @@ await page.waitForFunction(
   { timeout: 5000 },
   categoryId,
 )
-ok(true, '#276: Choice "From" scope carries category= into the Play chain')
+ok(true, '#324: Choice chip pick carries category= into the Play chain')
 
 // Management via the rail (#336): the entry carries an inline edit affordance
 // deep-linking ?category=ID&editCategory=1; Delete lives inside the modal and
