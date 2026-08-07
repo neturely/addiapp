@@ -56,44 +56,23 @@ await page.waitForFunction(() => location.pathname === '/tasks/new', { timeout: 
 await sleep(300)
 ok((await page.evaluate(() => document.activeElement?.id)) === 'main-content', 'A11Y-2: client-side route change focuses #main-content')
 
-// ── A11Y-5: Choice radiogroup (roving tabindex + arrow keys) ─────────────────
+// ── A11Y-5: Choice launchers are plain buttons (#324 review round) ───────────
+// The Choice screen no longer carries any radiogroup — the time/category
+// selections became direct launch chips inside the option rows, so every
+// interactive piece must be a keyboard-reachable <button>. (The radiogroup
+// pattern itself stays covered by the effort group below.)
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
-// Scoped to the time-chip group — #324's category chip row is a SECOND
-// radiogroup on the same screen (when the user has categories), so first-match
-// / whole-page probes are no longer valid.
-const rg = await page.evaluate(() => {
-  const group = document.querySelector('[role=radiogroup][aria-labelledby="time-label"]')
-  const radios = [...(group?.querySelectorAll('[role=radio]') ?? [])]
+const launchers = await page.evaluate(() => {
+  const buttons = [...document.querySelectorAll('main button')]
   return {
-    hasGroup: !!group,
-    labelled: group?.getAttribute('aria-labelledby'),
-    count: radios.length,
-    checked: radios.filter((r) => r.getAttribute('aria-checked') === 'true').length,
-    tabbable: radios.filter((r) => r.getAttribute('tabindex') === '0').length,
+    radios: document.querySelectorAll('[role=radio], [role=radiogroup]').length,
+    chipsAreButtons: ['A little time', 'A few hours', 'A day', 'Any time'].every((label) =>
+      buttons.some((b) => b.textContent?.trim() === label),
+    ),
   }
 })
-ok(rg.hasGroup && rg.count === 4, `A11Y-5: time radiogroup with ${rg.count} radios`)
-ok(rg.labelled === 'time-label', 'A11Y-5: radiogroup aria-labelledby the question')
-ok(rg.checked === 1, 'A11Y-5: exactly one radio aria-checked')
-ok(rg.tabbable === 1, 'A11Y-5: roving tabindex (only checked is tabbable)')
-await page.evaluate(() =>
-  document
-    .querySelector('[aria-labelledby="time-label"] [role=radio][aria-checked=true]')
-    .focus(),
-)
-await page.keyboard.press('ArrowRight')
-const arrow = await page.evaluate(() => {
-  const radios = [
-    ...document.querySelectorAll('[aria-labelledby="time-label"] [role=radio]'),
-  ]
-  return {
-    checked: radios.findIndex((r) => r.getAttribute('aria-checked') === 'true'),
-    focused: radios.indexOf(document.activeElement),
-  }
-})
-ok(arrow.checked === 1 && arrow.focused === 1, 'A11Y-5: ArrowRight moves checked + focus together')
-await page.keyboard.press('ArrowLeft')
-ok((await page.evaluate(() => [...document.querySelectorAll('[aria-labelledby="time-label"] [role=radio]')].findIndex((r) => r.getAttribute('aria-checked') === 'true'))) === 0, 'A11Y-5: ArrowLeft moves selection back')
+ok(launchers.radios === 0, 'A11Y-5: Choice has no leftover radiogroup semantics')
+ok(launchers.chipsAreButtons, 'A11Y-5: every time launch chip is a real <button>')
 
 // ── A11Y-5: task-create effort radiogroup (#197; /tasks/new = TaskView since
 // the #256 review round removed the AddTask page) ────────────────────────────

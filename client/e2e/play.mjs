@@ -37,14 +37,37 @@ const choice = await page.evaluate(() => {
     small: /get small tasks done/i.test(text),
     big: /take on bigger issues/i.test(text),
     projects: /focus on projects/i.test(text),
-    time: /how much time do you have/i.test(text),
-    // Scoped to the time group — #324's category chips are a second radiogroup.
-    radios: document.querySelectorAll('[aria-labelledby="time-label"] [role=radio]').length,
+    // #324 review round: the standalone "How much time do you have?" section
+    // is GONE — each win-type row carries its own launch chips (short presets
+    // on the small row, long/open on the big row).
+    timeSection: /how much time do you have/i.test(text),
+  }
+})
+const chipHomes = await page.evaluate(() => {
+  const home = (label) => {
+    const btn = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === label,
+    )
+    return btn?.closest('div.rounded-xl')?.textContent || ''
+  }
+  return {
+    little: home('A little time'),
+    few: home('A few hours'),
+    day: home('A day'),
+    any: home('Any time'),
   }
 })
 ok(choice.small && choice.big, '#264: both win-type options render')
 ok(!choice.projects, '#306: "Focus on projects" hidden with no active-project backlog task')
-ok(choice.time && choice.radios === 4, '#264: time chips are the 4-radio radiogroup (fuzzy durations, 2.3.0 review round)')
+ok(!choice.timeSection, '#324r: the standalone time section is gone')
+ok(
+  /get small tasks done/i.test(chipHomes.little) && /get small tasks done/i.test(chipHomes.few),
+  '#324r: "A little time" + "A few hours" launch chips live in the small row',
+)
+ok(
+  /take on bigger issues/i.test(chipHomes.day) && /take on bigger issues/i.test(chipHomes.any),
+  '#324r: "A day" + "Any time" launch chips live in the big row',
+)
 
 // Seed an active project WITH a backlog task → the option comes back.
 await page.evaluate(async () => {
