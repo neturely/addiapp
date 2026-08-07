@@ -3,7 +3,7 @@
 // New-category modal (rail plus → ?newCategory=1), the per-category filter
 // (toolbar Edit/Delete GONE — edit deep-links ?category=ID&editCategory=1,
 // Delete lives inside that modal), the tinted row chip, the TaskView Category
-// select, and the Play Choice "From" scope. Cleans up after itself.
+// select, and the Play Choice category chip row (#324). Cleans up after itself.
 import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
@@ -183,21 +183,62 @@ ok(
   '#276: TaskView Category select shows the assigned category',
 )
 
-// Play Choice: the "From" category scope renders and carries into the URL.
+// Play Choice (#324, round-3 shape — the category chips are a FILTER row
+// under the heading, not an option): "Any category" default, tinted tabs,
+// roving-tabindex radiogroup; a picked category scopes whichever option
+// launches below.
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
-await page.waitForSelector('#play-category', { timeout: 5000 })
-await page.select('#play-category', String(categoryId))
+await page.waitForSelector('[role=radiogroup][aria-label="Category filter"]', { timeout: 5000 })
+const filterRow = await page.evaluate((name) => {
+  const chips = [
+    ...document.querySelectorAll('[role=radiogroup][aria-label="Category filter"] [role=radio]'),
+  ]
+  const any = chips[0]
+  const mine = chips.find((c) => c.textContent?.trim() === name)
+  return {
+    defaultAny:
+      any?.textContent?.trim() === 'Any category' &&
+      any?.getAttribute('aria-checked') === 'true',
+    tinted: !!mine && (mine.getAttribute('style') || '').includes('background'),
+  }
+}, CAT_NAME)
+ok(filterRow.defaultAny, '#324: filter row defaults to "Any category" (checked)')
+ok(filterRow.tinted, '#324: category filter chip carries the palette tint')
+// Arrow-key roving moves selection AND focus together (the radio pattern).
 await page.evaluate(() =>
-  [...document.querySelectorAll('button')]
-    .find((b) => /get small tasks done/i.test(b.textContent || ''))
+  document.querySelector('[aria-label="Category filter"] [role=radio]')?.focus(),
+)
+await page.keyboard.press('ArrowRight')
+const roved = await page.evaluate(() => {
+  const el = document.activeElement
+  return el?.getAttribute('role') === 'radio' && el.getAttribute('aria-checked') === 'true'
+    ? el.textContent?.trim()
+    : null
+})
+ok(
+  roved !== null && roved !== 'Any category',
+  `#324: arrow key roves selection + focus (got ${roved})`,
+)
+// A picked category + a time chip below composes size + category in the URL.
+await page.evaluate((name) => {
+  ;[...document.querySelectorAll('[aria-label="Category filter"] [role=radio]')]
+    .find((c) => c.textContent?.trim() === name)
+    ?.click()
+}, CAT_NAME)
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => b.textContent?.trim() === 'A little time')
     ?.click(),
 )
 await page.waitForFunction(
-  (catId) => window.location.search.includes(`category=${catId}`),
+  (catId) =>
+    window.location.pathname === '/play/task' &&
+    window.location.search.includes('size=small') &&
+    window.location.search.includes(`category=${catId}`),
   { timeout: 5000 },
   categoryId,
 )
-ok(true, '#276: Choice "From" scope carries category= into the Play chain')
+ok(true, '#324: filter + launch chip compose size= and category= in the Play chain')
 
 // Management via the rail (#336): the entry carries an inline edit affordance
 // deep-linking ?category=ID&editCategory=1; Delete lives inside the modal and

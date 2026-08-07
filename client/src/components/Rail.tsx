@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router'
-import { Folder, Pencil, Plus, Tag, type LucideIcon } from 'lucide-react'
+import { Layers, Pencil, Plus, Tag, type LucideIcon } from 'lucide-react'
 import { projectHex } from '@/lib/projectColors'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, PROJECTS_CHANGED_EVENT, type Project } from '@/lib/projects'
@@ -205,7 +205,7 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
           to={`/dashboard?project=${p.id}`}
           editTo={`/dashboard?project=${p.id}&editProject=1`}
           editLabel={`Edit project ${p.name}`}
-          Icon={Folder}
+          Icon={Layers}
           color={projectHex(p.color)}
           label={p.name}
           count={p.remainingCount}

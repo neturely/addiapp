@@ -127,8 +127,20 @@ const navIcon = await hitHeight('a[aria-label="Play"]')
 ok(navIcon >= 44, `#116: header nav icon hit area ≥44px (${navIcon}px)`)
 const avatar = await hitHeight('button[aria-label^="Account menu"]')
 ok(avatar >= 44, `#116: avatar trigger hit area ≥44px (${avatar}px)`)
-const pill = await hitHeight('[role="radio"]')
-ok(pill >= 44, `#116: Choice time pill hit area ≥44px (${pill}px)`)
+// #324 review round: the time radios became launch-chip <button>s inside the
+// win-type rows — probe one of those instead.
+const pill = await page.evaluate(() => {
+  const chip = [...document.querySelectorAll('main button')].find(
+    (b) => b.textContent?.trim() === 'A little time',
+  )
+  if (!chip) return 0
+  const r = chip.getBoundingClientRect()
+  const after = getComputedStyle(chip, '::after')
+  const t = parseFloat(after.top) || 0
+  const b = parseFloat(after.bottom) || 0
+  return r.height + (t < 0 ? -t : 0) + (b < 0 ? -b : 0)
+})
+ok(pill >= 44, `#116: Choice launch chip hit area ≥44px (${pill}px)`)
 
 // Avatar menu rows are real 44px rows on mobile (stacked — no halo overlap).
 await page.click('button[aria-label^="Account menu"]')
