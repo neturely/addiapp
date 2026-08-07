@@ -80,10 +80,10 @@ const poleFor = (n) =>
     const link = [...document.querySelectorAll('#app-rail a')].find((a) =>
       a.textContent.includes(needle),
     )
-    return link?.querySelector('svg.lucide-folder')?.style.color ?? ''
+    return link?.querySelector('svg.lucide-layers')?.style.color ?? ''
   }, n)
 const poleColor = await poleFor(name)
-ok(poleColor === rgbOf('#d11a1a'), `#268: rail folder icon carries slot-0 Red (got "${poleColor}")`)
+ok(poleColor === rgbOf('#d11a1a'), `#268: rail project (Layers) icon carries slot-0 Red (got "${poleColor}")`)
 
 // #308: leaving Random selected rolls a concrete SPECTRUM hue at save time —
 // the stored colour is a real palette index, never a neutral.

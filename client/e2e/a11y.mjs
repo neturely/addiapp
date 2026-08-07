@@ -56,22 +56,27 @@ await page.waitForFunction(() => location.pathname === '/tasks/new', { timeout: 
 await sleep(300)
 ok((await page.evaluate(() => document.activeElement?.id)) === 'main-content', 'A11Y-2: client-side route change focuses #main-content')
 
-// ── A11Y-5: Choice launchers are plain buttons (#324 review round) ───────────
-// The Choice screen no longer carries any radiogroup — the time/category
-// selections became direct launch chips inside the option rows, so every
-// interactive piece must be a keyboard-reachable <button>. (The radiogroup
-// pattern itself stays covered by the effort group below.)
+// ── A11Y-5: Choice launchers are plain buttons (#324 review rounds) ──────────
+// The time selections are direct launch chips inside the option rows, so they
+// must be keyboard-reachable <button>s — not radios. (The only radiogroup left
+// on Choice is the category FILTER row, whose roving semantics are covered in
+// categories.mjs; the radiogroup pattern is also covered by the effort group
+// below.)
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
 const launchers = await page.evaluate(() => {
   const buttons = [...document.querySelectorAll('main button')]
   return {
-    radios: document.querySelectorAll('[role=radio], [role=radiogroup]').length,
+    timeRadios: ['A little time', 'A few hours', 'A day', 'Any time'].filter((label) =>
+      [...document.querySelectorAll('[role=radio]')].some(
+        (r) => r.textContent?.trim() === label,
+      ),
+    ).length,
     chipsAreButtons: ['A little time', 'A few hours', 'A day', 'Any time'].every((label) =>
       buttons.some((b) => b.textContent?.trim() === label),
     ),
   }
 })
-ok(launchers.radios === 0, 'A11Y-5: Choice has no leftover radiogroup semantics')
+ok(launchers.timeRadios === 0, 'A11Y-5: time launch chips carry no radio semantics')
 ok(launchers.chipsAreButtons, 'A11Y-5: every time launch chip is a real <button>')
 
 // ── A11Y-5: task-create effort radiogroup (#197; /tasks/new = TaskView since

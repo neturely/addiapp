@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Layers, Mountain, Play, Tag, Zap } from 'lucide-react'
+import { Layers, Mountain, Play, Zap } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { Mascot } from '@/components/Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
@@ -41,12 +41,12 @@ const BIG_TIMES: { label: string; minutes: number | null }[] = [
 ]
 
 /**
- * Play-mode choice screen (issue #30, restructured in the #324 review round):
- * every option row is a launcher — the small/big rows launch via their
- * embedded time chips, "Focus on projects" is a whole-row auto-pick, and
- * "Focus on a category" (#324) launches via a tinted chip per category
- * (a size-less pick: the server draws from the category's whole backlog with
- * the user's stored strategy). The picked filters ride URL params into the
+ * Play-mode choice screen (issue #30, restructured in the #324 review rounds):
+ * a category FILTER chip row sits under the heading (round 3 — "Any category"
+ * default; a picked category scopes whichever option launches below, the
+ * option rows never change), then every option row is a launcher — the
+ * small/big rows launch via their embedded time chips, "Focus on projects" is
+ * a whole-row auto-pick. The picked filters ride URL params into the
  * task-presented screen (#31), so the pick stays shareable/reloadable.
  */
 export function Choice() {
@@ -71,9 +71,11 @@ export function Choice() {
     }
   }, [])
 
-  // "Focus on a category" (#324): the row renders only when the user actually
-  // has categories (best-effort fetch — a failure just hides the row).
+  // Category filter (#324, round 3): a chip row under the heading scoping any
+  // option below; renders only when the user actually has categories
+  // (best-effort fetch — a failure just hides the filter).
   const [categories, setCategories] = useState<Category[]>([])
+  const [category, setCategory] = useState<number | null>(null)
   useEffect(() => {
     let cancelled = false
     fetchCategories()
@@ -89,19 +91,32 @@ export function Choice() {
   function go(size: WinSize, minutes: number | null) {
     const params = new URLSearchParams({ size })
     if (minutes != null) params.set('minutes', String(minutes))
+    if (category != null) params.set('category', String(category))
     navigate(`/play/task?${params.toString()}`)
   }
 
   // "Focus on projects" (#238): a mode, not a size — the server auto-picks the
-  // project closest to done.
+  // project closest to done. The category filter carries.
   function goProjects() {
-    navigate('/play/task?mode=projects')
+    const params = new URLSearchParams({ mode: 'projects' })
+    if (category != null) params.set('category', String(category))
+    navigate(`/play/task?${params.toString()}`)
   }
 
-  // "Focus on a category" (#324): category alone — no size, no mode; the
-  // server picks from the category's whole backlog.
-  function goCategory(id: number) {
-    navigate(`/play/task?category=${id}`)
+  // Roving-tabindex radiogroup for the filter chips (A11Y-5, #126): only the
+  // checked chip is tabbable; arrow keys move selection AND focus together.
+  const chipRefs = useRef<(HTMLButtonElement | null)[]>([])
+  function onChipKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = categories.length
+    let next = index
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = index === last ? 0 : index + 1
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = index === 0 ? last : index - 1
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = last
+    else return
+    e.preventDefault()
+    setCategory(next === 0 ? null : categories[next - 1].id)
+    chipRefs.current[next]?.focus()
   }
 
   const showSmall = avail?.small ?? true
@@ -149,6 +164,54 @@ export function Choice() {
         <h1 className="mb-5 text-center text-xl font-bold tracking-tight text-gray-800">
           {heading}
         </h1>
+
+        {/* Category filter (#324, round 3): in essence a filter, so it sits
+            with the heading, not among the options — "Any category" default,
+            a picked category scopes whichever option launches below. Chips
+            wear their category's palette tint (#336's Dashboard-chip
+            treatment); the selected one deepens the tint. */}
+        {categories.length > 0 && (
+          <div
+            role="radiogroup"
+            aria-label="Category filter"
+            className="-mt-2 mb-5 flex flex-wrap justify-center gap-1.5"
+          >
+            {[null, ...categories.map((c) => c.id)].map((id, i) => {
+              const active = category === id
+              const cat = id === null ? null : categories[i - 1]
+              return (
+                <button
+                  key={id ?? 'any'}
+                  ref={(el) => {
+                    chipRefs.current[i] = el
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => setCategory(id)}
+                  onKeyDown={(e) => onChipKeyDown(e, i)}
+                  className={`tap-44 h-7 max-w-40 cursor-pointer truncate rounded-lg px-2.5 text-xs transition ${
+                    cat === null
+                      ? active
+                        ? 'bg-primary-deep font-semibold text-white'
+                        : 'bg-page/70 text-gray-700 hover:bg-field'
+                      : active
+                        ? 'font-semibold text-gray-900'
+                        : 'font-medium text-gray-700'
+                  }`}
+                  style={
+                    cat === null
+                      ? undefined
+                      : { backgroundColor: projectTint(cat.color, active ? 45 : 18) }
+                  }
+                >
+                  {cat === null ? 'Any category' : cat.name}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {showSmall && (
           <div className="mb-2 flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5">
@@ -210,7 +273,7 @@ export function Choice() {
           <button
             type="button"
             onClick={goProjects}
-            className="mb-2 flex w-full cursor-pointer items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
+            className="flex w-full cursor-pointer items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
           >
             <span className="flex w-9 shrink-0 justify-center">
               <Layers className="h-7 w-7 text-accent" strokeWidth={2.25} aria-hidden />
@@ -227,37 +290,6 @@ export function Choice() {
           </button>
         )}
 
-        {/* Fourth path (#324): pick straight from one of the user's custom
-            lists — a tinted chip per category (#336's Dashboard-chip tint),
-            only when categories exist. */}
-        {categories.length > 0 && (
-          <div className="flex w-full items-start gap-4 rounded-xl bg-page/70 p-3.5">
-            <span className="flex w-9 shrink-0 justify-center pt-0.5">
-              <Tag className="h-7 w-7 text-warning-ink" strokeWidth={2.25} aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1">
-              <span className="block text-[15px] font-semibold text-gray-800">
-                Focus on a category
-              </span>
-              <span className="mt-0.5 block text-xs text-muted">
-                Whatever fits, from one of your lists
-              </span>
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {categories.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => goCategory(c.id)}
-                    className="tap-44 h-7 max-w-40 cursor-pointer truncate rounded-lg px-2.5 text-xs font-medium text-gray-700 transition hover:brightness-95"
-                    style={{ backgroundColor: projectTint(c.color) }}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </main>
   )

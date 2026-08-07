@@ -183,41 +183,62 @@ ok(
   '#276: TaskView Category select shows the assigned category',
 )
 
-// Play Choice (#324, review-round shape — supersedes both the #276 "From
-// inside of" select and the first-cut global chip row): "Focus on a category"
-// is its own option ROW with one tinted launch chip per category; tapping a
-// chip launches a size-less pick scoped by ?category=.
+// Play Choice (#324, round-3 shape — the category chips are a FILTER row
+// under the heading, not an option): "Any category" default, tinted tabs,
+// roving-tabindex radiogroup; a picked category scopes whichever option
+// launches below.
 await page.goto(`${BASE}/play`, { waitUntil: 'networkidle0' })
-await page.waitForFunction(() => /focus on a category/i.test(document.body.textContent || ''), {
-  timeout: 5000,
-})
-const catRowBits = await page.evaluate((name) => {
-  const chip = [...document.querySelectorAll('main button')].find(
-    (b) => b.textContent?.trim() === name,
-  )
-  const row = chip?.closest('div.rounded-xl')
+await page.waitForSelector('[role=radiogroup][aria-label="Category filter"]', { timeout: 5000 })
+const filterRow = await page.evaluate((name) => {
+  const chips = [
+    ...document.querySelectorAll('[role=radiogroup][aria-label="Category filter"] [role=radio]'),
+  ]
+  const any = chips[0]
+  const mine = chips.find((c) => c.textContent?.trim() === name)
   return {
-    tinted: !!chip && (chip.getAttribute('style') || '').includes('background'),
-    inCategoryRow: /focus on a category/i.test(row?.textContent || ''),
+    defaultAny:
+      any?.textContent?.trim() === 'Any category' &&
+      any?.getAttribute('aria-checked') === 'true',
+    tinted: !!mine && (mine.getAttribute('style') || '').includes('background'),
   }
 }, CAT_NAME)
-ok(catRowBits.tinted, '#324: category launch chip carries the palette tint')
-ok(catRowBits.inCategoryRow, '#324: the chip lives in the "Focus on a category" row')
-// Tapping the chip launches the Play chain with category= (and no size/mode).
+ok(filterRow.defaultAny, '#324: filter row defaults to "Any category" (checked)')
+ok(filterRow.tinted, '#324: category filter chip carries the palette tint')
+// Arrow-key roving moves selection AND focus together (the radio pattern).
+await page.evaluate(() =>
+  document.querySelector('[aria-label="Category filter"] [role=radio]')?.focus(),
+)
+await page.keyboard.press('ArrowRight')
+const roved = await page.evaluate(() => {
+  const el = document.activeElement
+  return el?.getAttribute('role') === 'radio' && el.getAttribute('aria-checked') === 'true'
+    ? el.textContent?.trim()
+    : null
+})
+ok(
+  roved !== null && roved !== 'Any category',
+  `#324: arrow key roves selection + focus (got ${roved})`,
+)
+// A picked category + a time chip below composes size + category in the URL.
 await page.evaluate((name) => {
-  ;[...document.querySelectorAll('main button')]
-    .find((b) => b.textContent?.trim() === name)
+  ;[...document.querySelectorAll('[aria-label="Category filter"] [role=radio]')]
+    .find((c) => c.textContent?.trim() === name)
     ?.click()
 }, CAT_NAME)
+await page.evaluate(() =>
+  [...document.querySelectorAll('main button')]
+    .find((b) => b.textContent?.trim() === 'A little time')
+    ?.click(),
+)
 await page.waitForFunction(
   (catId) =>
     window.location.pathname === '/play/task' &&
-    window.location.search.includes(`category=${catId}`) &&
-    !/[?&](size|mode)=/.test(window.location.search),
+    window.location.search.includes('size=small') &&
+    window.location.search.includes(`category=${catId}`),
   { timeout: 5000 },
   categoryId,
 )
-ok(true, '#324: chip tap launches /play/task?category= (size-less pick)')
+ok(true, '#324: filter + launch chip compose size= and category= in the Play chain')
 
 // Management via the rail (#336): the entry carries an inline edit affordance
 // deep-linking ?category=ID&editCategory=1; Delete lives inside the modal and
