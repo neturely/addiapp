@@ -109,6 +109,37 @@ ok(
   '#260: focus returns to the avatar trigger on Escape',
 )
 
+// --- #385: the "How points work" guide (avatar menu + the panel ? icons) ---
+// The right column's Today / All-time panels each carry a ? link to the guide.
+const helpIcons = await page.evaluate(
+  () => document.querySelectorAll('aside a[aria-label="How points work"]').length,
+)
+ok(helpIcons === 2, `#385: Today + All-time panels carry the ? guide link (got ${helpIcons})`)
+// The avatar menu links it too, and the page renders SERVED numbers.
+await page.click('button[aria-label^="Account menu"]')
+await sleep(100)
+await page.evaluate(() =>
+  [...document.querySelectorAll('a')]
+    .find((a) => /how points work/i.test(a.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(
+  () => /fair play: a day can only hold a day/i.test(document.body.textContent || ''),
+  { timeout: 5000 },
+)
+const guide = await page.evaluate(() => {
+  const text = document.body.textContent || ''
+  return {
+    base: /low \+2/i.test(text) && /high \+10/i.test(text),
+    limits: /25 scoring tasks/i.test(text) && /12 hours/i.test(text),
+    sprint: /one-shot sprint/i.test(text),
+  }
+})
+ok(guide.base, '#385: guide renders the served base points (Low +2 … High +10)')
+ok(guide.limits, '#385: guide renders the served daily limits (25 tasks / 12 hours)')
+ok(guide.sprint, '#385: guide explains the one-shot sprint bonus rule')
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
+
 // --- search filters the loaded task list ---
 await page.type('input[aria-label="Search tasks and projects"]', 'zzz-no-such-task')
 await sleep(300)

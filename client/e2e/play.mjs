@@ -112,6 +112,9 @@ await page.evaluate(
     }),
   id,
 )
+// #383/#385: age the probe so the completion actually scores — the in-column
+// celebration should show the REAL reward panel, not the zero-award note.
+backdateTask(id)
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 await page.waitForFunction(
   () => /working on/i.test(document.querySelector('aside')?.textContent || ''),
@@ -141,9 +144,9 @@ await page.evaluate(() =>
 await page.waitForSelector('aside [role=status]', { timeout: 5000 })
 ok(
   await page.evaluate(() =>
-    /nice work|points|done/i.test(document.querySelector('aside [role=status]')?.textContent || ''),
+    /\+\d+\s*points/i.test(document.querySelector('aside [role=status]')?.textContent || ''),
   ),
-  '#256r: in-column Mark done shows the card celebration with the reward',
+  '#256r/#385: in-column Mark done celebrates with the real "+N points" reward',
 )
 ok(
   await page.evaluate(() => document.querySelectorAll('aside .animate-confetti').length > 0),
@@ -175,6 +178,20 @@ await page.evaluate(() =>
 )
 await page.waitForSelector('button[aria-label="Archive this task"]', { timeout: 8000 })
 ok(true, '#312: Completion shows the archive shortcut beside "Keep going"')
+// #385: this probe completes seconds after creation — the award is zeroed
+// (too_fast) and the Completion explains itself instead of showing "+0".
+ok(
+  await page.evaluate(() => /too quick to score/i.test(document.body.textContent || '')),
+  '#385: zero-award Completion explains the too-fast rule',
+)
+ok(
+  await page.evaluate(() =>
+    [...document.querySelectorAll('a')].some(
+      (a) => a.getAttribute('href') === '/how-points-work' && /how points work/i.test(a.textContent || ''),
+    ),
+  ),
+  '#385: the zero-award panel links the guide',
+)
 await page.click('button[aria-label="Archive this task"]')
 await page.waitForSelector('button[aria-label="Archived"]', { timeout: 5000 })
 const archived = await page.evaluate(async (tid) => {

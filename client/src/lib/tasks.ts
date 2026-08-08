@@ -38,12 +38,18 @@ export type Task = {
 /** Recurrence rule (#250): every N days/weeks/months, XOR monthly on day D. */
 export type Recurrence = { unit: 'day' | 'week' | 'month'; interval: number } | { dayOfMonth: number }
 
+/** Why a completion scored 0 (#383): too quick to count, or the day is full. */
+export type AwardZeroReason = 'too_fast' | 'daily_cap' | 'daily_budget'
+
 /** Points breakdown returned when a task is completed (issue #28). */
 export type AwardResult = {
   basePoints: number
   speedBonus: number
   multiplier: number
   totalPoints: number
+  /** Present exactly when the #383 regulation zeroed the award — the UI
+   * explains it instead of showing a bare "+0". */
+  reason?: AwardZeroReason
 }
 
 export type WinSize = 'small' | 'big'

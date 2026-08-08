@@ -265,6 +265,13 @@ export function Header() {
                 >
                   Account settings
                 </Link>
+                <Link
+                  to="/how-points-work"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex h-11 w-full items-center rounded-lg px-3 text-sm text-gray-700 hover:bg-page sm:h-9"
+                >
+                  How points work
+                </Link>
                 <button
                   type="button"
                   onClick={() => void logout()}

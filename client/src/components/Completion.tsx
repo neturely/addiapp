@@ -5,7 +5,13 @@ import { Mascot } from './Mascot'
 import { CONFETTI } from './confetti'
 import { PlayCard } from './PlayCard'
 import { fetchUserStats } from '@/lib/points'
-import { archiveTask, type PlayMode, type ProjectCompletion, type WinSize } from '@/lib/tasks'
+import {
+  archiveTask,
+  type AwardZeroReason,
+  type PlayMode,
+  type ProjectCompletion,
+  type WinSize,
+} from '@/lib/tasks'
 
 
 type CompletionProps = {
@@ -15,6 +21,9 @@ type CompletionProps = {
   taskId?: number
   /** Total points earned for this task (from the #28 award). Omitted if not awarded. */
   totalPoints?: number
+  /** Why the award was zeroed (#383) — rendered as a friendly explanation
+   *  instead of a bare "+0". */
+  reason?: AwardZeroReason
   /** Daily multiplier applied to this completion (brief context, not a breakdown). */
   multiplier?: number
   /** Filters from the just-completed task's selection, reused by "Keep going". */
@@ -29,6 +38,13 @@ type CompletionProps = {
   /** Next-occurrence date (#250, Y-m-d) when completing spawned a recurrence —
    *  the "Comes back …" line, so the task doesn't read as gone. */
   recursAt?: string | null
+}
+
+/** Friendly wording for a zeroed award (#383) — the app explains itself. */
+const ZERO_REASONS: Record<AwardZeroReason, string> = {
+  too_fast: "Too quick to score — tasks finished in under a minute don't earn points.",
+  daily_cap: 'Daily limit reached — points resume tomorrow.',
+  daily_budget: "That's a full day of work already — points resume tomorrow.",
 }
 
 /** '2026-08-25' → "tomorrow" / "Aug 25" for the comes-back line (#250). */
@@ -54,6 +70,7 @@ export function Completion({
   title,
   taskId,
   totalPoints,
+  reason,
   multiplier,
   size,
   minutes,
@@ -103,10 +120,13 @@ export function Completion({
   useEffect(() => {
     headingRef.current?.focus()
   }, [])
+  const zeroed = reason != null && totalPoints === 0
   const announcement =
-    (totalPoints != null
-      ? `Nice work! ${title} complete. You earned ${totalPoints} points.`
-      : `Nice work! ${title} complete.`) +
+    (zeroed
+      ? `Nice work! ${title} complete. No points this time — ${ZERO_REASONS[reason]}`
+      : totalPoints != null
+        ? `Nice work! ${title} complete. You earned ${totalPoints} points.`
+        : `Nice work! ${title} complete.`) +
     (projectBonus
       ? ` Project ${projectBonus.name} complete — bonus ${projectBonus.bonus} points!`
       : '') +
@@ -155,17 +175,31 @@ export function Completion({
       context={
         totalPoints != null || projectBonus ? (
           <div className="flex flex-col gap-3">
-            {totalPoints != null && (
-              <div className="rounded-2xl bg-primary-tint px-6 py-4">
-                <div className="text-6xl font-extrabold tabular-nums text-primary-ink">
-                  +{totalPoints}
-                </div>
-                {contextParts.length > 0 && (
-                  <p className="mt-1 text-sm font-semibold text-primary-ink">
-                    {contextParts.join(' · ')}
-                  </p>
-                )}
+            {/* Zeroed award (#383): the app explains itself instead of "+0" —
+                aria-hidden, the heading announcement already carries it. */}
+            {zeroed ? (
+              <div className="rounded-2xl bg-field px-6 py-4" aria-hidden>
+                <p className="text-sm font-semibold text-gray-700">{ZERO_REASONS[reason]}</p>
+                <Link
+                  to="/how-points-work"
+                  className="mt-1 inline-block text-xs font-semibold text-accent-ink hover:underline"
+                >
+                  How points work →
+                </Link>
               </div>
+            ) : (
+              totalPoints != null && (
+                <div className="rounded-2xl bg-primary-tint px-6 py-4">
+                  <div className="text-6xl font-extrabold tabular-nums text-primary-ink">
+                    +{totalPoints}
+                  </div>
+                  {contextParts.length > 0 && (
+                    <p className="mt-1 text-sm font-semibold text-primary-ink">
+                      {contextParts.join(' · ')}
+                    </p>
+                  )}
+                </div>
+              )
             )}
             {/* Project-completion bonus (#240) — accent-themed, aria-hidden since the
                 heading's aria-label already announces it as one message. */}
