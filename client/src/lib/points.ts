@@ -16,6 +16,16 @@ export type PointsStats = {
    * forecast panel; bonus caps at `maxRatio`×base when finishing within
    * `saturation`×estimate. */
   speedBonus: { maxRatio: number; saturation: number }
+  /** Fair-play limits (#383) — served from PointsConfig so the "How points
+   * work" page (#385) never hardcodes a number. estimateBands: per-complexity
+   * [min, max] minutes the scoring math trusts. */
+  limits: {
+    estimateBands: Record<TaskComplexity, [number, number]>
+    minScoringMinutes: number
+    dailyBudgetMinutes: number
+    dailyCompletionsCap: number
+    projectBonus: { ratio: number; min: number; max: number; minTasks: number }
+  }
 }
 
 export async function fetchPoints(): Promise<PointsStats> {
