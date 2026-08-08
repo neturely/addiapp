@@ -34,4 +34,36 @@ final class Calculate
     {
         return (int) round(($basePoints + $speedBonus) * $multiplier);
     }
+
+    /**
+     * Estimate clamped into the complexity's sanity band (#383) — scoring math
+     * only; the stored estimate is untouched.
+     */
+    public static function clampEstimate(string $complexity, int $estimatedMinutes): int
+    {
+        [$min, $max] = PointsConfig::ESTIMATE_BANDS[$complexity];
+        return max($min, min($max, $estimatedMinutes));
+    }
+
+    /** True when a completion is too fast to score at all (#383). */
+    public static function tooFastToScore(int $elapsedSeconds): bool
+    {
+        return $elapsedSeconds < PointsConfig::MIN_SCORING_MINUTES * 60;
+    }
+
+    /**
+     * Daily-limit verdict BEFORE a completion is scored (#383): the day's prior
+     * scored-completion count and claimed minutes decide whether this one still
+     * scores. Returns 'daily_cap' | 'daily_budget' | null.
+     */
+    public static function dailyLimitReason(int $priorCount, int $priorClaimedMinutes): ?string
+    {
+        if ($priorCount >= PointsConfig::DAILY_COMPLETIONS_CAP) {
+            return 'daily_cap';
+        }
+        if ($priorClaimedMinutes >= PointsConfig::DAILY_BUDGET_MINUTES) {
+            return 'daily_budget';
+        }
+        return null;
+    }
 }

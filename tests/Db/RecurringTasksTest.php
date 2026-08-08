@@ -217,15 +217,24 @@ final class RecurringTasksTest extends DbTestCase
         $this->pdo->prepare('INSERT INTO projects (user_id, name) VALUES (?, ?)')->execute([$userId, 'P']);
         $projectId = (int) $this->pdo->lastInsertId();
 
-        $normal = $this->makeTask($userId, 'high', 30);
+        // 3 non-recurring tasks (#383: the bonus needs ≥ PROJECT_BONUS_MIN_TASKS)
+        // + one recurring, all in the project.
+        $normals = [];
+        for ($i = 0; $i < 3; $i++) {
+            $t = $this->makeTask($userId, 'high', 30);
+            $this->pdo->prepare('UPDATE tasks SET project_id = ? WHERE id = ?')->execute([$projectId, $t]);
+            $normals[] = $t;
+        }
         $recurring = $this->makeTask($userId, 'low', 10);
-        $this->pdo->prepare('UPDATE tasks SET project_id = ? WHERE id IN (?, ?)')->execute([$projectId, $normal, $recurring]);
+        $this->pdo->prepare('UPDATE tasks SET project_id = ? WHERE id = ?')->execute([$projectId, $recurring]);
         $this->pdo->prepare("UPDATE tasks SET recur_unit = 'week', recur_interval = 1 WHERE id = ?")->execute([$recurring]);
 
-        // Completing the only NON-recurring task completes the project (#240
+        // Completing every NON-recurring task completes the project (#240
         // bonus pays, #310 marks it done) despite the live recurring task —
         // and the freshly spawned clone doesn't flip it back to active.
-        [$status, $body] = $this->dispatch('PATCH', "/api/tasks/{$normal}", $sid, ['status' => 'done']);
+        $this->dispatch('PATCH', "/api/tasks/{$normals[0]}", $sid, ['status' => 'done']);
+        $this->dispatch('PATCH', "/api/tasks/{$normals[1]}", $sid, ['status' => 'done']);
+        [$status, $body] = $this->dispatch('PATCH', "/api/tasks/{$normals[2]}", $sid, ['status' => 'done']);
         self::assertSame(200, $status);
         self::assertArrayHasKey('projectCompleted', $body);
         self::assertSame($projectId, $body['projectCompleted']['projectId']);
