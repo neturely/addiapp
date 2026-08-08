@@ -744,7 +744,13 @@ final class TasksController
             $pointsAwarded = Award::awardTaskCompletion($updated);
             // Completing this task may have finished its project (#240) — the award
             // self-guards (fires only when the project is now fully done, once ever).
-            if ($updated['project_id'] !== null) {
+            // #391 review: a completion the #383 regulation ZEROED must not mint the
+            // bonus either (project churn would leak points past the daily limits).
+            // A re-complete (award null, no reason) still checks — that's also the
+            // recovery path: reopen + complete the last task on a fresh day and the
+            // once-ever bonus pays then.
+            $zeroed = $pointsAwarded !== null && isset($pointsAwarded['reason']);
+            if ($updated['project_id'] !== null && !$zeroed) {
                 $projectCompleted = Award::awardProjectCompletion(
                     (int) $updated['project_id'],
                     (int) $updated['user_id'],

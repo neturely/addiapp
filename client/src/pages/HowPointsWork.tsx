@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Flame, Layers, ShieldCheck, Star, Zap } from 'lucide-react'
-import { fetchPoints, type PointsStats } from '@/lib/points'
-import { fetchUserStats, type UserStats } from '@/lib/points'
+import { fetchPoints, fetchUserStats, type PointsStats, type UserStats } from '@/lib/points'
 
 /**
  * One guide section: icon chip + heading, hairline-divided from the previous

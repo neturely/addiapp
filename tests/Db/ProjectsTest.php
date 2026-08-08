@@ -314,9 +314,11 @@ final class ProjectsTest extends DbTestCase
         $projectId = (int) $body['project']['id'];
 
         // 3 high tasks: Σ base = 30 → bonus = round(30 × 0.5) = 15 (> MIN, < MAX).
+        // Backdated (#383/#391): a too-fast-zeroed completion pays no bonus.
         $ids = [];
         for ($i = 0; $i < 3; $i++) {
             $t = $this->makeTask($userId, 'high', 30);
+            $this->backdateTask($t);
             $this->assignTask($t, $projectId);
             $ids[] = $t;
         }
@@ -353,6 +355,7 @@ final class ProjectsTest extends DbTestCase
         $ids = [];
         for ($i = 0; $i < PointsConfig::PROJECT_BONUS_MIN_TASKS; $i++) {
             $t = $this->makeTask($userId, 'low', 5);
+            $this->backdateTask($t); // a zeroed completion pays no bonus (#391)
             $this->assignTask($t, $projectId);
             $ids[] = $t;
         }

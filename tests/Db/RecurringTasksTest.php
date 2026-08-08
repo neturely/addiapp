@@ -222,6 +222,7 @@ final class RecurringTasksTest extends DbTestCase
         $normals = [];
         for ($i = 0; $i < 3; $i++) {
             $t = $this->makeTask($userId, 'high', 30);
+            $this->backdateTask($t); // a zeroed completion pays no bonus (#391)
             $this->pdo->prepare('UPDATE tasks SET project_id = ? WHERE id = ?')->execute([$projectId, $t]);
             $normals[] = $t;
         }
