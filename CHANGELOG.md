@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-08-08
+### Changed
+- "How points work" guide page + zero-award explanations (client half of the #292 points-integrity design) ([#385](https://github.com/neturely/addiapp/issues/385))
+- Points integrity v1 (backend): regulation rules in the award path — sanity bands, 1-min zero rule, re-arm bonus… ([#383](https://github.com/neturely/addiapp/issues/383))
+- Play Choice: promote the category filter to a first-class picker (tinted chip row) — supersedes the project-location… ([#324](https://github.com/neturely/addiapp/issues/324))
+
 ## [2.4.0] - 2026-08-06
 ### Changed
 - Categories v2: management moved into the sidebar (per-entry edit pencil on categories AND projects; delete/archive live inside the edit modals), categories get their own sidebar section, a `?view=categories` row-list view, and an optional description; entries are led by a coloured tag icon (categories) or folder icon (projects); task-row category chips render in the category's own colour ([#336](https://github.com/neturely/addiapp/issues/336))
@@ -170,7 +176,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.4.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.5.0...HEAD
+[2.5.0]: https://github.com/neturely/addiapp/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/neturely/addiapp/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/neturely/addiapp/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/neturely/addiapp/compare/v2.1.0...v2.2.0
