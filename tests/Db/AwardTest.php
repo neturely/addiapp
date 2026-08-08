@@ -20,7 +20,7 @@ final class AwardTest extends DbTestCase
 
         // High (base 10), done in 15 of 30 min (speed bonus 10), 1st of the day
         // (multiplier 1.00) => total 20.
-        $result = Award::awardTaskCompletion($taskId, $userId, 'high', 30, 15);
+        $result = Award::awardTaskCompletion($this->awardRow($taskId, $userId, 'high', 30, 15));
 
         self::assertNotNull($result);
         self::assertSame(10, $result['basePoints']);
@@ -34,8 +34,8 @@ final class AwardTest extends DbTestCase
         $userId = $this->makeUser('award-dupe@test.local');
         $taskId = $this->makeTask($userId, 'medium', 20);
 
-        $first = Award::awardTaskCompletion($taskId, $userId, 'medium', 20, null);
-        $second = Award::awardTaskCompletion($taskId, $userId, 'medium', 20, null);
+        $first = Award::awardTaskCompletion($this->awardRow($taskId, $userId, 'medium', 20, null));
+        $second = Award::awardTaskCompletion($this->awardRow($taskId, $userId, 'medium', 20, null));
 
         self::assertNotNull($first);
         self::assertNull($second, 'a re-complete must not re-award');
@@ -56,8 +56,8 @@ final class AwardTest extends DbTestCase
         $t1 = $this->makeTask($userId, 'low', 10);
         $t2 = $this->makeTask($userId, 'low', 10);
 
-        $first = Award::awardTaskCompletion($t1, $userId, 'low', 10, null);
-        $second = Award::awardTaskCompletion($t2, $userId, 'low', 10, null);
+        $first = Award::awardTaskCompletion($this->awardRow($t1, $userId, 'low', 10, null));
+        $second = Award::awardTaskCompletion($this->awardRow($t2, $userId, 'low', 10, null));
 
         // 1st task of the day earns x1.00, the 2nd earns x1.15.
         self::assertSame(1.0, $first['multiplier']);

@@ -35,6 +35,39 @@ final class PointsConfig
     public const PROJECT_BONUS_MIN = 10;
     public const PROJECT_BONUS_MAX = 100;
 
+    /**
+     * Points-integrity regulation (#292/#383) — the score must survive a future
+     * multi-user leaderboard, so the award path stops trusting user-controlled
+     * inputs at the edges. ONE regulated score (no dual ledger, decided #292).
+     */
+
+    /** Estimate sanity bands per complexity, minutes — SCORING only (the task
+     *  field still accepts 1–100,000): bonus/budget math clamps into these so
+     *  fantasy estimates stop inflating anything. */
+    public const ESTIMATE_BANDS = [
+        'low' => [5, 60],
+        'medium' => [15, 240],
+        'high' => [30, 480],
+    ];
+
+    /** Completions with less elapsed time than this score 0 (base included).
+     *  Elapsed = start→done, or created→done when completed straight from
+     *  Ready — so untimed one-click dones and mass-created insta-completes
+     *  can't mint points. */
+    public const MIN_SCORING_MINUTES = 1;
+
+    /** "A day can only hold a day": once today's scored completions claim this
+     *  many (clamped-estimate) minutes, further completions score 0. */
+    public const DAILY_BUDGET_MINUTES = 720;
+
+    /** Volume guard the budget can't provide (many tiny tasks): points for the
+     *  first N scored completions per day, 0 after. */
+    public const DAILY_COMPLETIONS_CAP = 25;
+
+    /** The #240 project bonus requires at least this many (non-recurring)
+     *  tasks — throwaway one-task projects pay nothing. */
+    public const PROJECT_BONUS_MIN_TASKS = 3;
+
     public static function timezone(): string
     {
         return (string) Config::get('appTimezone');

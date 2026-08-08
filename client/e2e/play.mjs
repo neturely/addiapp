@@ -2,7 +2,7 @@
 // running mirror (live clock + Mark done from the column). Plus #306: options
 // with zero possible candidates are hidden — asserted by driving the projects
 // option through a deterministic hidden → shown transition.
-import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
+import { backdateTask, launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
 const browser = await launch()
@@ -183,6 +183,40 @@ const archived = await page.evaluate(async (tid) => {
   return task.archivedAt !== null
 }, archProbe)
 ok(archived, '#312: the shortcut files the just-completed task away (archivedAt set)')
+
+// --- #383: points regulation, live ---
+// A fresh task one-click-done'd from Ready is too fast to score (the untimed
+// loophole is closed); the same task aged past the threshold scores normally.
+const completeViaApi = (id) =>
+  page.evaluate(async (tid) => {
+    const r = await fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'done' }),
+    })
+    return (await r.json()).pointsAwarded ?? null
+  }, id)
+
+const fastId = await seedTask(page, 'Reg fast probe', 'high', 30)
+const fastAward = await completeViaApi(fastId)
+ok(
+  fastAward?.totalPoints === 0 && fastAward?.reason === 'too_fast',
+  `#383: instant complete-from-Ready scores 0 with reason too_fast (got ${JSON.stringify(fastAward)})`,
+)
+
+const slowId = await seedTask(page, 'Reg slow probe', 'high', 30)
+backdateTask(slowId)
+const slowAward = await completeViaApi(slowId)
+ok(
+  (slowAward?.totalPoints ?? 0) > 0 && slowAward?.reason === undefined,
+  `#383: an aged task scores normally (got ${JSON.stringify(slowAward)})`,
+)
+
+// Cleanup the probes (done tasks would linger in the demo data).
+await page.evaluate(async (ids) => {
+  for (const id of ids) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
+}, [fastId, slowId])
 
 await browser.close()
 process.exit(done())
