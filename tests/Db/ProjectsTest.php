@@ -342,17 +342,41 @@ final class ProjectsTest extends DbTestCase
         self::assertSame(15, (int) $log->fetchColumn());
     }
 
-    public function testBonusFloorsAtMinForTinyProject(): void
+    public function testBonusFloorsAtMinForSmallProject(): void
     {
+        // #383: the bonus needs ≥ PROJECT_BONUS_MIN_TASKS tasks — the smallest
+        // eligible project (3 low: Σ base = 6 → 3) still floors to MIN.
         $userId = $this->makeUser('proj-bonus-floor@test.local');
         $sid = Sessions::create($userId);
-        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Tiny']);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Small']);
         $projectId = (int) $body['project']['id'];
-        $t = $this->makeTask($userId, 'low', 5); // Σ base = 2 → 1 → floored to MIN.
+        $ids = [];
+        for ($i = 0; $i < PointsConfig::PROJECT_BONUS_MIN_TASKS; $i++) {
+            $t = $this->makeTask($userId, 'low', 5);
+            $this->assignTask($t, $projectId);
+            $ids[] = $t;
+        }
+
+        $r = [];
+        foreach ($ids as $t) {
+            [, $r] = $this->dispatch('PATCH', "/api/tasks/{$t}", $sid, ['status' => 'done']);
+        }
+        self::assertSame(PointsConfig::PROJECT_BONUS_MIN, $r['projectCompleted']['bonus']);
+    }
+
+    public function testNoBonusBelowMinTasks(): void
+    {
+        // #383: a throwaway 1-task project completes without any bonus.
+        $userId = $this->makeUser('proj-bonus-tiny@test.local');
+        $sid = Sessions::create($userId);
+        [, $body] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Throwaway']);
+        $projectId = (int) $body['project']['id'];
+        $t = $this->makeTask($userId, 'low', 5);
         $this->assignTask($t, $projectId);
 
         [, $r] = $this->dispatch('PATCH', "/api/tasks/{$t}", $sid, ['status' => 'done']);
-        self::assertSame(PointsConfig::PROJECT_BONUS_MIN, $r['projectCompleted']['bonus']);
+        self::assertArrayNotHasKey('projectCompleted', $r);
+        self::assertNull(Award::awardProjectCompletion($projectId, $userId));
     }
 
     public function testNoBonusForEmptyOrIncompleteProject(): void
