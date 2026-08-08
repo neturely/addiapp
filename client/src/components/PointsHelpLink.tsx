@@ -15,7 +15,7 @@ export function PointsHelpLink({ className = '' }: { className?: string }) {
     <Link
       to="/how-points-work"
       aria-label="How points work"
-      className={`tap-44 inline-flex opacity-75 transition hover:opacity-100 ${className}`}
+      className={`tap-44 inline-flex opacity-75 transition hover:opacity-100 focus-visible:opacity-100 ${className}`}
     >
       <CircleHelp className="h-4 w-4 fill-success stroke-surface" strokeWidth={2.5} aria-hidden />
     </Link>

@@ -190,6 +190,44 @@ final class PointsRegulationTest extends DbTestCase
         self::assertSame('daily_budget', $body['pointsAwarded']['reason']);
     }
 
+    // --- project-bonus interplay (#391 review) ---
+
+    public function testZeroedCompletionDoesNotMintTheProjectBonus(): void
+    {
+        // Finishing a project's last task while the day is capped must not pay
+        // the #240 bonus (project churn would leak points past the limits) —
+        // but the bonus is once-ever, not lost: a re-complete on an uncapped
+        // day (award null → no reason) runs the check and pays it.
+        $userId = $this->makeUser('reg-proj@test.local');
+        $sid = Sessions::create($userId);
+        $this->pdo->prepare('INSERT INTO projects (user_id, name) VALUES (?, ?)')->execute([$userId, 'Capped']);
+        $projectId = (int) $this->pdo->lastInsertId();
+        $ids = [];
+        for ($i = 0; $i < PointsConfig::PROJECT_BONUS_MIN_TASKS; $i++) {
+            $t = $this->makeTask($userId, 'low', 5);
+            $this->backdateTask($t);
+            $this->pdo->prepare('UPDATE tasks SET project_id = ? WHERE id = ?')->execute([$projectId, $t]);
+            $ids[] = $t;
+        }
+        $this->dispatch('PATCH', "/api/tasks/{$ids[0]}", $sid, ['status' => 'done']);
+        $this->dispatch('PATCH', "/api/tasks/{$ids[1]}", $sid, ['status' => 'done']);
+
+        // Cap the day, then complete the last task: zeroed award, NO bonus.
+        $this->pdo->prepare('UPDATE daily_stats SET tasks_completed = ? WHERE user_id = ?')
+            ->execute([PointsConfig::DAILY_COMPLETIONS_CAP, $userId]);
+        [, $body] = $this->dispatch('PATCH', "/api/tasks/{$ids[2]}", $sid, ['status' => 'done']);
+        self::assertSame('daily_cap', $body['pointsAwarded']['reason']);
+        self::assertArrayNotHasKey('projectCompleted', $body);
+
+        // Recovery: reopen + re-complete once the day is clear — the task
+        // award is a no-op (already logged) but the once-ever bonus pays now.
+        $this->pdo->prepare('DELETE FROM daily_stats WHERE user_id = ?')->execute([$userId]);
+        $this->dispatch('PATCH', "/api/tasks/{$ids[2]}", $sid, ['status' => 'backlog']);
+        [, $again] = $this->dispatch('PATCH', "/api/tasks/{$ids[2]}", $sid, ['status' => 'done']);
+        self::assertArrayNotHasKey('pointsAwarded', $again);
+        self::assertSame($projectId, $again['projectCompleted']['projectId']);
+    }
+
     // --- recurring interplay ---
 
     public function testZeroedAwardStillSpawnsTheRecurringClone(): void
