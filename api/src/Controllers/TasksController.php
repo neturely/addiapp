@@ -689,6 +689,12 @@ final class TasksController
                     $sets[] = 'started_at = NULL';
                     $sets[] = 'completed_at = NULL';
                     $sets[] = 'actual_minutes = NULL';
+                    // #383: the speed bonus is a one-shot sprint reward — an
+                    // in-progress task sent back to Ready forfeits it for good
+                    // (sticky; re-arming the timer can never help).
+                    if ($existing['status'] === 'in_progress') {
+                        $sets[] = 'bonus_forfeited = 1';
+                    }
                 }
                 // Leaving 'done' un-files the task (#312) — the archived ⇒ done
                 // invariant keeps archived rows out of the Play backlog pool.
@@ -733,16 +739,18 @@ final class TasksController
             // A completed task's notifications are moot (#366) — remove them.
             // (Task deletion needs no hook: the notifications FK cascades.)
             Notifications::removeForTask($pdo, (int) $updated['id'], (int) $req->userId);
-            $pointsAwarded = Award::awardTaskCompletion(
-                (int) $updated['id'],
-                (int) $updated['user_id'],
-                $updated['complexity'],
-                (int) $updated['estimated_minutes'],
-                $updated['actual_minutes'] !== null ? (int) $updated['actual_minutes'] : null,
-            );
+            // #383: the award reads timing + the forfeit flag off the reloaded
+            // row and may zero itself (reason rides the response for the UI).
+            $pointsAwarded = Award::awardTaskCompletion($updated);
             // Completing this task may have finished its project (#240) — the award
             // self-guards (fires only when the project is now fully done, once ever).
-            if ($updated['project_id'] !== null) {
+            // #391 review: a completion the #383 regulation ZEROED must not mint the
+            // bonus either (project churn would leak points past the daily limits).
+            // A re-complete (award null, no reason) still checks — that's also the
+            // recovery path: reopen + complete the last task on a fresh day and the
+            // once-ever bonus pays then.
+            $zeroed = $pointsAwarded !== null && isset($pointsAwarded['reason']);
+            if ($updated['project_id'] !== null && !$zeroed) {
                 $projectCompleted = Award::awardProjectCompletion(
                     (int) $updated['project_id'],
                     (int) $updated['user_id'],

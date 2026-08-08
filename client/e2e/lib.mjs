@@ -1,5 +1,6 @@
 // Shared helpers for the e2e/a11y harness (#170). Drives the REAL app in the
 // system Chrome via puppeteer-core — no bundled Chromium. See README.md.
+import { execFileSync } from 'node:child_process'
 import puppeteer from 'puppeteer-core'
 
 // System Chrome (no download). Override with CHROME=… on non-mac / other installs.
@@ -47,6 +48,28 @@ export async function login(page) {
       `login failed for ${EMAIL} — is the dev stack up and the user seeded + email-verified? (see README)`,
     )
   }
+}
+
+/**
+ * Backdate a task's created_at/started_at in the dev DB (#383): the points
+ * regulation zeroes completions under a minute old, so an e2e flow that wants
+ * a REAL award must age its seeded task first. Talks straight to the docker
+ * MySQL (harness-only — this never runs in CI); container/creds match the dev
+ * stack defaults, override with E2E_DB_CONTAINER if yours differs.
+ */
+export function backdateTask(id, minutes = 120) {
+  execFileSync('docker', [
+    'exec',
+    process.env.E2E_DB_CONTAINER || 'addiapp-mysql-1',
+    'mysql',
+    '-uaddiapp',
+    '-paddiapp',
+    'addiapp',
+    '-e',
+    `UPDATE tasks SET created_at = DATE_SUB(created_at, INTERVAL ${Number(minutes)} MINUTE),
+       started_at = IF(started_at IS NULL, NULL, DATE_SUB(started_at, INTERVAL ${Number(minutes)} MINUTE))
+     WHERE id = ${Number(id)}`,
+  ])
 }
 
 /** Create a backlog task for the logged-in user via the API; returns its id. */

@@ -170,6 +170,7 @@ export function InProgress() {
         title={task?.title ?? 'Task complete'}
         taskId={task?.id}
         totalPoints={awarded?.totalPoints}
+        reason={awarded?.reason}
         multiplier={awarded?.multiplier}
         size={size}
         minutes={minutes}

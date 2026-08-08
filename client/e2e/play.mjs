@@ -2,7 +2,7 @@
 // running mirror (live clock + Mark done from the column). Plus #306: options
 // with zero possible candidates are hidden — asserted by driving the projects
 // option through a deterministic hidden → shown transition.
-import { launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
+import { backdateTask, launch, login, reporter, seedTask, sleep, BASE } from './lib.mjs'
 
 const { ok, done } = reporter()
 const browser = await launch()
@@ -37,13 +37,37 @@ const choice = await page.evaluate(() => {
     small: /get small tasks done/i.test(text),
     big: /take on bigger issues/i.test(text),
     projects: /focus on projects/i.test(text),
-    time: /how much time do you have/i.test(text),
-    radios: document.querySelectorAll('[role=radio]').length,
+    // #324 review round: the standalone "How much time do you have?" section
+    // is GONE — each win-type row carries its own launch chips (short presets
+    // on the small row, long/open on the big row).
+    timeSection: /how much time do you have/i.test(text),
+  }
+})
+const chipHomes = await page.evaluate(() => {
+  const home = (label) => {
+    const btn = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === label,
+    )
+    return btn?.closest('div.rounded-xl')?.textContent || ''
+  }
+  return {
+    little: home('A little time'),
+    few: home('A few hours'),
+    day: home('A day'),
+    any: home('Any time'),
   }
 })
 ok(choice.small && choice.big, '#264: both win-type options render')
 ok(!choice.projects, '#306: "Focus on projects" hidden with no active-project backlog task')
-ok(choice.time && choice.radios === 4, '#264: time chips are the 4-radio radiogroup (fuzzy durations, 2.3.0 review round)')
+ok(!choice.timeSection, '#324r: the standalone time section is gone')
+ok(
+  /get small tasks done/i.test(chipHomes.little) && /get small tasks done/i.test(chipHomes.few),
+  '#324r: "A little time" + "A few hours" launch chips live in the small row',
+)
+ok(
+  /take on bigger issues/i.test(chipHomes.day) && /take on bigger issues/i.test(chipHomes.any),
+  '#324r: "A day" + "Any time" launch chips live in the big row',
+)
 
 // Seed an active project WITH a backlog task → the option comes back.
 await page.evaluate(async () => {
@@ -88,6 +112,9 @@ await page.evaluate(
     }),
   id,
 )
+// #383/#385: age the probe so the completion actually scores — the in-column
+// celebration should show the REAL reward panel, not the zero-award note.
+backdateTask(id)
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 await page.waitForFunction(
   () => /working on/i.test(document.querySelector('aside')?.textContent || ''),
@@ -117,9 +144,9 @@ await page.evaluate(() =>
 await page.waitForSelector('aside [role=status]', { timeout: 5000 })
 ok(
   await page.evaluate(() =>
-    /nice work|points|done/i.test(document.querySelector('aside [role=status]')?.textContent || ''),
+    /\+\d+\s*points/i.test(document.querySelector('aside [role=status]')?.textContent || ''),
   ),
-  '#256r: in-column Mark done shows the card celebration with the reward',
+  '#256r/#385: in-column Mark done celebrates with the real "+N points" reward',
 )
 ok(
   await page.evaluate(() => document.querySelectorAll('aside .animate-confetti').length > 0),
@@ -151,6 +178,20 @@ await page.evaluate(() =>
 )
 await page.waitForSelector('button[aria-label="Archive this task"]', { timeout: 8000 })
 ok(true, '#312: Completion shows the archive shortcut beside "Keep going"')
+// #385: this probe completes seconds after creation — the award is zeroed
+// (too_fast) and the Completion explains itself instead of showing "+0".
+ok(
+  await page.evaluate(() => /too quick to score/i.test(document.body.textContent || '')),
+  '#385: zero-award Completion explains the too-fast rule',
+)
+ok(
+  await page.evaluate(() =>
+    [...document.querySelectorAll('a')].some(
+      (a) => a.getAttribute('href') === '/how-points-work' && /how points work/i.test(a.textContent || ''),
+    ),
+  ),
+  '#385: the zero-award panel links the guide',
+)
 await page.click('button[aria-label="Archive this task"]')
 await page.waitForSelector('button[aria-label="Archived"]', { timeout: 5000 })
 const archived = await page.evaluate(async (tid) => {
@@ -159,6 +200,40 @@ const archived = await page.evaluate(async (tid) => {
   return task.archivedAt !== null
 }, archProbe)
 ok(archived, '#312: the shortcut files the just-completed task away (archivedAt set)')
+
+// --- #383: points regulation, live ---
+// A fresh task one-click-done'd from Ready is too fast to score (the untimed
+// loophole is closed); the same task aged past the threshold scores normally.
+const completeViaApi = (id) =>
+  page.evaluate(async (tid) => {
+    const r = await fetch(`/api/tasks/${tid}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'done' }),
+    })
+    return (await r.json()).pointsAwarded ?? null
+  }, id)
+
+const fastId = await seedTask(page, 'Reg fast probe', 'high', 30)
+const fastAward = await completeViaApi(fastId)
+ok(
+  fastAward?.totalPoints === 0 && fastAward?.reason === 'too_fast',
+  `#383: instant complete-from-Ready scores 0 with reason too_fast (got ${JSON.stringify(fastAward)})`,
+)
+
+const slowId = await seedTask(page, 'Reg slow probe', 'high', 30)
+backdateTask(slowId)
+const slowAward = await completeViaApi(slowId)
+ok(
+  (slowAward?.totalPoints ?? 0) > 0 && slowAward?.reason === undefined,
+  `#383: an aged task scores normally (got ${JSON.stringify(slowAward)})`,
+)
+
+// Cleanup the probes (done tasks would linger in the demo data).
+await page.evaluate(async (ids) => {
+  for (const id of ids) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
+}, [fastId, slowId])
 
 await browser.close()
 process.exit(done())

@@ -4,6 +4,7 @@ import { CircleCheck, Play } from 'lucide-react'
 import { buttonClasses } from './buttonClasses'
 import { CONFETTI } from './confetti'
 import { Mascot } from './Mascot'
+import { PointsHelpLink } from './PointsHelpLink'
 import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchUserStats, type UserStats } from '@/lib/points'
 import { PROJECTS_CHANGED_EVENT } from '@/lib/projects'
@@ -57,7 +58,10 @@ export function RightColumn() {
       <PlayColumnCard onCompleted={() => setStatsRefresh((n) => n + 1)} />
 
       <section className="mb-3 rounded-xl bg-surface p-4">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Today</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Today</h2>
+          <PointsHelpLink />
+        </div>
         <div className="text-4xl font-bold tabular-nums tracking-tight text-success-ink">
           {stats?.today.pointsEarned ?? 0}
         </div>
@@ -79,9 +83,12 @@ export function RightColumn() {
       </section>
 
       <section className="rounded-xl bg-surface p-4">
-        <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted">
-          All time
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+            All time
+          </h2>
+          <PointsHelpLink />
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <Tile
             className="col-span-2 bg-primary-tint text-primary-ink"
@@ -228,7 +235,16 @@ function CelebrationPanel({ celebration }: { celebration: Celebration }) {
       <h2 className="mb-3 mt-1.5 line-clamp-2 font-semibold leading-snug text-gray-800">
         {celebration.title}
       </h2>
-      {celebration.points != null ? (
+      {celebration.points === 0 ? (
+        // Zeroed award (#383): a quiet note beats a hollow "+0" — the
+        // Completion screen and the guide carry the full explanation.
+        <p className="mx-auto mb-1 max-w-[12rem] text-xs text-muted">
+          No points this time —{' '}
+          <Link to="/how-points-work" className="font-semibold text-accent-ink hover:underline">
+            how points work
+          </Link>
+        </p>
+      ) : celebration.points != null ? (
         <div className="mx-auto max-w-[10rem] rounded-xl bg-success-tint px-4 py-3">
           <div className="text-3xl font-bold tabular-nums tracking-tight text-success-ink">
             +{celebration.points}

@@ -11,6 +11,7 @@ import { InProgress } from '@/pages/InProgress'
 import { TaskView } from '@/pages/TaskView'
 import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
+import { HowPointsWork } from '@/pages/HowPointsWork'
 import { Notifications } from '@/pages/Notifications'
 import { Settings } from '@/pages/Settings'
 import { NotFound } from '@/pages/NotFound'
@@ -46,6 +47,9 @@ export const router = createBrowserRouter([
           { path: '/tasks/:id/edit', element: <TaskView /> },
           { path: '/dashboard', element: <Dashboard /> },
           { path: '/stats', element: <Stats /> },
+          // The friendly scoring guide (#385) — linked from the avatar menu
+          // and the ? icons on the points panels.
+          { path: '/how-points-work', element: <HowPointsWork /> },
           { path: '/notifications', element: <Notifications /> },
           { path: '/settings', element: <Settings /> },
         ],

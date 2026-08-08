@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Flame, Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
+import { PointsHelpLink } from '@/components/PointsHelpLink'
 import { fetchUserStats, type UserStats } from '@/lib/points'
 
 /**
@@ -89,8 +90,10 @@ export function Stats() {
       </div>
 
       {/* Tint + ink (#254): both label and number clear small-text AA
-          (primary-ink on primary-tint = 4.76:1). */}
-      <section className="mb-4 rounded-2xl bg-primary-tint p-6 text-center">
+          (primary-ink on primary-tint = 4.76:1). The ? links the scoring
+          guide (#385) — points are never unexplained. */}
+      <section className="relative mb-4 rounded-2xl bg-primary-tint p-6 text-center">
+        <PointsHelpLink className="absolute right-4 top-4" />
         <div className="text-xs font-medium uppercase tracking-wide text-primary-ink">Total points</div>
         <div className="text-5xl font-extrabold tabular-nums text-primary-ink">{total.toLocaleString()}</div>
       </section>
