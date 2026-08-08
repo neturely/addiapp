@@ -7,7 +7,9 @@
 > 2026-07-29 (post-1.9.0 — Projects follow-ups #245/#248 + the #250 recurring/snooze
 > spec filed); GUI-refresh sync 2026-07-30 (**epic #256 complete** — shell/rail/right
 > column, TaskView, offset pagination, palette, parallel running tasks; #292 points
-> integrity + #295 mobile pass filed). Most core
+> integrity + #295 mobile pass filed); points-integrity sync 2026-08-08 (2.5.0
+> candidate — **#292 designed AND built** via #383 regulation + #385 "How points
+> work" guide, plus the #324 Play Choice restructure). Most core
 > decisions are settled; open items live in the Open decisions log. Where this
 > file and the code disagree, the code (on `develop`) wins — update this file.
 
@@ -150,6 +152,45 @@ orchestration (`Points/Award.php`). See PROJECT_SPEC §7 for the full formulas.
   include it; `PATCH /api/tasks` returns `projectCompleted` on the completing call,
   surfaced as an accent bonus panel on the Play **Completion** screen. **NO other
   project→points effect** (multiplier/speed unchanged) — deliberate for v1.
+- **Points-integrity regulation (#292 → #383, BUILT 2026-08-08)** — designed for a
+  future multi-user/leaderboard AddiApp; **ONE regulated score** (dual ledger
+  explicitly rejected). All constants in `PointsConfig`, pure math in `Calculate`,
+  enforcement in `Award::awardTaskCompletion` (which now takes the reloaded task
+  ROW — it needs timing + the forfeit flag):
+  - **Estimate sanity bands, scoring only** (`ESTIMATE_BANDS`: low 5–60 / medium
+    15–240 / high 30–480 min): bonus AND budget math clamp the estimate; the task
+    field still accepts 1–100,000.
+  - **Too-fast = 0 points** (`MIN_SCORING_MINUTES = 1`): elapsed < 1 min (from
+    `started_at`, else `created_at` for straight-from-Ready one-click dones) zeroes
+    the WHOLE award. Recurring clones are ≥1 day old at completion — unaffected.
+  - **One-shot sprint bonus** (user decision): `tasks.bonus_forfeited` (migration
+    033) is set STICKY on the in_progress→backlog transition — a paused/re-armed
+    task earns base × multiplier but never the speed bonus. No Pause exists, so
+    this IS the pause path: deliberate, "sorry for you if you lost two hours".
+  - **Daily limits — "a day can only hold a day"**: `DAILY_BUDGET_MINUTES = 720`
+    (Σ clamped estimates of scored completions, `daily_stats.claimed_minutes`,
+    migration 034) and `DAILY_COMPLETIONS_CAP = 25`; past either, completions
+    score 0. **Zeroed awards still INSERT their points_log row** (totals 0 — keeps
+    the #74 once-ever gate and the #250 spawn-on-insert-win) but **never advance
+    daily_stats** (no multiplier pumping via free instant tasks).
+  - **Project bonus needs ≥ 3 tasks** (`PROJECT_BONUS_MIN_TASKS`).
+  - The completing PATCH's `pointsAwarded` gains **`reason`**
+    (`too_fast|daily_cap|daily_budget`) when zeroed; `GET /api/points` serves a
+    **`limits`** object (bands/caps) for the guide page. DROPPED on design review:
+    a speed-bonus floor (mathematically inert below the 50% saturation) and a
+    multiplier taper (superseded by the count cap). Locked by
+    `tests/Unit/RegulationTest.php` + `tests/Db/PointsRegulationTest.php`.
+- **"How points work" guide (#385)**: `/how-points-work` — plain-language scoring
+  walkthrough (base/speed/daily/project + fair-play limits), EVERY number served
+  from `GET /api/points` + `/stats`. Layout = the **Settings-style full-width white
+  surface** (left-aligned, hairline-divided sections) — the template for future
+  info pages (#41). Reached from an avatar-menu item (below Sign out, behind a
+  hairline) + the shared **`PointsHelpLink`** dot (bold white ? on a solid
+  success-green disc, rest opacity-75 → full on hover) top-right of the
+  right-column Today/All-time panels and the Stats page. **Zero awards explain
+  themselves**: Completion renders the friendly `reason` text + guide link instead
+  of "+0" (the SR announcement carries it); the in-column celebration shows a
+  quiet "No points this time" note.
 
 ## Task-selection algorithm (Play mode, #31)
 
@@ -317,8 +358,9 @@ to the old Node API.
   category's task list — and its + → the `?newCategory=1` modal), entries led
   by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
   centered in the pole square's 8px slot so all rail labels share one x —
-  **per-project entries lead with a FOLDER icon the same way**, the fixed pool
-  rows keep pole squares: tag = category, folder = project), and each carries
+  **per-project entries lead with a LAYERS icon the same way** (#324 review:
+  the Play "Focus on projects" icon replaced the Folder), the fixed pool
+  rows keep pole squares: tag = category, layers = project), and each carries
   an inline **edit affordance** (`CategoryRailRow` — pencil revealed on hover/focus-within at
   sm+ via opacity, never `display:none`, so it stays in the tab order; always
   visible in the drawer; the hover highlight sits on `group-hover`, so
@@ -332,10 +374,11 @@ to the old Node API.
   color-mixed 18% into white, dark neutral text AA on every slot; White falls
   back to the field tone) — **hidden on the category's own filter view**
   (redundant there, every row shares it) — a TaskView **Category select**
-  (+ `?category=` pre-assign on create), and a Play Choice **"From" select**
-  (renders only when categories exist) carried through the whole chain
-  (TaskPresented → InProgress → Completion "Keep going"). **#336 angles
-  deliberately deferred:** assign-from-list and the Choice "From" restyle. **`ColorSwatchPicker`**
+  (+ `?category=` pre-assign on create), and the Play Choice **category filter
+  chip row** (#324 — superseded the #276 "From" select; renders only when
+  categories exist) carried through the whole chain
+  (TaskPresented → InProgress → Completion "Keep going"). **#336 angle still
+  deferred:** assign-from-list (the Choice "From" restyle shipped as #324). **`ColorSwatchPicker`**
   (`components/`) is the extracted shared swatch radiogroup — ProjectForm and
   CategoryModal both use it. Locked by `tests/Db/CategoriesTest.php` + `e2e/categories.mjs`.
 - **Task archiving (#312)**: an **Archived AXIS on tasks** (`tasks.archived_at`
@@ -447,9 +490,19 @@ to the old Node API.
 - **Play mode (#29–#34, #69, #191; restyled #264)**: Choice `/play` is the landing
   (`/` redirects to it — the standalone Home screen was retired in #191), Task
   `/play/task`, In-progress `/play/progress/:id`, Completion, Empty state. **#264
-  (epic #256 D):** Choice is now ONE prototype-style card (mascot half-out, three
-  full-width option rows, time chips inside — still not on `PlayCard`, still the
-  5-radio roving radiogroup); InProgress gained effort+estimate pills and its CTA
+  (epic #256 D):** Choice is ONE prototype-style card (mascot half-out, full-width
+  option rows — still not on `PlayCard`). **Restructured #324 (2026-08-08, three
+  review rounds):** a **category FILTER chip row under the heading** ("Any
+  category" default + one small tinted chip per category — `projectTint()` gained
+  a strength param, 18 resting / 45 selected; roving-tabindex radiogroup) scopes
+  whichever option launches below via the existing `?category=` (composes with
+  size AND `mode=projects`); the standalone "How much time do you have?" section
+  is GONE — **each win-type row carries its own small right-aligned launch
+  chips** (small: "A little time" 30 / "A few hours" 180; big: "A day" 480 /
+  "Any time" null — tapping a chip launches directly, the rows themselves aren't
+  buttons), sitting in the Auto-picked pill's slot so all rows share one height;
+  "Focus on projects" stays a whole-row auto-pick (no time filter — accepted
+  cut). No backend change (`?category=` already composed). InProgress gained effort+estimate pills and its CTA
   is **"Mark done"** on `success-deep` (e2e greps updated); the shell right column
   carries a **running-task mirror** (`RunningMirror` in `RightColumn.tsx` — live
   clock off `startedAt`, speed-bonus deadline, Open + **Mark done from the
@@ -617,7 +670,9 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
   + icon nav (**Play + Dashboard + Settings** — that order (#256 review), then the
   conditional Stats icon; `bg-primary-tint` active state) +
   right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
-  Account settings + **Sign out**; logout moved here from the Footer; the #266
+  Notifications + Account settings + **Sign out**, then a hairline + **"How
+  points work"** (#385, below the account actions); logout moved here from the
+  Footer; the #266
   "Sign out other devices" item moved OUT to Settings as "Sign out everywhere",
   #304). The old
   header "Add task" CTA moved to the rail's Tasks plus. A **Stats icon appears
@@ -838,7 +893,11 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   `client/e2e/` harness (`npm run e2e:a11y -w client`, #170): puppeteer-core drives
   the real app in system Chrome and asserts focus/keyboard/ARIA behavior. It's the
   in-repo tool for live-verifying any client interaction; needs the dev stack up
-  (not in CI). See `client/e2e/README.md`.
+  (not in CI). See `client/e2e/README.md`. **#383 harness notes:** fresh seeded
+  tasks now rightly score 0 (the <1-min rule) — flows that need a real award call
+  `backdateTask(id)` from `lib.mjs` (ages `created_at`/`started_at` via docker
+  MySQL, harness-only); heavy suite runs can trip the **#80 login rate limiter**
+  (suites suddenly time out AT login) — clear the dev DB's `rate_limits` table.
 - **Backend (PHP 8.2)**: plain PHP + PDO, no framework, no Composer runtime deps.
   Thin controllers; logic in modules (`Points/`, `Tasks/Selection.php`, `Auth/`).
   PDO **parameterized** queries only — never string-concatenate SQL. PSR-4-ish
@@ -943,12 +1002,6 @@ Genuinely still open:
   entry → `?view=projects&archived=1` (ProjectsView archived grid + **Unarchive**);
   `GET /api/projects?status=archived|all` (default still active-only); archived
   projects' tasks browsable per-project via `?projectId=`.
-- [ ] Points integrity / anti-cheat — **#292** (filed 2026-07-30): the scoring is
-  trivially gameable (fabricated tasks, inflated self-set estimates, timer
-  re-arming, volume/multiplier farming, throwaway-project #240 bonuses) —
-  acceptable while points are private, must be designed BEFORE any leaderboard.
-  Candidate levers in the issue; a separate regulated "competitive score" (personal
-  score stays generous) may be the cleanest. Blocks any future leaderboard issue.
 - [ ] Mobile phone-width pass — **#295** (filed 2026-07-30): #270 was a no-breakage
   responsive pass; a real phone design pass (360px-class, row content choices,
   touch running-task UX, dvh/safe-areas, real-device verification) is deferred
@@ -962,6 +1015,13 @@ Genuinely still open:
 
 Resolved (kept for reference):
 
+- [x] Points integrity / anti-cheat — **#292, designed AND BUILT 2026-08-08**
+  (backend #383, guide #385 — see the Points/gamification section): ONE regulated
+  score, sanity bands, <1-min zero rule, one-shot sprint bonus, daily
+  budget+count caps, ≥3-task project bonus, all explained in-app. The settled
+  design lives in the "✅ SETTLED DESIGN" comment on #292. A future leaderboard
+  still needs its own design (windowed vs lifetime etc.) but is no longer
+  blocked on scoring integrity.
 - [x] Recurring tasks + "snooze until" — **#250, BUILT 2026-08-04** (see the
   What's-built entry): clone-per-occurrence + `available_from`, recurring excluded
   from the #240/#310 all-done tallies.

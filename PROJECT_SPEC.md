@@ -1,9 +1,12 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-07-31
-(2.0.0 shipped the **GUI-refresh epic #256** — app shell (header/rail/right
-column), `/tasks/:id` TaskView as the single task surface, Dashboard row list +
-offset pagination, project colours, consolidated Settings + per-user selection
+Living document. Updated as decisions are made. Last updated: 2026-08-08
+(2.5.0 candidate: **#292 points-integrity regulation built** — §7's fair-play
+rules (#383) + the `/how-points-work` guide (#385) — and the #324 Play Choice
+restructure (category filter chips + per-row time launch chips). 2.0.0 shipped
+the **GUI-refresh epic #256** — app shell (header/rail/right column),
+`/tasks/:id` TaskView as the single task surface, Dashboard row list + offset
+pagination, project colours, consolidated Settings + per-user selection
 strategy, parallel running tasks; 1.9.0 was the Projects epic #233 A–D).
 Note: **CLAUDE.md is the more frequently-synced authoritative reference** — where the
 two disagree, prefer CLAUDE.md and the code on `develop`.
@@ -327,6 +330,34 @@ The `points_log` ledger stores the award *components* (base / speed bonus /
 multiplier / total) per completion, and `daily_stats` is the per-user/day rollup
 that drives the multiplier — so the formula can be retuned without a schema
 change.
+
+### Fair-play regulation (#292 → #383/#385, built 2026-08-08)
+
+The score is designed to survive a future multi-user leaderboard: **one
+regulated score** (a dual personal/competitive ledger was considered and
+rejected), enforced server-side in the award path, all constants in
+`PointsConfig`:
+
+- **Estimate sanity bands (scoring only)** — `ESTIMATE_BANDS`: Low 5–60,
+  Medium 15–240, High 30–480 min. Bonus and budget math clamp into the band;
+  the stored estimate is untouched.
+- **Too fast = no points** — elapsed < `MIN_SCORING_MINUTES` (1) zeroes the
+  whole award; elapsed runs from Start, or from *creation* when a task is
+  completed straight from Ready (closes the untimed one-click loophole).
+- **One-shot sprint bonus** — sending an in-progress task back to Ready sets a
+  sticky `tasks.bonus_forfeited`; that task can never earn the speed bonus
+  (base × multiplier still pay). Re-arming the timer therefore can't help.
+- **"A day can only hold a day"** — completions stop scoring past
+  `DAILY_BUDGET_MINUTES` (720) of claimed (clamped-estimate) minutes
+  (`daily_stats.claimed_minutes`) or `DAILY_COMPLETIONS_CAP` (25) scored
+  completions. Zeroed awards still insert their `points_log` row (the once-ever
+  gate and the recurring spawn ride the insert) but never advance `daily_stats`.
+- **Project bonus needs ≥ `PROJECT_BONUS_MIN_TASKS` (3) tasks.**
+- **Transparency**: a zeroed award returns a `reason`
+  (`too_fast`/`daily_cap`/`daily_budget`) which the Completion screen renders as
+  a friendly explanation, and the **`/how-points-work`** guide page (avatar
+  menu + the ? dots on the points panels) explains the whole system with
+  numbers served from `GET /api/points` (`limits`) — never hardcoded.
 
 ## 8. Release scope
 
