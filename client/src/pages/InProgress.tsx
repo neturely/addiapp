@@ -24,6 +24,17 @@ const EFFORT_PILL = {
   high: 'bg-[#ffcdb8] text-on-primary',
 } as const
 
+/** Seconds → "42 min" / "2 h" / "1 h 20 min" for the auto-return countdown
+ * (#403 review) — coarser than the clock on purpose: it's a deadline notice,
+ * not a timer, so it only changes once a minute. */
+function roughDuration(totalSeconds: number): string {
+  const minutes = Math.max(1, Math.ceil(totalSeconds / 60))
+  if (minutes < 60) return `${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m === 0 ? `${h} h` : `${h} h ${m} min`
+}
+
 /** Rotating "in progress" labels (#181) — a random one is picked per mount. */
 const WORKING_LABELS = [
   'Working on it',
@@ -256,10 +267,28 @@ export function InProgress() {
                 for a speed bonus
               </>
             ) : (
+              // #403 review: name the consequence — the sweep returns the task
+              // to Ready at returnRatio× the estimate (threshold served on
+              // GET /api/points; if that fetch failed, fall back to the old
+              // encouragement rather than inventing a number).
               <>
                 Past the estimate — no speed bonus now
-                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish
-                strong.
+                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}.{' '}
+                {points != null ? (
+                  estimateSec * points.limits.overrun.returnRatio - elapsed > 0 ? (
+                    <>
+                      Finish it or it returns to Ready in{' '}
+                      <span className="font-bold text-danger-deep">
+                        {roughDuration(estimateSec * points.limits.overrun.returnRatio - elapsed)}
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    'Finish it — it returns to Ready any moment now.'
+                  )
+                ) : (
+                  'Finish strong.'
+                )}
               </>
             )}
           </p>
