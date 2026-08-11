@@ -231,7 +231,7 @@ export function Completion({
               onClick={() => void fileAway()}
               disabled={filing !== 'idle'}
               aria-label={filing === 'done' ? 'Archived' : 'Archive this task'}
-              className="tap-44 inline-flex w-14 flex-none cursor-pointer items-center justify-center rounded-xl bg-field text-gray-700 transition hover:bg-field-hover disabled:cursor-default disabled:opacity-80"
+              className="tap-44 inline-flex w-14 flex-none items-center justify-center rounded-xl bg-field text-gray-700 transition hover:bg-field-hover disabled:opacity-80"
             >
               {filing === 'done' ? (
                 <Check className="h-5 w-5 text-success-ink" strokeWidth={2.5} aria-hidden />

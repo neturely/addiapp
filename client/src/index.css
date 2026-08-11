@@ -185,6 +185,20 @@
 }
 
 /*
+ * #408: Tailwind v4's preflight sets `cursor: default` on buttons (v3 set
+ * `pointer`), so every <button> without an explicit cursor-pointer regressed
+ * to the arrow cursor. One global rule instead of per-button whack-a-mole;
+ * :not(:disabled) keeps disabled buttons on the default cursor. Links get
+ * pointer natively. In @layer base so cursor-* utilities (e.g. the drawer
+ * scrim's cursor-default) can still override it.
+ */
+@layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/*
  * #116 (RESP-6): guarantee a ≥44×44px touch target WITHOUT changing the
  * visual box — an invisible pseudo-element halo centred on the control. Each
  * side only extends when the box is under 44px in that dimension (the min()
