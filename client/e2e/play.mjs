@@ -192,6 +192,19 @@ ok(
   ),
   '#385: the zero-award panel links the guide',
 )
+// #400: a zeroed completion doesn't celebrate — calm heading ("Done.", not
+// "Nice work!") and no confetti decoration.
+ok(
+  await page.evaluate(() => {
+    const h1 = document.querySelector('h1')
+    return /Done\./.test(h1?.textContent || '') && !/Nice work/i.test(document.body.textContent || '')
+  }),
+  '#400: zeroed Completion uses the calm "Done." heading, no cheer',
+)
+ok(
+  await page.evaluate(() => document.querySelectorAll('.animate-confetti').length === 0),
+  '#400: zeroed Completion renders no confetti',
+)
 await page.click('button[aria-label="Archive this task"]')
 await page.waitForSelector('button[aria-label="Archived"]', { timeout: 5000 })
 const archived = await page.evaluate(async (tid) => {

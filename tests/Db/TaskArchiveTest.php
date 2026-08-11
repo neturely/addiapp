@@ -64,13 +64,13 @@ final class TaskArchiveTest extends DbTestCase
         self::assertSame(200, $status);
         self::assertNotNull($body['task']['archivedAt']);
 
-        // The All view INCLUDES the archived row (#332 — "All" means all; the
-        // client pill renders it as Archived off archivedAt), the STATUS tab
-        // excludes it ("Done" = done-not-filed), and the archive view returns
-        // exactly it. `counts.all` includes archived; `done` doesn't.
+        // The Overview EXCLUDES the archived row (#406, revising #332 — filed
+        // tasks live in the Archived tab and the per-project/category filters),
+        // the STATUS tab excludes it ("Done" = done-not-filed), and the archive
+        // view returns exactly it. `counts.all` excludes archived too.
         [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], ['limit' => '10']);
-        self::assertEqualsCanonicalizing([$ready, $done], array_column($body['tasks'], 'id'));
-        self::assertSame(2, $body['counts']['all']);
+        self::assertSame([$ready], array_column($body['tasks'], 'id'));
+        self::assertSame(1, $body['counts']['all']);
         self::assertSame(0, $body['counts']['done']);
         self::assertSame(1, $body['counts']['archived']);
 
@@ -88,6 +88,41 @@ final class TaskArchiveTest extends DbTestCase
         self::assertSame(2, $body['counts']['all']);
         self::assertSame(1, $body['counts']['done']);
         self::assertSame(0, $body['counts']['archived']);
+    }
+
+    public function testProjectFilterKeepsArchivedRowsSortedLast(): void
+    {
+        $userId = $this->makeUser('archive-d@test.local');
+        $sid = Sessions::create($userId);
+        $this->pdo->prepare('INSERT INTO projects (user_id, name) VALUES (?, ?)')
+            ->execute([$userId, 'Filter probe']);
+        $projectId = (int) $this->pdo->lastInsertId();
+
+        // Oldest row is ARCHIVED — under the plain newest/oldest sort it would
+        // lead the ascending list; #406 groups it to the bottom regardless.
+        $filed = $this->makeTask($userId, 'low', 10);
+        $open = $this->makeTask($userId, 'medium', 20);
+        $this->pdo->prepare("UPDATE tasks SET project_id = ? WHERE id IN (?, ?)")
+            ->execute([$projectId, $filed, $open]);
+        $this->pdo->prepare("UPDATE tasks SET status = 'done', archived_at = NOW() WHERE id = ?")
+            ->execute([$filed]);
+
+        // Both sort directions: archived stays last (the toggle applies within
+        // each group), and the row still ships for the client's Archived pill.
+        [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], [
+            'limit' => '10', 'projectId' => (string) $projectId,
+        ]);
+        self::assertSame([$open, $filed], array_column($body['tasks'], 'id'));
+        [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], [
+            'limit' => '10', 'projectId' => (string) $projectId, 'order' => 'desc',
+        ]);
+        self::assertSame([$open, $filed], array_column($body['tasks'], 'id'));
+
+        // A status tab scoped to the project is a working list — archived out.
+        [, $body] = $this->dispatch('GET', '/api/tasks', $sid, [], [
+            'limit' => '10', 'projectId' => (string) $projectId, 'status' => 'done',
+        ]);
+        self::assertSame([], array_column($body['tasks'], 'id'));
     }
 
     public function testReopeningAnArchivedTaskUnfilesIt(): void

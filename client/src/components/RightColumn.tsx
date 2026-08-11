@@ -9,7 +9,7 @@ import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchUserStats, type UserStats } from '@/lib/points'
 import { PROJECTS_CHANGED_EVENT } from '@/lib/projects'
 import { completeTask, type Task } from '@/lib/tasks'
-import { elapsedSecondsSince, formatClock } from '@/lib/time'
+import { elapsedSecondsSince, formatClock, isOverdue } from '@/lib/time'
 import { useToast } from '@/toast/useToast'
 
 /** Effort → tint pill classes (the #178 palette, AA dark-on-tint). */
@@ -157,7 +157,10 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
 
   return (
     <div className="relative mb-3 rounded-card bg-surface px-4 pb-5 pt-12 text-center">
+      {/* #400: a zeroed award keeps the ~5s moment but calm — no confetti,
+          neutral mascot — matching the main Completion screen. */}
       {celebration &&
+        celebration.points !== 0 &&
         CONFETTI.map((c, i) => (
           <span
             key={i}
@@ -168,7 +171,7 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
         ))}
       <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2">
         <Mascot
-          expression={celebration ? 'celebrating' : activeTask ? 'neutral' : 'idle'}
+          expression={celebration && celebration.points !== 0 ? 'celebrating' : celebration || activeTask ? 'neutral' : 'idle'}
           halo
           className="h-[4.5rem] w-[4.5rem]"
         />
@@ -227,10 +230,16 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
  * points panel mirrors the Completion screen's tinted treatment.
  */
 function CelebrationPanel({ celebration }: { celebration: Celebration }) {
+  // #400: the zeroed variant keeps the panel but drops the cheer.
+  const zeroed = celebration.points === 0
   return (
     <div role="status">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-success-ink">
-        Nice work!
+      <div
+        className={`text-[11px] font-semibold uppercase tracking-wider ${
+          zeroed ? 'text-muted' : 'text-success-ink'
+        }`}
+      >
+        {zeroed ? 'Done' : 'Nice work!'}
       </div>
       <h2 className="mb-3 mt-1.5 line-clamp-2 font-semibold leading-snug text-gray-800">
         {celebration.title}
@@ -320,7 +329,13 @@ function RunningMirror({
           {task.estimatedMinutes} min
         </span>
       </div>
-      <div className="text-4xl font-bold tabular-nums tracking-tight text-gray-900">
+      {/* Overdue (#402): danger clock past the estimate; the deadline copy
+          below already says "Past the estimate" for SRs. */}
+      <div
+        className={`text-4xl font-bold tabular-nums tracking-tight ${
+          remaining > 0 ? 'text-gray-900' : 'text-danger-ink'
+        }`}
+      >
         {formatClock(elapsed)}
       </div>
       <p className="mt-2 text-xs text-muted">
@@ -390,13 +405,17 @@ function CompactMirror({
       <button
         type="button"
         onClick={onSelect}
-        aria-label={`Show ${task.title} on the card`}
-        className="min-w-0 flex-1 cursor-pointer text-left"
+        aria-label={`Show ${task.title} on the card${isOverdue(task, now) ? ' (over estimate)' : ''}`}
+        className="min-w-0 flex-1 text-left"
       >
         <span className="block truncate text-xs font-semibold text-gray-800 transition hover:text-primary-ink">
           {task.title}
         </span>
-        <span className="font-mono text-xs tabular-nums text-muted">
+        <span
+          className={`font-mono text-xs tabular-nums ${
+            isOverdue(task, now) ? 'text-danger-ink' : 'text-muted'
+          }`}
+        >
           {formatClock(elapsedSecondsSince(task.startedAt, now))}
         </span>
       </button>
@@ -405,7 +424,7 @@ function CompactMirror({
         disabled={completing}
         onClick={() => void markDone()}
         aria-label={`Mark ${task.title} done`}
-        className="inline-flex h-8 w-8 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint disabled:opacity-50"
+        className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint disabled:opacity-50"
       >
         <CircleCheck className="h-5 w-5" aria-hidden />
       </button>

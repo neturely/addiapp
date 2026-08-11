@@ -137,7 +137,7 @@ export function Choice() {
   // rows keep the same visual height as "Focus on projects"; the tap-44 halo
   // keeps the touch target honest.
   const chipClass =
-    'tap-44 h-7 cursor-pointer rounded-lg bg-surface px-2.5 text-xs text-gray-700 transition hover:bg-field'
+    'tap-44 h-7 rounded-lg bg-surface px-2.5 text-xs text-gray-700 transition hover:bg-field'
 
   return (
     // #264 (epic #256 D): one prototype-style choice card — mascot half-out on
@@ -191,7 +191,7 @@ export function Choice() {
                   tabIndex={active ? 0 : -1}
                   onClick={() => setCategory(id)}
                   onKeyDown={(e) => onChipKeyDown(e, i)}
-                  className={`tap-44 h-7 max-w-40 cursor-pointer truncate rounded-lg px-2.5 text-xs transition ${
+                  className={`tap-44 h-7 max-w-40 truncate rounded-lg px-2.5 text-xs transition ${
                     cat === null
                       ? active
                         ? 'bg-primary-deep font-semibold text-white'
@@ -273,7 +273,7 @@ export function Choice() {
           <button
             type="button"
             onClick={goProjects}
-            className="flex w-full cursor-pointer items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
+            className="flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
           >
             <span className="flex w-9 shrink-0 justify-center">
               <Layers className="h-7 w-7 text-accent" strokeWidth={2.25} aria-hidden />
