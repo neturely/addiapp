@@ -99,7 +99,7 @@ function FieldPlusButton({ label, onClick }: { label: string; onClick: () => voi
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="tap-44 -my-1 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
+      className="tap-44 -my-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
     </button>
@@ -384,7 +384,7 @@ export function TaskView() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => navigate(from)}>
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          {creating ? 'Back' : 'All tasks'}
+          {creating ? 'Back' : 'Overview'}
         </Button>
         <div className="flex items-center gap-2 px-1 text-xs text-muted">
           {/* Filed-away indicator (#332) — the archived state visible at a
@@ -633,7 +633,7 @@ export function TaskView() {
                       tabIndex={checked ? 0 : -1}
                       onClick={() => setComplexity(c)}
                       onKeyDown={(e) => onSegKeyDown(e, i)}
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
+                      className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
                         checked ? checkedFill : 'bg-page/70 hover:bg-field'
                       }`}
                     >

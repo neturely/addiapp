@@ -112,7 +112,7 @@ export function Header() {
           aria-label="Toggle sidebar"
           aria-expanded={narrow ? drawerOpen : railOpen}
           aria-controls="app-rail"
-          className="tap-44 inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
+          className="tap-44 inline-flex h-10 w-10 items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
@@ -179,7 +179,7 @@ export function Header() {
               onClick={toggleColumn}
               aria-label="Toggle side column"
               aria-pressed={columnOpen}
-              className="hidden h-9 w-9 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page min-[1240px]:inline-flex"
+              className="hidden h-9 w-9 items-center justify-center rounded-control text-gray-700 transition hover:bg-page min-[1240px]:inline-flex"
             >
               <PanelRight className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
@@ -200,7 +200,7 @@ export function Header() {
                     : 'Account menu'
               }
               aria-expanded={menuOpen}
-              className="tap-44 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
+              className="tap-44 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
             >
               {showGravatar ? (
                 <img
@@ -268,7 +268,7 @@ export function Header() {
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="flex h-11 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page sm:h-9"
+                  className="flex h-11 w-full items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page sm:h-9"
                 >
                   Sign out
                 </button>

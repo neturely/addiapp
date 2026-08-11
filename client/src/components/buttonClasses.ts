@@ -33,7 +33,7 @@ export function buttonClasses(
   className = '',
 ): string {
   return [
-    'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap transition',
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap transition',
     'disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400',
     VARIANT[variant],
     SIZE[size],
