@@ -141,7 +141,7 @@ export function Notifications() {
                   onClick={() => n.taskId !== null && navigate(`/tasks/${n.taskId}`)}
                   aria-label={n.taskId !== null ? `Open ${lead}` : lead}
                   className={`flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left ${
-                    n.taskId !== null ? 'cursor-pointer' : 'cursor-default'
+                    n.taskId !== null ? '' : 'cursor-default'
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate text-sm">
@@ -160,7 +160,7 @@ export function Notifications() {
                   type="button"
                   onClick={() => void dismiss(n)}
                   aria-label={`Dismiss notification: ${lead}`}
-                  className="mr-3 inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-gray-700 sm:h-9 sm:w-9"
+                  className="mr-3 inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-gray-700 sm:h-9 sm:w-9"
                 >
                   <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
                 </button>

@@ -191,7 +191,7 @@ export function ProjectsView() {
             type="button"
             onClick={toggleSort}
             aria-label={`Sorted ${newestFirst ? 'newest' : 'oldest'} first — switch to ${newestFirst ? 'oldest' : 'newest'} first`}
-            className="cursor-pointer transition hover:text-primary-ink"
+            className="transition hover:text-primary-ink"
           >
             {newestFirst ? 'newest first' : 'oldest first'}
           </button>
@@ -208,7 +208,7 @@ export function ProjectsView() {
                 type="button"
                 onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
                 aria-label="Previous page"
-                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
               </button>
@@ -218,7 +218,7 @@ export function ProjectsView() {
                 type="button"
                 onClick={() => setOffset((o) => (o + PAGE_SIZE < total ? o + PAGE_SIZE : o))}
                 aria-label="Next page"
-                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </button>
@@ -279,7 +279,7 @@ export function ProjectsView() {
             <button
               type="button"
               onClick={() => setModal(null)}
-              className="flex min-h-[9rem] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 p-5 text-muted transition hover:border-primary hover:text-primary-ink"
+              className="flex min-h-[9rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 p-5 text-muted transition hover:border-primary hover:text-primary-ink"
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} aria-hidden />
               <span className="font-semibold">New project</span>
@@ -378,7 +378,7 @@ function ProjectCard({
             onClick={onToggleMenu}
             aria-label={`Actions for ${project.name}`}
             aria-expanded={menuOpen}
-            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+            className="inline-flex items-center justify-center rounded-md p-1 text-muted transition hover:bg-gray-100 hover:text-gray-800"
           >
             <MoreVertical className="h-5 w-5" aria-hidden />
           </button>
@@ -390,7 +390,7 @@ function ProjectCard({
               <button
                 type="button"
                 onClick={onEdit}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
                 <Pencil className="h-4 w-4" aria-hidden />
                 Edit
@@ -398,7 +398,7 @@ function ProjectCard({
               <button
                 type="button"
                 onClick={onArchive}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
                 <Archive className="h-4 w-4" aria-hidden />
                 Archive
@@ -435,7 +435,7 @@ function ProjectCard({
             type="button"
             onClick={onArchive}
             aria-label={`Archive ${project.name}`}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover sm:min-h-0"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover sm:min-h-0"
           >
             <Archive className="h-4 w-4" aria-hidden />
             Archive
@@ -500,7 +500,7 @@ function ArchivedProjectCard({
         <button
           type="button"
           onClick={onUnarchive}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover"
         >
           <ArchiveRestore className="h-4 w-4" aria-hidden />
           Unarchive
@@ -508,7 +508,7 @@ function ArchivedProjectCard({
         <button
           type="button"
           onClick={onDelete}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-danger-tint px-3 py-1.5 text-sm font-semibold text-danger-ink transition hover:opacity-80"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-danger-tint px-3 py-1.5 text-sm font-semibold text-danger-ink transition hover:opacity-80"
         >
           <Trash2 className="h-4 w-4" aria-hidden />
           Delete
