@@ -24,7 +24,7 @@ import {
   type TaskStatus,
 } from '@/lib/tasks'
 import { fetchPoints } from '@/lib/points'
-import { elapsedSecondsSince, formatClock } from '@/lib/time'
+import { elapsedSecondsSince, formatClock, isOverdue } from '@/lib/time'
 import { projectPole, projectTint } from '@/lib/projectColors'
 import { fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { deleteCategory, fetchCategories, type Category } from '@/lib/categories'
@@ -670,7 +670,7 @@ export function Dashboard() {
                       )}
                       {/* Started rows carry their own live clock (#256 review
                           — tasks run in parallel, each on its own timer). */}
-                      {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
+                      {task.status === 'in_progress' && <RowTimer task={task} />}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for
@@ -860,16 +860,27 @@ export function Dashboard() {
  * they always agree. Not a live region (no per-second SR spam); hidden below sm
  * where the row is already tight.
  */
-function RowTimer({ startedAt }: { startedAt?: string | null }) {
+function RowTimer({ task }: { task: Task }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(iv)
   }, [])
+  // Overdue (#402): clock + dot go danger past the estimate; a stable sr-only
+  // suffix keeps colour from being the only indicator (#126) without ticking.
+  const overdue = isOverdue(task, now)
   return (
-    <span className="hidden flex-none items-center gap-1.5 font-mono text-xs tabular-nums text-gray-700 sm:inline-flex">
-      <span aria-hidden className="animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-      {formatClock(elapsedSecondsSince(startedAt, now))}
+    <span
+      className={`hidden flex-none items-center gap-1.5 font-mono text-xs tabular-nums sm:inline-flex ${
+        overdue ? 'text-danger-ink' : 'text-gray-700'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full ${overdue ? 'bg-danger' : 'bg-primary'}`}
+      />
+      {formatClock(elapsedSecondsSince(task.startedAt, now))}
+      {overdue && <span className="sr-only"> (over estimate)</span>}
     </span>
   )
 }
