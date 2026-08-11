@@ -217,7 +217,7 @@ export function InProgress() {
         // "Past the estimate" copy below already carries it for SRs.
         <div
           className={`font-mono text-5xl font-bold tabular-nums ${
-            inBonus ? 'text-gray-900' : 'text-danger-ink'
+            inBonus ? 'text-gray-900' : 'text-danger-deep'
           }`}
         >
           {formatClock(elapsed)}
@@ -332,7 +332,7 @@ function AlsoRunning({ currentId }: { currentId: number }) {
           <span className="min-w-0 truncate font-medium text-gray-800">{t.title}</span>
           <span
             className={`flex-none font-mono text-xs tabular-nums ${
-              isOverdue(t, now) ? 'text-danger-ink' : 'text-muted'
+              isOverdue(t, now) ? 'text-danger-deep' : 'text-muted'
             }`}
           >
             {formatClock(elapsedSecondsSince(t.startedAt, now))}
