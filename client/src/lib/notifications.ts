@@ -9,10 +9,20 @@ import type { Recurrence } from './tasks'
  */
 export type AppNotification = {
   id: number
-  /** 'recurring_activated' in v1; later types slot in as new strings. */
+  /** 'recurring_activated' (#366), 'task_overrun' / 'task_returned' (#403);
+   *  later types slot in as new strings. */
   type: string
   taskId: number | null
-  data: { title?: string; recurrence?: Recurrence }
+  /** Snapshot fields by type: recurring carries title + rule; the overrun
+   *  pair carry title + estimatedMinutes + elapsedMinutes (at detection) +
+   *  returnRatio (the server's auto-return threshold — never hardcoded here). */
+  data: {
+    title?: string
+    recurrence?: Recurrence
+    estimatedMinutes?: number
+    elapsedMinutes?: number
+    returnRatio?: number
+  }
   createdAt: string
   readAt: string | null
 }

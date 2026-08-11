@@ -139,7 +139,7 @@ export function ProjectForm({
             type="button"
             onClick={onArchive}
             aria-label="Archive this project"
-            className="inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-control bg-field text-gray-700 transition hover:bg-field-hover sm:h-[42px] sm:w-[42px]"
+            className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-control bg-field text-gray-700 transition hover:bg-field-hover sm:h-[42px] sm:w-[42px]"
           >
             <Archive className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>

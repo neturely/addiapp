@@ -284,17 +284,92 @@ const archRail = await page.evaluate(() => {
   return link ? (link.querySelector('span.tabular-nums')?.textContent?.trim() ?? '') : null
 })
 ok(archRail !== null && Number(archRail) >= 1, `#312: rail Archived entry with count (${archRail})`)
-// #332: the All view INCLUDES the archived row, pill reading "Archived".
-const allTabArchPill = await page.evaluate(() => {
-  const row = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((li) =>
-    /e2e archive probe/i.test(li.textContent || ''),
-  )
-  return row?.querySelector('span.rounded-full')?.textContent?.trim() ?? null
-})
+// #406 (revising #332): the Overview EXCLUDES archived rows — they live in the
+// Archived tab and the per-project/category filters only.
 ok(
-  allTabArchPill === 'Archived',
-  `#332: All tab lists the archived task with an "Archived" pill (got "${allTabArchPill}")`,
+  await page.evaluate(() => {
+    return ![...document.querySelectorAll('ul[aria-label="Tasks"] li')].some((li) =>
+      /e2e archive probe/i.test(li.textContent || ''),
+    )
+  }),
+  '#406: the Overview excludes the archived task',
 )
+ok(
+  await page.evaluate(() => {
+    const link = [...document.querySelectorAll('#app-rail a')].find(
+      (a) => a.getAttribute('href') === '/dashboard',
+    )
+    return /Overview/.test(link?.textContent || '')
+  }),
+  '#406: the rail\'s first Tasks entry reads "Overview"',
+)
+// #406: a per-project filter KEEPS the archived row, pill "Archived", sorted
+// to the bottom below every open row.
+const projArch = await page.evaluate(async (taskId) => {
+  const r = await fetch('/api/projects', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: `e2e arch filter ${Date.now()}` }),
+  })
+  const { project } = await r.json()
+  // The open row is CREATED AFTER yet must render ABOVE the archived one in
+  // the default newest-first sort — and stay above it under oldest-first too.
+  const t = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: `e2e arch filter open ${Date.now()}`,
+      complexity: 'low',
+      estimatedMinutes: 5,
+      projectId: project.id,
+    }),
+  }).then((x) => x.json())
+  await fetch(`/api/tasks/${taskId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectId: project.id }),
+  })
+  return { projectId: project.id, openId: t.task.id }
+}, archTask)
+for (const sort of ['', '&sort=oldest']) {
+  await page.goto(`${BASE}/dashboard?project=${projArch.projectId}${sort}`, {
+    waitUntil: 'networkidle0',
+  })
+  const rows = await page.evaluate(() =>
+    [...document.querySelectorAll('ul[aria-label="Tasks"] li')].map((li) => ({
+      probe: /e2e archive probe/i.test(li.textContent || ''),
+      pill: li.querySelector('span.rounded-full')?.textContent?.trim() ?? '',
+    })),
+  )
+  const probeIdx = rows.findIndex((r) => r.probe)
+  ok(
+    probeIdx === rows.length - 1 && rows.length >= 2,
+    `#406: project filter (${sort || 'newest'}) sorts the archived row last`,
+  )
+  ok(rows[probeIdx]?.pill === 'Archived', `#406: project filter keeps the "Archived" pill (${sort || 'newest'})`)
+}
+// Unhook the probe from the project again so the later archive-tab blocks see
+// the original shape; remove the helper project + its open task.
+await page.evaluate(async ({ projectId, openId }, taskId) => {
+  await fetch(`/api/tasks/${openId}`, { method: 'DELETE', credentials: 'include' })
+  await fetch(`/api/tasks/${taskId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectId: null }),
+  })
+  await fetch(`/api/projects/${projectId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'archived' }),
+  })
+  await fetch(`/api/projects/${projectId}`, { method: 'DELETE', credentials: 'include' })
+}, projArch, archTask)
+await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 // …but the Done STATUS tab still excludes it (done = done-not-filed).
 await page.goto(`${BASE}/dashboard?tab=done`, { waitUntil: 'networkidle0' })
 ok(

@@ -12,10 +12,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // Overridable so AddiApp can run beside another Vite/PHP stack on the
+    // same machine (VITE_PORT / VITE_API_PORT; defaults unchanged).
+    port: Number(process.env.VITE_PORT) || 5173,
     proxy: {
-      // Forward API calls to the Express server during development
-      '/api': 'http://localhost:3001',
+      // Forward API calls to the PHP dev server during development
+      '/api': `http://localhost:${process.env.VITE_API_PORT || 3001}`,
     },
   },
 })

@@ -10,6 +10,7 @@ import {
 import { useNotifications } from '@/notifications/useNotifications'
 import { useToast } from '@/toast/useToast'
 import { Mascot } from '@/components/Mascot'
+import { Loading } from '@/components/Loading'
 
 /** '2026-08-06T…' → "Today" / "Yesterday" / "Aug 4" (dates, not clock time —
  * a recurring activation happens at midnight, hours would read as noise). */
@@ -26,16 +27,38 @@ function dayLabel(iso: string): string {
   return then.toLocaleDateString('en', { month: 'short', day: 'numeric' })
 }
 
+/** "3×" from the overrun snapshot (#403) — whole multiples read cleaner than
+ * exact minutes, and the snapshot is a detection-moment figure anyway. */
+function overRatio(n: AppNotification): string {
+  const est = n.data.estimatedMinutes ?? 0
+  const elapsed = n.data.elapsedMinutes ?? 0
+  return est > 0 ? `${Math.floor(elapsed / est)}×` : 'way'
+}
+
 /** Per-type message, split for the row's bold-lead styling (the Dashboard's
  * "Title Description" treatment); new types add branches here. */
 function messageParts(n: AppNotification): { lead: string; rest: string } {
+  const lead = n.data.title ?? 'A task'
   if (n.type === 'recurring_activated') {
-    const lead = n.data.title ?? 'A task'
     return {
       lead,
       rest: n.data.recurrence
         ? ` was added — repeats ${recurrenceLabel(n.data.recurrence)}.`
         : ' was added.',
+    }
+  }
+  // #403 stage 1: still running, warn before the 5× auto-return.
+  if (n.type === 'task_overrun') {
+    return {
+      lead,
+      rest: ` is ${overRatio(n)} over its ${n.data.estimatedMinutes ?? '?'} min estimate — still on it? It goes back to Ready at ${n.data.returnRatio ?? 5}×.`,
+    }
+  }
+  // #403 stage 2: the sweep sent it back to Ready.
+  if (n.type === 'task_returned') {
+    return {
+      lead,
+      rest: ` was sent back to Ready — it ran ${overRatio(n)} over its ${n.data.estimatedMinutes ?? '?'} min estimate.`,
     }
   }
   return { lead: n.data.title ?? 'Notification', rest: '' }
@@ -105,9 +128,7 @@ export function Notifications() {
       </div>
 
       {list === null ? (
-        <p role="status" className="px-1 text-sm text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : list.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
           {/* Shared "nothing to see here" mascot treatment (#256 review). */}
@@ -141,7 +162,7 @@ export function Notifications() {
                   onClick={() => n.taskId !== null && navigate(`/tasks/${n.taskId}`)}
                   aria-label={n.taskId !== null ? `Open ${lead}` : lead}
                   className={`flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left ${
-                    n.taskId !== null ? 'cursor-pointer' : 'cursor-default'
+                    n.taskId !== null ? '' : 'cursor-default'
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate text-sm">
@@ -160,7 +181,7 @@ export function Notifications() {
                   type="button"
                   onClick={() => void dismiss(n)}
                   aria-label={`Dismiss notification: ${lead}`}
-                  className="mr-3 inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-gray-700 sm:h-9 sm:w-9"
+                  className="mr-3 inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-gray-700 sm:h-9 sm:w-9"
                 >
                   <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
                 </button>
