@@ -28,7 +28,7 @@ export function TimerChip({ task, others = 0 }: { task: Task; others?: number })
       to={`/play/progress/${task.id}`}
       aria-label={`Resume “${task.title}”${others > 0 ? ` (${others} more running)` : ''}${overdue ? ' (over estimate)' : ''}`}
       className={`tap-44 inline-flex items-center gap-2 font-mono text-xl font-bold tabular-nums transition hover:opacity-80 ${
-        overdue ? 'text-danger-ink' : 'text-gray-900'
+        overdue ? 'text-danger-deep' : 'text-gray-900'
       }`}
     >
       {/* "Live/ongoing" indicator — a pulsing dot, not a duration icon (#181). */}

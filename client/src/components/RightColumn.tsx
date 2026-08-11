@@ -333,7 +333,7 @@ function RunningMirror({
           below already says "Past the estimate" for SRs. */}
       <div
         className={`text-4xl font-bold tabular-nums tracking-tight ${
-          remaining > 0 ? 'text-gray-900' : 'text-danger-ink'
+          remaining > 0 ? 'text-gray-900' : 'text-danger-deep'
         }`}
       >
         {formatClock(elapsed)}
@@ -413,7 +413,7 @@ function CompactMirror({
         </span>
         <span
           className={`font-mono text-xs tabular-nums ${
-            isOverdue(task, now) ? 'text-danger-ink' : 'text-muted'
+            isOverdue(task, now) ? 'text-danger-deep' : 'text-muted'
           }`}
         >
           {formatClock(elapsedSecondsSince(task.startedAt, now))}

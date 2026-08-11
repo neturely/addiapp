@@ -872,7 +872,7 @@ function RowTimer({ task }: { task: Task }) {
   return (
     <span
       className={`hidden flex-none items-center gap-1.5 font-mono text-xs tabular-nums sm:inline-flex ${
-        overdue ? 'text-danger-ink' : 'text-gray-700'
+        overdue ? 'text-danger-deep' : 'text-gray-700'
       }`}
     >
       <span
