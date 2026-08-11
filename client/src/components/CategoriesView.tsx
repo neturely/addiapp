@@ -4,6 +4,7 @@ import { Pencil, Tag } from 'lucide-react'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { projectHex } from '@/lib/projectColors'
 import { Mascot } from '@/components/Mascot'
+import { Loading } from '@/components/Loading'
 
 /**
  * The categories view (#336) — `?view=categories`, reached from the rail's
@@ -41,9 +42,7 @@ export function CategoriesView() {
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">Categories</div>
 
       {categories === null ? (
-        <p role="status" className="p-8 text-center text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : categories.length === 0 ? (
         <div className="rounded-xl bg-surface p-10 text-center">
           {/* Shared "nothing to see here" treatment (#256 review). */}

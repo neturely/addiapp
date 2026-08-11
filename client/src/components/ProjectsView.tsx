@@ -16,6 +16,7 @@ import { deleteProject, fetchProjects, updateProject, type Project } from '@/lib
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 import { Button } from './Button'
+import { Loading } from './Loading'
 import { Modal } from './Modal'
 import { ProjectModal } from './ProjectModal'
 
@@ -234,9 +235,7 @@ export function ProjectsView() {
       )}
 
       {loading ? (
-        <p role="status" className="p-8 text-center text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : (archived || done) && visible.length === 0 ? (
         <p className="rounded-2xl bg-surface p-10 text-center text-muted">
           {q !== ''

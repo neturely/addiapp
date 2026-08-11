@@ -13,6 +13,7 @@ import {
   type Task,
 } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
+import { Loading } from '@/components/Loading'
 import { elapsedSecondsSince, formatClock } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
 
@@ -144,11 +145,7 @@ export function InProgress() {
   }, [task, refreshActiveTask])
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-muted">
-        <span role="status">Loading…</span>
-      </main>
-    )
+    return <Loading page />
   }
 
   if (error && !task) {

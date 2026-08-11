@@ -20,6 +20,7 @@ import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, type Project } from '@/lib/projects'
+import { Loading } from '@/components/Loading'
 import {
   createTask,
   deleteTask,
@@ -351,11 +352,7 @@ export function TaskView() {
   }
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-muted">
-        <span role="status">Loading…</span>
-      </main>
-    )
+    return <Loading page />
   }
   if (!creating && (notFound || !task)) {
     return (
