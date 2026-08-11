@@ -282,7 +282,7 @@ export function InProgress() {
             type="button"
             onClick={() => void onComplete()}
             disabled={completing}
-            className="w-full cursor-pointer rounded-control bg-success-deep py-3 text-lg font-semibold text-white transition hover:bg-success-deep-hover disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400"
+            className="w-full rounded-control bg-success-deep py-3 text-lg font-semibold text-white transition hover:bg-success-deep-hover disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400"
           >
             {completing ? 'Completing…' : 'Mark done'}
           </button>
@@ -324,7 +324,7 @@ function AlsoRunning({ currentId }: { currentId: number }) {
           type="button"
           onClick={() => navigate(`/play/progress/${t.id}${qs ? `?${qs}` : ''}`)}
           aria-label={`Switch to ${t.title}`}
-          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page sm:min-h-0"
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page sm:min-h-0"
         >
           <span className="min-w-0 truncate font-medium text-gray-800">{t.title}</span>
           <span className="flex-none font-mono text-xs tabular-nums text-muted">

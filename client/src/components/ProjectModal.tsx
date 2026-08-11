@@ -61,7 +61,7 @@ export function ProjectModal({
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-4 top-4 inline-flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+        className="absolute right-4 top-4 inline-flex items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-gray-100 hover:text-gray-800"
       >
         <X className="h-5 w-5" strokeWidth={2} aria-hidden />
       </button>
