@@ -27,16 +27,38 @@ function dayLabel(iso: string): string {
   return then.toLocaleDateString('en', { month: 'short', day: 'numeric' })
 }
 
+/** "3×" from the overrun snapshot (#403) — whole multiples read cleaner than
+ * exact minutes, and the snapshot is a detection-moment figure anyway. */
+function overRatio(n: AppNotification): string {
+  const est = n.data.estimatedMinutes ?? 0
+  const elapsed = n.data.elapsedMinutes ?? 0
+  return est > 0 ? `${Math.floor(elapsed / est)}×` : 'way'
+}
+
 /** Per-type message, split for the row's bold-lead styling (the Dashboard's
  * "Title Description" treatment); new types add branches here. */
 function messageParts(n: AppNotification): { lead: string; rest: string } {
+  const lead = n.data.title ?? 'A task'
   if (n.type === 'recurring_activated') {
-    const lead = n.data.title ?? 'A task'
     return {
       lead,
       rest: n.data.recurrence
         ? ` was added — repeats ${recurrenceLabel(n.data.recurrence)}.`
         : ' was added.',
+    }
+  }
+  // #403 stage 1: still running, warn before the 5× auto-return.
+  if (n.type === 'task_overrun') {
+    return {
+      lead,
+      rest: ` is ${overRatio(n)} over its ${n.data.estimatedMinutes ?? '?'} min estimate — still on it? It goes back to Ready at ${n.data.returnRatio ?? 5}×.`,
+    }
+  }
+  // #403 stage 2: the sweep sent it back to Ready.
+  if (n.type === 'task_returned') {
+    return {
+      lead,
+      rest: ` was sent back to Ready — it ran ${overRatio(n)} over its ${n.data.estimatedMinutes ?? '?'} min estimate.`,
     }
   }
   return { lead: n.data.title ?? 'Notification', rest: '' }

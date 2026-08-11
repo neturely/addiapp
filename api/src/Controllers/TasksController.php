@@ -742,6 +742,14 @@ final class TasksController
             Lifecycle::reactivate($assign, (int) $req->userId);
         }
 
+        // #403: any status transition ends the task's current RUN — its
+        // overrun-family notifications (warn/returned) belong to that run:
+        // a manual send-back makes the warn stale, and a restart must re-arm
+        // the per-run dedupe. (Completion deletes everything just below.)
+        if ($newStatus !== null && $newStatus !== $existing['status'] && !$completing) {
+            Notifications::removeOverrunForTask($pdo, (int) $updated['id'], (int) $req->userId);
+        }
+
         $pointsAwarded = null;
         $projectCompleted = null;
         if ($completing) {
