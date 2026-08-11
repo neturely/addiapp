@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Points;
 
 use App\Db;
+use App\Notifications\Notifications;
 use PDO;
 use PDOException;
 
@@ -287,6 +288,12 @@ final class Award
                     'min' => PointsConfig::PROJECT_BONUS_MIN,
                     'max' => PointsConfig::PROJECT_BONUS_MAX,
                     'minTasks' => PointsConfig::PROJECT_BONUS_MIN_TASKS,
+                ],
+                // Overrun thresholds (#403): the InProgress screen's past-the-
+                // estimate copy counts down to the auto-return off these.
+                'overrun' => [
+                    'warnRatio' => Notifications::OVERRUN_WARN_RATIO,
+                    'returnRatio' => Notifications::OVERRUN_RETURN_RATIO,
                 ],
             ],
         ];
