@@ -52,7 +52,7 @@ export function ColorSwatchPicker({
         tabIndex={checkedCell === 0 ? 0 : -1}
         onClick={() => selectCell(0)}
         onKeyDown={(e) => onSwatchKeyDown(e, 0)}
-        className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-field text-gray-700 transition ${
+        className={`flex h-8 w-8 items-center justify-center rounded-full bg-field text-gray-700 transition ${
           checkedCell === 0
             ? 'ring-2 ring-gray-800 ring-offset-2'
             : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
@@ -76,7 +76,7 @@ export function ColorSwatchPicker({
             tabIndex={checked ? 0 : -1}
             onClick={() => selectCell(cell)}
             onKeyDown={(e) => onSwatchKeyDown(e, cell)}
-            className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full ${c.pole} transition ${
+            className={`flex h-8 w-8 items-center justify-center rounded-full ${c.pole} transition ${
               checked ? 'ring-2 ring-gray-800 ring-offset-2' : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-2'
             }`}
           >

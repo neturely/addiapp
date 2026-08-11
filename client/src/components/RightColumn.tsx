@@ -391,7 +391,7 @@ function CompactMirror({
         type="button"
         onClick={onSelect}
         aria-label={`Show ${task.title} on the card`}
-        className="min-w-0 flex-1 cursor-pointer text-left"
+        className="min-w-0 flex-1 text-left"
       >
         <span className="block truncate text-xs font-semibold text-gray-800 transition hover:text-primary-ink">
           {task.title}
@@ -405,7 +405,7 @@ function CompactMirror({
         disabled={completing}
         onClick={() => void markDone()}
         aria-label={`Mark ${task.title} done`}
-        className="inline-flex h-8 w-8 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint disabled:opacity-50"
+        className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint disabled:opacity-50"
       >
         <CircleCheck className="h-5 w-5" aria-hidden />
       </button>
