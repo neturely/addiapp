@@ -120,10 +120,12 @@ export function Completion({
   useEffect(() => {
     headingRef.current?.focus()
   }, [])
+  // Calm no-cheer variant (#400): a #383-zeroed award skips the party — the
+  // moment is still "task done" (positive, not scolding), just not a jackpot.
   const zeroed = reason != null && totalPoints === 0
   const announcement =
     (zeroed
-      ? `Nice work! ${title} complete. No points this time — ${ZERO_REASONS[reason]}`
+      ? `${title} complete. No points this time — ${ZERO_REASONS[reason]}`
       : totalPoints != null
         ? `Nice work! ${title} complete. You earned ${totalPoints} points.`
         : `Nice work! ${title} complete.`) +
@@ -148,8 +150,10 @@ export function Completion({
 
   return (
     <PlayCard
-      decoration={confetti}
-      mascot={<Mascot expression="celebrating" halo className="h-24 w-24" />}
+      // #400: no confetti, neutral mascot, and a toned-down heading when the
+      // award was zeroed — cheering while paying nothing reads like a glitch.
+      decoration={zeroed ? undefined : confetti}
+      mascot={<Mascot expression={zeroed ? 'neutral' : 'celebrating'} halo className="h-24 w-24" />}
       title={
         <h1
           ref={headingRef}
@@ -157,7 +161,7 @@ export function Completion({
           aria-label={announcement}
           className="text-3xl font-bold text-gray-800 focus:outline-none"
         >
-          Nice work!
+          {zeroed ? 'Done.' : 'Nice work!'}
         </h1>
       }
       body={
@@ -175,14 +179,19 @@ export function Completion({
       context={
         totalPoints != null || projectBonus ? (
           <div className="flex flex-col gap-3">
-            {/* Zeroed award (#383): the app explains itself instead of "+0" —
-                aria-hidden, the heading announcement already carries it. */}
+            {/* Zeroed award (#383 → #400): the explanation IS the message —
+                promoted from a field-tinted footnote to the screen's main
+                content. Only the reason text is aria-hidden (the heading
+                announcement already carries it); the guide Link stays exposed
+                and focusable. */}
             {zeroed ? (
-              <div className="rounded-2xl bg-field px-6 py-4" aria-hidden>
-                <p className="text-sm font-semibold text-gray-700">{ZERO_REASONS[reason]}</p>
+              <div className="px-2">
+                <p aria-hidden className="text-base font-medium text-gray-700">
+                  {ZERO_REASONS[reason]}
+                </p>
                 <Link
                   to="/how-points-work"
-                  className="mt-1 inline-block text-xs font-semibold text-accent-ink hover:underline"
+                  className="tap-44 mt-2 inline-block text-sm font-semibold text-accent-ink hover:underline"
                 >
                   How points work →
                 </Link>

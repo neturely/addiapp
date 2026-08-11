@@ -157,7 +157,10 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
 
   return (
     <div className="relative mb-3 rounded-card bg-surface px-4 pb-5 pt-12 text-center">
+      {/* #400: a zeroed award keeps the ~5s moment but calm — no confetti,
+          neutral mascot — matching the main Completion screen. */}
       {celebration &&
+        celebration.points !== 0 &&
         CONFETTI.map((c, i) => (
           <span
             key={i}
@@ -168,7 +171,7 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
         ))}
       <div className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2">
         <Mascot
-          expression={celebration ? 'celebrating' : activeTask ? 'neutral' : 'idle'}
+          expression={celebration && celebration.points !== 0 ? 'celebrating' : celebration || activeTask ? 'neutral' : 'idle'}
           halo
           className="h-[4.5rem] w-[4.5rem]"
         />
@@ -227,10 +230,16 @@ function PlayColumnCard({ onCompleted }: { onCompleted: () => void }) {
  * points panel mirrors the Completion screen's tinted treatment.
  */
 function CelebrationPanel({ celebration }: { celebration: Celebration }) {
+  // #400: the zeroed variant keeps the panel but drops the cheer.
+  const zeroed = celebration.points === 0
   return (
     <div role="status">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-success-ink">
-        Nice work!
+      <div
+        className={`text-[11px] font-semibold uppercase tracking-wider ${
+          zeroed ? 'text-muted' : 'text-success-ink'
+        }`}
+      >
+        {zeroed ? 'Done' : 'Nice work!'}
       </div>
       <h2 className="mb-3 mt-1.5 line-clamp-2 font-semibold leading-snug text-gray-800">
         {celebration.title}
