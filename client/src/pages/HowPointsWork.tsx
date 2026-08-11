@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Flame, Layers, ShieldCheck, Star, Zap } from 'lucide-react'
+import { Loading } from '@/components/Loading'
 import { fetchPoints, fetchUserStats, type PointsStats, type UserStats } from '@/lib/points'
 
 /**
@@ -65,8 +66,8 @@ export function HowPointsWork() {
   if (!points) {
     return (
       <main className="flex min-h-screen flex-col p-4 sm:p-6">
-        <div className="flex flex-1 items-center justify-center rounded-xl bg-surface text-muted">
-          <span role="status">Loading…</span>
+        <div className="flex flex-1 items-center justify-center rounded-xl bg-surface">
+          <Loading />
         </div>
       </main>
     )

@@ -103,7 +103,7 @@ export function Rail({ drawer = false }: { drawer?: boolean }) {
       {/* The full status-filter set lives HERE (#256 review — the in-table pill
           row is gone). Display labels only ("Ready" = `backlog`, "Started" =
           `in_progress`, #178 rule): never string-match a label. */}
-      <RailLink to="/dashboard" active={isAll} pole="bg-primary" label="All tasks" count={counts?.all} />
+      <RailLink to="/dashboard" active={isAll} pole="bg-primary" label="Overview" count={counts?.all} />
       <RailLink
         to="/dashboard?tab=backlog"
         active={isTab('backlog')}

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { Flame, Zap } from 'lucide-react'
 import { Mascot } from '@/components/Mascot'
 import { PointsHelpLink } from '@/components/PointsHelpLink'
+import { Loading } from '@/components/Loading'
 import { fetchUserStats, type UserStats } from '@/lib/points'
 
 /**
@@ -62,11 +63,7 @@ export function Stats() {
   }, [])
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-muted">
-        <span role="status">Loading…</span>
-      </main>
-    )
+    return <Loading page />
   }
   if (error || !stats) {
     return (

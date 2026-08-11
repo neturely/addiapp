@@ -26,10 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, captchaToken?: string) {
     const data = await apiRequest<{ user: AuthUser }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, turnstileToken: captchaToken }),
     })
     setSessionExpired(false)
     setUser(data.user)
