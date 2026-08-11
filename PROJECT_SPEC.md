@@ -1,8 +1,12 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-08-08
-(2.5.0 candidate: **#292 points-integrity regulation built** — §7's fair-play
-rules (#383) + the `/how-points-work` guide (#385) — and the #324 Play Choice
+Living document. Updated as decisions are made. Last updated: 2026-08-11
+(2.6.0: the seven-issue polish/behaviour batch — "Overview" rename + archived
+visibility re-cut (#406), login Turnstile (#410), shared loading state (#398),
+overdue-red timers (#402), calm zero-point completions (#400), the two-stage
+overrun nudge/auto-return (#403), and the cursor-pointer fix (#408). 2.5.0
+shipped the **#292 points-integrity regulation** — §7's fair-play rules (#383)
++ the `/how-points-work` guide (#385) — and the #324 Play Choice
 restructure (category filter chips + per-row time launch chips). 2.0.0 shipped
 the **GUI-refresh epic #256** — app shell (header/rail/right column),
 `/tasks/:id` TaskView as the single task surface, Dashboard row list + offset
@@ -214,10 +218,13 @@ keyset pagination, and #218 edit modal)**:
   `offset` returns `{ tasks, total, counts }` — exact "X–Y of Z" ranges,
   prev/next pagers top and foot, 25/page, **newest first** by default with a
   sort-text toggle (`?sort=oldest`). Filtering stays **server-side** and purely
-  **URL-driven** — there is no in-page filter UI: the status filters (All tasks /
-  Ready / Started / Unassigned / Done, with server counts) live in the **rail's
-  Tasks section** as `?tab=` links, and per-project browsing is `?project=ID`
-  (#245/#260).
+  **URL-driven** — there is no in-page filter UI: the status filters (**Overview**
+  (renamed from "All tasks", #406) / Ready / Started / Unassigned / Done, with
+  server counts) live in the **rail's Tasks section** as `?tab=` links, and
+  per-project browsing is `?project=ID` (#245/#260). **Archived visibility
+  (#312 → #332 → #406):** the Overview and its `counts.all` EXCLUDE archived
+  tasks; the per-project/category filters keep them, server-sorted to the
+  bottom with an "Archived" pill; the Archived tab is the archive-only view.
 - **A row opens the task at `/tasks/:id` (TaskView) — THE one edit path**: back
   bar → borderless title input → an extensible field grid (Project / Estimate /
   Difficulty / Status / Description) → a served points-forecast panel → Save ·
@@ -408,9 +415,10 @@ actually built and merged to `develop`.
 - Real (illustrated) mascot art — the expression-driven SVG **icon** shipped and
   advanced through the v3 "star character" rebuild (#210, live; superseded the v2
   #96 icon); fully **illustrated** art remains the deferred pass
-- Anything else from `OLD_SPEC.md` not listed above (categories/tags #179, due
-  dates, attachments, notifications, dark mode, search, filtering, drag & drop,
-  PWA/offline, audit history, AI-assisted management)
+- Anything else from `OLD_SPEC.md` not listed above (due dates, attachments,
+  dark mode, drag & drop, PWA/offline, audit history, AI-assisted management —
+  categories shipped as #276, in-app notifications as #366, and shell search
+  covers basic filtering)
 
 ## 9. Old codebase audit — summary
 
@@ -443,8 +451,9 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
 - [ ] **#40 marketing / landing homepage** — scope/content not defined.
 - [ ] **#41 user guide / help content** — scope/content not defined.
 - [ ] **Auth hardening — edge protection only** — rate-limiting (#80) and the
-  Turnstile CAPTCHA (#79) are done; what remains is Cloudflare edge config
-  (WAF on `/api/auth/*`, Bot Fight Mode) as a dashboard-only task.
+  Turnstile CAPTCHA (#79 on register/forgot, extended to login in #410, 2.6.0)
+  are done; what remains is Cloudflare edge config (WAF on `/api/auth/*`,
+  Bot Fight Mode) as a dashboard-only checklist (#412).
 - [ ] **Privacy policy / Terms of Service** pages (needed before public launch).
 - [ ] Final color palette / brand direction — **vivid v3 is live (#143)** and current;
   only a "final/locked brand" sign-off remains (placeholder coral `#D85A30` retired).
@@ -452,14 +461,13 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
   #96); half-out PlayCard placement shipped (#211).** Still SVG icon art (advanced, not closed).
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes card drop-shadows +
   button polish (would revise the flat "no shadows/borders" rule); triage / not adopted.
-- [ ] **#292 points integrity / anti-cheat** (filed 2026-07-30) — the scoring is
-  trivially gameable (fabricated tasks, inflated estimates, multiplier farming);
-  acceptable while points are private, must be designed BEFORE any leaderboard.
 - [ ] **#295 mobile phone-width pass** (filed 2026-07-30) — a real 360px-class
   design pass (row content, touch running-task UX, dvh/safe-areas), deferred
   post-#256.
   (Resolved & removed: the "Home secondary-link set" question — Home was retired, #191;
-  archived-projects visibility — #248, shipped in 2.0.0.)
+  archived-projects visibility — #248, shipped in 2.0.0; **#292 points
+  integrity — designed AND built as 2.5.0's #383/#385**, see §7's fair-play
+  section.)
 
 Resolved since the last sync: backend language (**PHP**, #77), hosting (**same
 Basic Plus Reseller as wptips**), SSH availability (**yes**), deploy (**#39**),
@@ -518,3 +526,16 @@ production email (**#65, live**).
   responsive pass (#270, rail drawer below 640px); archived projects resolved (#248).
   Newly filed, not built: **#292 points integrity** and **#295 mobile phone-width
   pass**. Post-release fix #301 (avatar menu) noted in the changelog [Unreleased].
+- **2026-08-11** — 2.6.0 sync (also back-fills the 2.5.0 §11 entry: the 2026-08-08
+  pass updated the header + §7 fair-play section for #383/#385/#324 but logged no
+  entry here). Folded in the seven-issue 2.6.0 batch: **"Overview" rename +
+  archived-visibility re-cut** (#406 — Overview/`counts.all` exclude archived,
+  project/category filters sort it last, §6); **login Turnstile** (#410, §10's
+  auth item); **shared `Loading` component** (#398); **overdue timers in danger
+  ink** (#402, `isOverdue` boundary = the speed-bonus zero); **calm zero-point
+  Completion** (#400); **two-stage overrun** (#403 — warn notification at 3×,
+  auto-return to Ready at 5× via the lazy sweep, per-run dedupe; the InProgress
+  copy counts down to it, thresholds served on `GET /api/points`); **global
+  cursor-pointer rule** (#408, Tailwind v4 preflight regression). §8's stale
+  deferred list corrected (categories #276 / notifications #366 shipped);
+  §10's #292 item moved to resolved. CLAUDE.md holds the authoritative detail.
