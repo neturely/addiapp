@@ -384,7 +384,7 @@ export function TaskView() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => navigate(from)}>
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          {creating ? 'Back' : 'All tasks'}
+          {creating ? 'Back' : 'Overview'}
         </Button>
         <div className="flex items-center gap-2 px-1 text-xs text-muted">
           {/* Filed-away indicator (#332) — the archived state visible at a
