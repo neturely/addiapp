@@ -35,6 +35,7 @@ import { Modal } from '@/components/Modal'
 import { CategoriesView } from '@/components/CategoriesView'
 import { ProjectModal } from '@/components/ProjectModal'
 import { ProjectsView } from '@/components/ProjectsView'
+import { Loading } from '@/components/Loading'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 
@@ -511,9 +512,7 @@ export function Dashboard() {
           )}
 
           {loading ? (
-            <p role="status" className="p-8 text-center text-muted">
-              Loading…
-            </p>
+            <Loading />
           ) : visible.length === 0 ? (
             <div className="rounded-xl bg-surface p-10 text-center">
               {/* "Nothing to see here" mascot (#256 review) — the shared empty

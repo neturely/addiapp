@@ -10,6 +10,7 @@ import {
 import { useNotifications } from '@/notifications/useNotifications'
 import { useToast } from '@/toast/useToast'
 import { Mascot } from '@/components/Mascot'
+import { Loading } from '@/components/Loading'
 
 /** '2026-08-06T…' → "Today" / "Yesterday" / "Aug 4" (dates, not clock time —
  * a recurring activation happens at midnight, hours would read as noise). */
@@ -105,9 +106,7 @@ export function Notifications() {
       </div>
 
       {list === null ? (
-        <p role="status" className="px-1 text-sm text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : list.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
           {/* Shared "nothing to see here" mascot treatment (#256 review). */}
