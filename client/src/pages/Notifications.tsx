@@ -10,6 +10,7 @@ import {
 import { useNotifications } from '@/notifications/useNotifications'
 import { useToast } from '@/toast/useToast'
 import { Mascot } from '@/components/Mascot'
+import { Loading } from '@/components/Loading'
 
 /** '2026-08-06T…' → "Today" / "Yesterday" / "Aug 4" (dates, not clock time —
  * a recurring activation happens at midnight, hours would read as noise). */
@@ -105,9 +106,7 @@ export function Notifications() {
       </div>
 
       {list === null ? (
-        <p role="status" className="px-1 text-sm text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : list.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
           {/* Shared "nothing to see here" mascot treatment (#256 review). */}
@@ -141,7 +140,7 @@ export function Notifications() {
                   onClick={() => n.taskId !== null && navigate(`/tasks/${n.taskId}`)}
                   aria-label={n.taskId !== null ? `Open ${lead}` : lead}
                   className={`flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left ${
-                    n.taskId !== null ? 'cursor-pointer' : 'cursor-default'
+                    n.taskId !== null ? '' : 'cursor-default'
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate text-sm">
@@ -160,7 +159,7 @@ export function Notifications() {
                   type="button"
                   onClick={() => void dismiss(n)}
                   aria-label={`Dismiss notification: ${lead}`}
-                  className="mr-3 inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-gray-700 sm:h-9 sm:w-9"
+                  className="mr-3 inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-gray-700 sm:h-9 sm:w-9"
                 >
                   <X className="h-4 w-4" strokeWidth={2.25} aria-hidden />
                 </button>
