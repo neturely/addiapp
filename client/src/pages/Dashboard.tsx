@@ -403,7 +403,8 @@ export function Dashboard() {
 
   const rangeLabel = `${first}–${last} of ${total}`
   // Toolbar's selection label — mirrors the rail choice (project name, a status
-  // filter, or "All tasks").
+  // filter, or "Overview" — the #406 rename; the `all` URL value is unchanged,
+  // presentation-only like the Ready/Started labels).
   const filterProject =
     projectFilterId !== null ? projects.find((p) => p.id === projectFilterId) : undefined
   const selectionLabel =
@@ -412,13 +413,13 @@ export function Dashboard() {
       : categoryFilterId !== null
         ? (filterCategory?.name ?? 'Category')
         : filter === 'all'
-          ? 'All tasks'
+          ? 'Overview'
           : filter === 'unassigned'
             ? 'Unassigned'
-            : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
+            : (FILTERS.find((f) => f.key === filter)?.label ?? 'Overview')
   // Count text scopes to the selection (#256 review; per-tab figures #363): a
   // project/category filter shows THAT list's remaining count (the rail's
-  // figure); a status tab shows its own count + wording. "All tasks" keeps the
+  // figure); a status tab shows its own count + wording. The Overview keeps the
   // actionable backlog figure — it mirrors the rail's Ready badge.
   const statusCount: Record<Filter, { count: number; noun: string }> = {
     all: { count: counts?.backlog ?? 0, noun: 'ready to do' },
@@ -451,7 +452,7 @@ export function Dashboard() {
         <>
           {/* (The old project-filter banner is gone, #256 review — the toolbar's
               selection label + scoped count carry the same information, and the
-              rail's All tasks is the way back.) */}
+              rail's Overview is the way back.) */}
 
           {/* Ride-along assign banner (#236). */}
           {filter === 'unassigned' && rideAlongProject && (
@@ -595,12 +596,14 @@ export function Dashboard() {
                       >
                         {task.project?.name ?? 'No project'}
                       </span>
-                      {/* Mixed-status lists — All tasks and the per-project/
+                      {/* Mixed-status lists — the Overview and the per-project/
                           category filters (both compute filter 'all') — spend
                           the pill slot on STATUS (#322): that's what the user
                           scans a mixed list for. The archived tab uses it too,
                           resolving the archived axis first (#330 — a filed
-                          task reads "Archived", never "Done"). Homogeneous
+                          task reads "Archived", never "Done"; post-#406 only
+                          the project/category filters still surface archived
+                          rows here, sorted last by the server). Homogeneous
                           status tabs (and Unassigned) keep the difficulty pill. */}
                       {(() => {
                         const tag =
