@@ -110,7 +110,7 @@ export function Dashboard() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const reportError = useErrorReporter()
-  const { search } = useShell()
+  const { search, columnVisible } = useShell()
 
   // Tasks vs Projects vs Categories view (#336), URL-driven (`?view=`) —
   // navigated from the rail's linkable section headings (the in-page toggle
@@ -672,8 +672,13 @@ export function Dashboard() {
                         </span>
                       )}
                       {/* Started rows carry their own live clock (#256 review
-                          — tasks run in parallel, each on its own timer). */}
-                      {task.status === 'in_progress' && <RowTimer task={task} />}
+                          — tasks run in parallel, each on its own timer).
+                          With the column mirror visible the mirror is the one
+                          ticking clock (#419): the row demotes to its pulse
+                          dot; the digits return when the column is gone. */}
+                      {task.status === 'in_progress' && (
+                        <RowTimer task={task} dotOnly={columnVisible} />
+                      )}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for
@@ -863,9 +868,10 @@ export function Dashboard() {
  * they always agree. Not a live region (no per-second SR spam); hidden below sm
  * where the row is already tight.
  */
-function RowTimer({ task }: { task: Task }) {
+function RowTimer({ task, dotOnly = false }: { task: Task; dotOnly?: boolean }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
+    // dotOnly still ticks: the overdue colour flip (#402) has to land on time.
     const iv = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(iv)
   }, [])
@@ -882,8 +888,16 @@ function RowTimer({ task }: { task: Task }) {
         aria-hidden
         className={`animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full ${overdue ? 'bg-danger' : 'bg-primary'}`}
       />
-      {formatClock(elapsedSecondsSince(task.startedAt, now))}
-      {overdue && <span className="sr-only"> (over estimate)</span>}
+      {/* #419: the column mirror is the ticking clock when it's visible — the
+          row keeps the pulse dot (+ a stable sr-only state) without digits. */}
+      {dotOnly ? (
+        <span className="sr-only">{overdue ? 'Running (over estimate)' : 'Running'}</span>
+      ) : (
+        <>
+          {formatClock(elapsedSecondsSince(task.startedAt, now))}
+          {overdue && <span className="sr-only"> (over estimate)</span>}
+        </>
+      )}
     </span>
   )
 }
