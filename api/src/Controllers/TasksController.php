@@ -251,7 +251,7 @@ final class TasksController
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&category=3 */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&project=7&category=3 */
     public function next(Request $req, array $params): void
     {
         $mode = $req->query('mode');
@@ -285,10 +285,29 @@ final class TasksController
             }
         }
 
+        // Project pin (#397): scope the projects-mode pick to ONE owned project
+        // (the manager views' play buttons). Only meaningful with mode=projects.
+        $project = null;
+        if ($req->query('project') !== null) {
+            if ($mode !== 'projects') {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            $project = self::positiveInt($req->query('project'));
+            if ($project === null) {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            if (ProjectsController::findOwnedProject(Db::pdo(), $project, (int) $req->userId) === null) {
+                Response::error('Project not found', 404); // non-enumerating (#129)
+                return;
+            }
+        }
+
         // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
         // the active project closest to done, respecting the time filter.
         if ($mode === 'projects') {
-            $this->nextInProjects($req, $minutes, $exclude, $category);
+            $this->nextInProjects($req, $minutes, $exclude, $category, $project);
             return;
         }
 
@@ -380,7 +399,7 @@ final class TasksController
      * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
      * shape as the default mode, so TaskPresented → InProgress is unchanged.
      */
-    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null): void
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null, ?int $project = null): void
     {
         // Same availability cutoff as the default mode (#250).
         $conditions = ['t.user_id = ?', "t.status = 'backlog'", '(t.available_from IS NULL OR t.available_from <= ?)'];
@@ -396,6 +415,15 @@ final class TasksController
         if ($category !== null) {
             $conditions[] = 't.category_id = ?';
             $args[] = $category;
+        }
+        // Pin (#397): one owned project only. With a single group,
+        // Selection::focusProject's least-effort ranking is a no-op and the
+        // oldest-task-within pick (+ the time filter) is exactly what remains —
+        // no selection-algorithm change needed. The active-only join stays: a
+        // pinned done/archived project simply yields the empty state.
+        if ($project !== null) {
+            $conditions[] = 't.project_id = ?';
+            $args[] = $project;
         }
 
         $stmt = Db::pdo()->prepare(

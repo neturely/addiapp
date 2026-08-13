@@ -8,6 +8,7 @@ import {
   CircleCheck,
   MoreVertical,
   Pencil,
+  Play,
   Plus,
   Trash2,
 } from 'lucide-react'
@@ -415,15 +416,29 @@ function ProjectCard({
       )}
 
       {/* Count-as-link (#245 option a): opens the Dashboard filtered to this
-          project's tasks (the #260 rail filter). */}
-      <Link
-        to={`/dashboard?project=${project.id}`}
-        className="mt-3 self-start text-sm font-medium text-muted underline-offset-2 transition hover:text-accent-ink hover:underline"
-      >
-        {project.totalCount === 0
-          ? 'No tasks yet'
-          : `${project.remainingCount} of ${project.totalCount} remaining`}
-      </Link>
+          project's tasks (the #260 rail filter). The play button beside it
+          (#397) starts a Play SESSION pinned to this project (Choice
+          pre-selected; the picker still chooses the task) — active cards with
+          tasks left only (done/archived have nothing to play). */}
+      <div className="mt-3 flex items-center gap-1.5 self-start">
+        <Link
+          to={`/dashboard?project=${project.id}`}
+          className="text-sm font-medium text-muted underline-offset-2 transition hover:text-accent-ink hover:underline"
+        >
+          {project.totalCount === 0
+            ? 'No tasks yet'
+            : `${project.remainingCount} of ${project.totalCount} remaining`}
+        </Link>
+        {project.status === 'active' && project.remainingCount > 0 && (
+          <Link
+            to={`/play?project=${project.id}`}
+            aria-label={`Play tasks from ${project.name}`}
+            className="tap-44 inline-flex h-6 w-6 items-center justify-center rounded-full bg-success-tint text-success-ink transition hover:bg-success hover:text-white"
+          >
+            <Play className="h-3.5 w-3.5" fill="currentColor" strokeWidth={0} aria-hidden />
+          </Link>
+        )}
+      </div>
 
       {/* mt-auto anchors the footer to the card's bottom edge (#256 review —
           cards without a description left the buttons floating); Assign left,

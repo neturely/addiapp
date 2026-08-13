@@ -274,6 +274,41 @@ const returnedRow = await page.evaluate(async () => {
 })
 ok(returnedRow !== null, '#423: the task_returned notification exists after the flip')
 
+// --- #397: manager-view play buttons land on Choice pre-focused ---
+const pin = await page.evaluate(async () => {
+  const pr = await fetch('/api/projects', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'e2e pin probe' }) }).then((r) => r.json())
+  const pid = pr.project.id
+  const tasks = []
+  for (const title of ['e2e pin task old', 'e2e pin task new']) {
+    const t = await fetch('/api/tasks', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, complexity: 'low', estimatedMinutes: 5, projectId: pid }) }).then((r) => r.json())
+    tasks.push(t.task.id)
+  }
+  return { pid, tasks }
+})
+await page.goto(`${BASE}/play?project=${pin.pid}`, { waitUntil: 'networkidle0' })
+await page.waitForFunction(() => /focus on e2e pin probe/i.test(document.body.textContent || ''), { timeout: 5000 })
+ok(true, '#397: /play?project=ID pre-selects Focus on projects, labelled to the project')
+ok(
+  await page.evaluate(() => !!document.querySelector('button[aria-label^="Clear project"]')),
+  '#397: the pin is clearable (× pill present)',
+)
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')].find((b) => /focus on e2e pin probe/i.test(b.textContent || ''))?.click(),
+)
+await page.waitForFunction(
+  (pid) => location.pathname === '/play/task' && location.search.includes('mode=projects') && location.search.includes(`project=${pid}`),
+  { timeout: 5000 },
+  pin.pid,
+)
+await page.waitForFunction(() => /e2e pin task old/i.test(document.body.textContent || ''), { timeout: 5000 })
+ok(true, '#397: the pinned launch presents the project\'s OLDEST task (least-effort ranking skipped)')
+// Cleanup: archive → delete the pin project; its tasks go Unassigned, delete them too.
+await page.evaluate(async ({ pid, tasks }) => {
+  await fetch(`/api/projects/${pid}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'archived' }) })
+  await fetch(`/api/projects/${pid}`, { method: 'DELETE', credentials: 'include' })
+  for (const id of tasks) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
+}, pin)
+
 // Cleanup the probes (done tasks would linger in the demo data).
 await page.evaluate(async (ids) => {
   for (const id of ids) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })

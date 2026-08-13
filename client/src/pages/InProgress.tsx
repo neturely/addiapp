@@ -79,6 +79,7 @@ export function InProgress() {
       : undefined
   const minutes = parseMinutes(params.get('minutes'))
   const category = parseMinutes(params.get('category')) // same positive-int guard (#276)
+  const project = mode ? parseMinutes(params.get('project')) : undefined // #397 pin
 
   const [task, setTask] = useState<Task | null>(null)
   const [points, setPoints] = useState<PointsStats | null>(null)
@@ -227,6 +228,7 @@ export function InProgress() {
         minutes={minutes}
         mode={mode}
         category={category}
+        project={project}
         projectBonus={projectDone}
         recursAt={recursAt}
       />
