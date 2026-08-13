@@ -15,7 +15,8 @@ import { Button } from '@/components/Button'
 import { CategoryModal } from '@/components/CategoryModal'
 import { Modal } from '@/components/Modal'
 import { ProjectModal } from '@/components/ProjectModal'
-import { ApiError } from '@/lib/apiError'
+import { ApiError, friendlyMessage } from '@/lib/apiError'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 import { fetchCategories, type Category } from '@/lib/categories'
@@ -123,6 +124,7 @@ export function TaskView() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
 
   // Create mode (#256 review — replaces the AddTask page): /tasks/new renders
   // this same view with blank fields; `?project=ID` pre-assigns (project card's
@@ -181,7 +183,7 @@ export function TaskView() {
           if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
           if (cats.some((c) => c.id === preselectCategory)) setCategoryId(preselectCategory)
         })
-        .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
+        .catch((e) => !cancelled && setError(friendlyMessage(e, "the page didn't load")))
         .finally(() => !cancelled && setLoading(false))
       return () => {
         cancelled = true
@@ -218,7 +220,7 @@ export function TaskView() {
       .catch((e) => {
         if (cancelled) return
         if (e instanceof ApiError && e.status === 404) setNotFound(true)
-        else setError(e instanceof Error ? e.message : 'Could not load the task')
+        else setError(friendlyMessage(e, "the task didn't load"))
       })
       .finally(() => !cancelled && setLoading(false))
     return () => {
@@ -319,7 +321,7 @@ export function TaskView() {
       setStatus(updated.archivedAt ? 'archived' : updated.status)
       showToast({ message: 'Task saved', icon: CircleCheck, tone: 'success' })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save the task.')
+      reportError(err, "your changes weren't saved", setError)
     } finally {
       setSaving(false)
     }
@@ -334,7 +336,7 @@ export function TaskView() {
       navigate('/dashboard')
     } catch (err) {
       setConfirmingDelete(false)
-      setError(err instanceof Error ? err.message : 'Could not delete the task.')
+      reportError(err, "the task wasn't deleted", setError)
     } finally {
       setDeleting(false)
     }
@@ -347,7 +349,7 @@ export function TaskView() {
       const started = task.status === 'in_progress' ? task : await startTask(task.id)
       navigate(`/play/progress/${started.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the task.')
+      reportError(err, "the task didn't start", setError)
     }
   }
 
