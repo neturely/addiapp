@@ -5,6 +5,7 @@ import { Footer } from './Footer'
 import { Rail } from './Rail'
 import { RightColumn } from './RightColumn'
 import { InProgressProvider } from '@/inprogress/InProgressProvider'
+import { OverrunWatcher } from '@/inprogress/OverrunWatcher'
 import { NotificationsProvider } from '@/notifications/NotificationsProvider'
 import { ShellProvider } from '@/shell/ShellProvider'
 import { useShell } from '@/shell/useShell'
@@ -64,6 +65,8 @@ function ShellFrame() {
   return (
     <div className="flex h-screen flex-col bg-page">
       <RouteFocus />
+      {/* #423: local boundary detection for the #403 overrun stages. */}
+      <OverrunWatcher />
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:font-semibold focus:text-on-primary"
