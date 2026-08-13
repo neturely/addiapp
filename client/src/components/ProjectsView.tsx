@@ -15,6 +15,8 @@ import { projectPole } from '@/lib/projectColors'
 import { deleteProject, fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 import { Button } from './Button'
 import { Loading } from './Loading'
 import { Modal } from './Modal'
@@ -40,6 +42,7 @@ const DELETE_TITLE_ID = 'project-delete-title'
  */
 export function ProjectsView() {
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const { search } = useShell()
   const [searchParams, setSearchParams] = useSearchParams()
   const archived = searchParams.get('archived') === '1'
@@ -64,7 +67,7 @@ export function ProjectsView() {
     fetchProjects(archived ? 'archived' : done ? 'done' : 'active')
       .then((p) => !cancelled && setProjects(p))
       .catch(
-        (e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load projects'),
+        (e) => !cancelled && setError(friendlyMessage(e, "your projects didn't load")),
       )
       .finally(() => !cancelled && setLoading(false))
     return () => {
@@ -109,7 +112,7 @@ export function ProjectsView() {
       showToast({ message: `Project archived: ${project.name}`, icon: Archive, tone: 'neutral' })
     } catch (e) {
       setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
-      setError(e instanceof Error ? e.message : 'Could not archive that project.')
+      reportError(e, "the project wasn't archived", setError)
     }
   }
 
@@ -125,7 +128,7 @@ export function ProjectsView() {
       })
     } catch (e) {
       setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
-      setError(e instanceof Error ? e.message : 'Could not restore that project.')
+      reportError(e, "the project wasn't restored", setError)
     }
   }
 
@@ -146,7 +149,7 @@ export function ProjectsView() {
       })
     } catch (e) {
       setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
-      setError(e instanceof Error ? e.message : 'Could not delete that project.')
+      reportError(e, "the project wasn't deleted", setError)
     } finally {
       setDeleting(false)
       setConfirmDelete(null)

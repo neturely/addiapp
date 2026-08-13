@@ -8,6 +8,8 @@ const TONE_BADGE: Record<ToastTone, string> = {
   primary: 'bg-primary',
   accent: 'bg-accent',
   warning: 'bg-warning',
+  // the one vivid fill where even small white passes (4.83, index.css) — no deep needed
+  danger: 'bg-danger',
   neutral: 'bg-gray-600',
 }
 
