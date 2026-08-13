@@ -93,6 +93,8 @@ export type NextTaskFilters = {
   mode?: PlayMode
   /** Scope the pick to one owned category (#276) — composes with every mode. */
   category?: number
+  /** Pin projects mode to ONE owned project (#397) — only with mode: 'projects'. */
+  project?: number
 }
 
 /** Which Play Choice options can produce a task at any time (#306). */
@@ -263,6 +265,7 @@ export async function fetchNextTask(filters: NextTaskFilters): Promise<Task | nu
   const params = new URLSearchParams()
   if (filters.mode) params.set('mode', filters.mode)
   else if (filters.size) params.set('size', filters.size) // win-type is ignored in projects mode
+  if (filters.mode && filters.project != null) params.set('project', String(filters.project))
   if (filters.minutes != null) params.set('minutes', String(filters.minutes))
   if (filters.exclude != null) params.set('exclude', String(filters.exclude))
   if (filters.category != null) params.set('category', String(filters.category))

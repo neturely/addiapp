@@ -45,6 +45,7 @@ export function TaskPresented() {
   const size = mode ? undefined : parseSize(params.get('size')) // win-type ignored in projects mode
   const minutes = parseMinutes(params.get('minutes'))
   const category = parseMinutes(params.get('category')) // same positive-int guard (#276)
+  const project = mode ? parseMinutes(params.get('project')) : undefined // #397 pin, projects mode only
 
   const [task, setTask] = useState<Task | null>()
   const [points, setPoints] = useState<PointsStats | null>(null)
@@ -59,7 +60,7 @@ export function TaskPresented() {
       setLoading(true)
       setError(null)
       try {
-        const next = await fetchNextTask({ size, minutes, exclude, mode, category })
+        const next = await fetchNextTask({ size, minutes, exclude, mode, category, project })
         setTask(next)
       } catch (err) {
         setError(friendlyMessage(err, "we couldn't pick a task"))
@@ -67,7 +68,7 @@ export function TaskPresented() {
         setLoading(false)
       }
     },
-    [size, minutes, mode, category],
+    [size, minutes, mode, category, project],
   )
 
   // Initial load: the task and the points context (base points + live multiplier).
@@ -92,6 +93,7 @@ export function TaskPresented() {
       else if (size) progressParams.set('size', size)
       if (minutes != null) progressParams.set('minutes', String(minutes))
       if (category != null) progressParams.set('category', String(category))
+      if (project != null) progressParams.set('project', String(project))
       const qs = progressParams.toString()
       navigate(`/play/progress/${updated.id}${qs ? `?${qs}` : ''}`)
     } catch (err) {
@@ -109,7 +111,7 @@ export function TaskPresented() {
   }
 
   if (!task) {
-    return <EmptyState filtered={Boolean(size || minutes || mode || category)} />
+    return <EmptyState filtered={Boolean(size || minutes || mode || category || project)} />
   }
 
   const tag = COMPLEXITY_TAG[task.complexity]
