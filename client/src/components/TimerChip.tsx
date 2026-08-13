@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import type { Task } from '@/lib/tasks'
-import { formatClock, elapsedSecondsSince } from '@/lib/time'
+import { formatClock, elapsedSecondsSince, isOverdue } from '@/lib/time'
 
 /**
  * Header chip for the currently in-progress task (#135). Ticks client-side off
@@ -19,14 +19,23 @@ export function TimerChip({ task, others = 0 }: { task: Task; others?: number })
     return () => clearInterval(iv)
   }, [task.startedAt])
 
+  // Overdue (#402): past the estimate the clock (and the live dot) go danger.
+  // The aria-label carries a stable "(over estimate)" — colour is never the
+  // only indicator (#126), and the label still doesn't tick.
+  const overdue = isOverdue(task)
   return (
     <Link
       to={`/play/progress/${task.id}`}
-      aria-label={`Resume “${task.title}”${others > 0 ? ` (${others} more running)` : ''}`}
-      className="tap-44 inline-flex items-center gap-2 font-mono text-xl font-bold tabular-nums text-gray-900 transition hover:opacity-80"
+      aria-label={`Resume “${task.title}”${others > 0 ? ` (${others} more running)` : ''}${overdue ? ' (over estimate)' : ''}`}
+      className={`tap-44 inline-flex items-center gap-2 font-mono text-xl font-bold tabular-nums transition hover:opacity-80 ${
+        overdue ? 'text-danger-deep' : 'text-gray-900'
+      }`}
     >
       {/* "Live/ongoing" indicator — a pulsing dot, not a duration icon (#181). */}
-      <span aria-hidden className="animate-pulse-dot h-2 w-2 shrink-0 rounded-full bg-primary" />
+      <span
+        aria-hidden
+        className={`animate-pulse-dot h-2 w-2 shrink-0 rounded-full ${overdue ? 'bg-danger' : 'bg-primary'}`}
+      />
       {formatClock(elapsed)}
       {/* Parallel running tasks (#256 review): the chip mirrors the most
           recent; a small +N flags the rest (they live in the right column). */}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { friendlyMessage } from '@/lib/apiError'
 
 type Status = 'verifying' | 'success' | 'error'
 
@@ -31,7 +32,7 @@ export function Verify() {
       })
       .catch((err: unknown) => {
         setStatus('error')
-        setMessage(err instanceof Error ? err.message : 'Verification failed.')
+        setMessage(friendlyMessage(err, "we couldn't verify your email"))
       })
   }, [params, verify, navigate])
 

@@ -19,7 +19,7 @@ export type AuthContextValue = {
   // True when the session expired mid-use (a 401 cleared the user), so the
   // login screen can show a low-key courtesy note. Reset on successful login.
   sessionExpired: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, captchaToken?: string) => Promise<void>
   /** Second login step when TOTP 2FA is armed (#319): the challenge token from
    *  the login 403 + an authenticator (or backup) code. Signs in on success. */
   verifyOtp: (challenge: string, code: string) => Promise<void>

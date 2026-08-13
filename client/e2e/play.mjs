@@ -192,6 +192,19 @@ ok(
   ),
   '#385: the zero-award panel links the guide',
 )
+// #400: a zeroed completion doesn't celebrate — calm heading ("Done.", not
+// "Nice work!") and no confetti decoration.
+ok(
+  await page.evaluate(() => {
+    const h1 = document.querySelector('h1')
+    return /Done\./.test(h1?.textContent || '') && !/Nice work/i.test(document.body.textContent || '')
+  }),
+  '#400: zeroed Completion uses the calm "Done." heading, no cheer',
+)
+ok(
+  await page.evaluate(() => document.querySelectorAll('.animate-confetti').length === 0),
+  '#400: zeroed Completion renders no confetti',
+)
 await page.click('button[aria-label="Archive this task"]')
 await page.waitForSelector('button[aria-label="Archived"]', { timeout: 5000 })
 const archived = await page.evaluate(async (tid) => {
@@ -230,10 +243,41 @@ ok(
   `#383: an aged task scores normally (got ${JSON.stringify(slowAward)})`,
 )
 
+// --- #423: liveness — the 5× auto-return flips the open InProgress screen ---
+// A 1-min task backdated 10 min is past the 5× boundary on load: the screen's
+// boundary check fetches notifications (running the lazy #403 sweep, which
+// performs the return) and flips to the calm "sent back to Ready" card without
+// a navigation; the header chip drops the task too.
+const overId = await seedTask(page, 'e2e overrun flip probe', 'low', 1)
+await page.evaluate(async (i) => {
+  await fetch(`/api/tasks/${i}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress' }) })
+}, overId)
+backdateTask(overId, 10)
+await page.goto(`${BASE}/play/progress/${overId}`, { waitUntil: 'networkidle0' })
+await page.waitForFunction(
+  () => /sent back to ready/i.test(document.body.textContent || ''),
+  { timeout: 10000 },
+)
+ok(true, '#423: InProgress flips to the "Sent back to Ready" card at the 5× boundary')
+ok(
+  await page.evaluate(() => document.activeElement?.tagName === 'H1'),
+  '#423: the sent-back card focuses its heading (in-place flip, #126)',
+)
+await sleep(400)
+ok(
+  await page.evaluate((i) => !document.querySelector(`header a[href="/play/progress/${i}"]`), overId),
+  '#423: the chip drops the returned task without a navigation',
+)
+const returnedRow = await page.evaluate(async () => {
+  const { notifications } = await fetch('/api/notifications', { credentials: 'include' }).then((r) => r.json())
+  return notifications.find((n) => n.type === 'task_returned' && /overrun flip probe/i.test(n.data.title || '')) ?? null
+})
+ok(returnedRow !== null, '#423: the task_returned notification exists after the flip')
+
 // Cleanup the probes (done tasks would linger in the demo data).
 await page.evaluate(async (ids) => {
   for (const id of ids) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
-}, [fastId, slowId])
+}, [fastId, slowId, overId])
 
 await browser.close()
 process.exit(done())

@@ -20,8 +20,10 @@ final class TurnstileTest extends TestCase
     public function testDisabledWhenNoSecretConfigured(): void
     {
         self::assertTrue(Turnstile::verify('any-token', '203.0.113.1'));
-        // Even a missing token passes when the feature is off (short-circuits
-        // before the token check).
+        // Even a missing/blank token passes when the feature is off (short-
+        // circuits before the token check) — this is what keeps dev logins
+        // working now that /auth/login is guarded too (#410).
         self::assertTrue(Turnstile::verify(null, '203.0.113.1'));
+        self::assertTrue(Turnstile::verify('', '203.0.113.1'));
     }
 }
