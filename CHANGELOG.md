@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-08-11
+### Security
+- Turnstile CAPTCHA on the login form (password step), matching register and forgot-password — counters distributed credential stuffing beyond what rate limiting covers ([#410](https://github.com/neturely/addiapp/issues/410))
+- Dependabot #64: bump js-yaml to ≥4.3.1 (high — CVE-2026-59870, quadratic CPU in !!omap resolution) ([#394](https://github.com/neturely/addiapp/issues/394))
+### Added
+- Way-over-estimate running tasks: a warning notification at 3× the estimate, and at 5× the task is sent back to Ready with a second notification; the progress screen counts down to the return ([#403](https://github.com/neturely/addiapp/issues/403))
+- Running timers turn red once a task passes its estimate — on the progress screen, the side-column mirrors, the header chip, and Started rows — with screen-reader labels noting "over estimate" ([#402](https://github.com/neturely/addiapp/issues/402))
+- Shared centered loading state — brand-hue pulse dots (with a short appearance delay so fast loads never flash) replace every bare "Loading…" text, including the first thing seen on a cold load ([#398](https://github.com/neturely/addiapp/issues/398))
+### Changed
+- "All tasks" is now "Overview" and no longer lists archived tasks; project and category views keep archived tasks but sort them to the bottom ([#406](https://github.com/neturely/addiapp/issues/406))
+- Zero-point completions no longer celebrate: a calm "Done." layout — no confetti, neutral mascot — with the reason as the main message and a link to How points work; the right-column completion moment matches, and a project bonus still shows its panel ([#400](https://github.com/neturely/addiapp/issues/400))
+### Fixed
+- Review round: overdue clocks lightened one step; the past-the-estimate message names the auto-return deadline; dev-server ports are overridable for side-by-side stacks ([#417](https://github.com/neturely/addiapp/pull/417), [#418](https://github.com/neturely/addiapp/pull/418))
+- Buttons show the hand cursor again (a Tailwind v4 preflight regression) — fixed globally, so it can't keep resurfacing on new screens; disabled buttons keep the default cursor ([#408](https://github.com/neturely/addiapp/issues/408))
+
 ## [2.5.0] - 2026-08-08
 ### Changed
 - "How points work" guide page + zero-award explanations (client half of the #292 points-integrity design) ([#385](https://github.com/neturely/addiapp/issues/385))
@@ -176,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.5.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.6.0...HEAD
+[2.6.0]: https://github.com/neturely/addiapp/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/neturely/addiapp/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/neturely/addiapp/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/neturely/addiapp/compare/v2.2.0...v2.3.0

@@ -3,6 +3,7 @@ import { Archive } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { ColorSwatchPicker } from '@/components/ColorSwatchPicker'
 import { randomSpectrumColor } from '@/lib/projectColors'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 
 // Mirror the server's validation (#234) so we fail fast client-side.
 const MAX_NAME = 255
@@ -49,6 +50,7 @@ export function ProjectForm({
   // concrete index on save, nothing new is stored server-side.
   const [color, setColor] = useState<number | 'random'>(initial?.color ?? 'random')
   const [error, setError] = useState<string | null>(null)
+  const reportError = useErrorReporter()
   const [submitting, setSubmitting] = useState(false)
 
   async function handle(e: FormEvent) {
@@ -67,7 +69,7 @@ export function ProjectForm({
       const concrete = color === 'random' ? randomSpectrumColor() : color
       await onSubmit({ name: trimmed, description: description.trim(), color: concrete })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      reportError(err, "the project wasn't saved", setError)
     } finally {
       setSubmitting(false)
     }
@@ -139,7 +141,7 @@ export function ProjectForm({
             type="button"
             onClick={onArchive}
             aria-label="Archive this project"
-            className="inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-control bg-field text-gray-700 transition hover:bg-field-hover sm:h-[42px] sm:w-[42px]"
+            className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-control bg-field text-gray-700 transition hover:bg-field-hover sm:h-[42px] sm:w-[42px]"
           >
             <Archive className="h-5 w-5" strokeWidth={2} aria-hidden />
           </button>

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Pencil, Tag } from 'lucide-react'
+import { Pencil, Play, Tag } from 'lucide-react'
 import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/categories'
 import { projectHex } from '@/lib/projectColors'
 import { Mascot } from '@/components/Mascot'
+import { Loading } from '@/components/Loading'
 
 /**
  * The categories view (#336) — `?view=categories`, reached from the rail's
@@ -41,9 +42,7 @@ export function CategoriesView() {
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">Categories</div>
 
       {categories === null ? (
-        <p role="status" className="p-8 text-center text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : categories.length === 0 ? (
         <div className="rounded-xl bg-surface p-10 text-center">
           {/* Shared "nothing to see here" treatment (#256 review). */}
@@ -72,7 +71,7 @@ export function CategoriesView() {
                 type="button"
                 onClick={() => navigate(`/dashboard?category=${c.id}`)}
                 aria-label={`Open ${c.name}`}
-                className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3.5 pl-3.5 pr-5 text-left"
+                className="flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left"
               >
                 <span className="min-w-0 flex-1 truncate text-sm">
                   <span className="font-semibold text-gray-800">{c.name}</span>
@@ -82,11 +81,25 @@ export function CategoriesView() {
                   {c.remainingCount} of {c.totalCount} left to do
                 </span>
               </button>
+              {/* #397: one-click bridge into a Play session scoped to this
+                  category — lands on Choice with the filter chip pre-selected.
+                  Hidden when nothing is left to do (a play button on a done
+                  list is noise). */}
+              {c.remainingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/play?category=${c.id}`)}
+                  aria-label={`Play tasks from ${c.name}`}
+                  className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-success-ink transition hover:bg-field-hover sm:h-9 sm:w-9"
+                >
+                  <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => navigate(`/dashboard?category=${c.id}&editCategory=1`)}
                 aria-label={`Edit category ${c.name}`}
-                className="mr-3 inline-flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-9 sm:w-9"
+                className="mr-3 inline-flex h-11 w-11 flex-none items-center justify-center rounded-lg text-muted transition hover:bg-field-hover hover:text-primary-ink sm:h-9 sm:w-9"
               >
                 <Pencil className="h-4 w-4" strokeWidth={2.25} aria-hidden />
               </button>

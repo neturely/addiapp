@@ -27,6 +27,7 @@ final class NotificationsController
         $today = (new \DateTimeImmutable('now', new \DateTimeZone(PointsConfig::timezone())))->format('Y-m-d');
 
         Notifications::sweep($pdo, $userId, $today);
+        Notifications::sweepOverrun($pdo, $userId);
         Notifications::prune($pdo, $userId);
 
         $stmt = $pdo->prepare(

@@ -49,7 +49,7 @@ const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => 
 export function Header() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
-  const { activeTask, activeTasks } = useInProgress()
+  const { activeTasks } = useInProgress()
   const { unreadCount, totalCount } = useNotifications()
   const {
     search,
@@ -101,6 +101,19 @@ export function Header() {
   }, [menuOpen])
   useEffect(() => setMenuOpen(false), [pathname])
 
+  // One clock per surface (#419). The right column's RunningMirror is the
+  // primary home for the live clock whenever it's rendered, so the chip hides
+  // under columnVisible. On the InProgress screen the hero card IS the viewed
+  // task's clock — the chip then only represents a DIFFERENT parallel running
+  // task (genuine "also running" information). On narrow viewports / solo /
+  // column-toggled-off the chip returns: a mid-flight task is never invisible
+  // (the epic #256 acceptance).
+  const viewedProgressId = pathname.match(/^\/play\/progress\/(\d+)$/)
+  const chipPool = activeTasks.filter(
+    (t) => t.id !== (viewedProgressId ? Number(viewedProgressId[1]) : null),
+  )
+  const chipTask = columnVisible ? null : (chipPool[0] ?? null)
+
   return (
     <header className="relative z-10 flex flex-none items-center gap-3 bg-surface px-3 py-2.5 sm:px-4">
       {!solo && (
@@ -112,7 +125,7 @@ export function Header() {
           aria-label="Toggle sidebar"
           aria-expanded={narrow ? drawerOpen : railOpen}
           aria-controls="app-rail"
-          className="tap-44 inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
+          className="tap-44 inline-flex h-10 w-10 items-center justify-center rounded-control text-gray-700 transition hover:bg-page"
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
@@ -137,7 +150,7 @@ export function Header() {
       )}
 
       <div className="ml-auto flex items-center gap-1.5">
-        {activeTask && <TimerChip task={activeTask} others={activeTasks.length - 1} />}
+        {chipTask && <TimerChip task={chipTask} others={chipPool.length - 1} />}
         <nav className="flex items-center gap-1" aria-label="Primary">
           {NAV.map(({ to, label, Icon, match }) => {
             const active = match(pathname)
@@ -179,7 +192,7 @@ export function Header() {
               onClick={toggleColumn}
               aria-label="Toggle side column"
               aria-pressed={columnOpen}
-              className="hidden h-9 w-9 cursor-pointer items-center justify-center rounded-control text-gray-700 transition hover:bg-page min-[1240px]:inline-flex"
+              className="hidden h-9 w-9 items-center justify-center rounded-control text-gray-700 transition hover:bg-page min-[1240px]:inline-flex"
             >
               <PanelRight className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
@@ -200,7 +213,7 @@ export function Header() {
                     : 'Account menu'
               }
               aria-expanded={menuOpen}
-              className="tap-44 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
+              className="tap-44 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-tint text-sm font-bold text-accent-ink transition hover:opacity-90"
             >
               {showGravatar ? (
                 <img
@@ -268,7 +281,7 @@ export function Header() {
                 <button
                   type="button"
                   onClick={() => void logout()}
-                  className="flex h-11 w-full cursor-pointer items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page sm:h-9"
+                  className="flex h-11 w-full items-center rounded-lg px-3 text-left text-sm text-gray-700 hover:bg-page sm:h-9"
                 >
                   Sign out
                 </button>

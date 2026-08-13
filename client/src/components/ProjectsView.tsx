@@ -8,6 +8,7 @@ import {
   CircleCheck,
   MoreVertical,
   Pencil,
+  Play,
   Plus,
   Trash2,
 } from 'lucide-react'
@@ -15,7 +16,10 @@ import { projectPole } from '@/lib/projectColors'
 import { deleteProject, fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 import { Button } from './Button'
+import { Loading } from './Loading'
 import { Modal } from './Modal'
 import { ProjectModal } from './ProjectModal'
 
@@ -39,6 +43,7 @@ const DELETE_TITLE_ID = 'project-delete-title'
  */
 export function ProjectsView() {
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const { search } = useShell()
   const [searchParams, setSearchParams] = useSearchParams()
   const archived = searchParams.get('archived') === '1'
@@ -63,7 +68,7 @@ export function ProjectsView() {
     fetchProjects(archived ? 'archived' : done ? 'done' : 'active')
       .then((p) => !cancelled && setProjects(p))
       .catch(
-        (e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load projects'),
+        (e) => !cancelled && setError(friendlyMessage(e, "your projects didn't load")),
       )
       .finally(() => !cancelled && setLoading(false))
     return () => {
@@ -108,7 +113,7 @@ export function ProjectsView() {
       showToast({ message: `Project archived: ${project.name}`, icon: Archive, tone: 'neutral' })
     } catch (e) {
       setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
-      setError(e instanceof Error ? e.message : 'Could not archive that project.')
+      reportError(e, "the project wasn't archived", setError)
     }
   }
 
@@ -124,7 +129,7 @@ export function ProjectsView() {
       })
     } catch (e) {
       setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
-      setError(e instanceof Error ? e.message : 'Could not restore that project.')
+      reportError(e, "the project wasn't restored", setError)
     }
   }
 
@@ -145,7 +150,7 @@ export function ProjectsView() {
       })
     } catch (e) {
       setProjects((prev) => [project, ...prev].sort((a, b) => b.id - a.id))
-      setError(e instanceof Error ? e.message : 'Could not delete that project.')
+      reportError(e, "the project wasn't deleted", setError)
     } finally {
       setDeleting(false)
       setConfirmDelete(null)
@@ -191,7 +196,7 @@ export function ProjectsView() {
             type="button"
             onClick={toggleSort}
             aria-label={`Sorted ${newestFirst ? 'newest' : 'oldest'} first — switch to ${newestFirst ? 'oldest' : 'newest'} first`}
-            className="cursor-pointer transition hover:text-primary-ink"
+            className="transition hover:text-primary-ink"
           >
             {newestFirst ? 'newest first' : 'oldest first'}
           </button>
@@ -208,7 +213,7 @@ export function ProjectsView() {
                 type="button"
                 onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
                 aria-label="Previous page"
-                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
               >
                 <ChevronLeft className="h-4 w-4" aria-hidden />
               </button>
@@ -218,7 +223,7 @@ export function ProjectsView() {
                 type="button"
                 onClick={() => setOffset((o) => (o + PAGE_SIZE < total ? o + PAGE_SIZE : o))}
                 aria-label="Next page"
-                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
               >
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </button>
@@ -234,9 +239,7 @@ export function ProjectsView() {
       )}
 
       {loading ? (
-        <p role="status" className="p-8 text-center text-muted">
-          Loading…
-        </p>
+        <Loading />
       ) : (archived || done) && visible.length === 0 ? (
         <p className="rounded-2xl bg-surface p-10 text-center text-muted">
           {q !== ''
@@ -279,7 +282,7 @@ export function ProjectsView() {
             <button
               type="button"
               onClick={() => setModal(null)}
-              className="flex min-h-[9rem] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 p-5 text-muted transition hover:border-primary hover:text-primary-ink"
+              className="flex min-h-[9rem] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 p-5 text-muted transition hover:border-primary hover:text-primary-ink"
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} aria-hidden />
               <span className="font-semibold">New project</span>
@@ -378,7 +381,7 @@ function ProjectCard({
             onClick={onToggleMenu}
             aria-label={`Actions for ${project.name}`}
             aria-expanded={menuOpen}
-            className="inline-flex cursor-pointer items-center justify-center rounded-md p-1 text-muted transition hover:bg-gray-100 hover:text-gray-800"
+            className="inline-flex items-center justify-center rounded-md p-1 text-muted transition hover:bg-gray-100 hover:text-gray-800"
           >
             <MoreVertical className="h-5 w-5" aria-hidden />
           </button>
@@ -390,7 +393,7 @@ function ProjectCard({
               <button
                 type="button"
                 onClick={onEdit}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
                 <Pencil className="h-4 w-4" aria-hidden />
                 Edit
@@ -398,7 +401,7 @@ function ProjectCard({
               <button
                 type="button"
                 onClick={onArchive}
-                className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
                 <Archive className="h-4 w-4" aria-hidden />
                 Archive
@@ -413,15 +416,29 @@ function ProjectCard({
       )}
 
       {/* Count-as-link (#245 option a): opens the Dashboard filtered to this
-          project's tasks (the #260 rail filter). */}
-      <Link
-        to={`/dashboard?project=${project.id}`}
-        className="mt-3 self-start text-sm font-medium text-muted underline-offset-2 transition hover:text-accent-ink hover:underline"
-      >
-        {project.totalCount === 0
-          ? 'No tasks yet'
-          : `${project.remainingCount} of ${project.totalCount} remaining`}
-      </Link>
+          project's tasks (the #260 rail filter). The play button beside it
+          (#397) starts a Play SESSION pinned to this project (Choice
+          pre-selected; the picker still chooses the task) — active cards with
+          tasks left only (done/archived have nothing to play). */}
+      <div className="mt-3 flex items-center gap-1.5 self-start">
+        <Link
+          to={`/dashboard?project=${project.id}`}
+          className="text-sm font-medium text-muted underline-offset-2 transition hover:text-accent-ink hover:underline"
+        >
+          {project.totalCount === 0
+            ? 'No tasks yet'
+            : `${project.remainingCount} of ${project.totalCount} remaining`}
+        </Link>
+        {project.status === 'active' && project.remainingCount > 0 && (
+          <Link
+            to={`/play?project=${project.id}`}
+            aria-label={`Play tasks from ${project.name}`}
+            className="tap-44 inline-flex h-6 w-6 items-center justify-center rounded-full bg-success-tint text-success-ink transition hover:bg-success hover:text-white"
+          >
+            <Play className="h-3.5 w-3.5" fill="currentColor" strokeWidth={0} aria-hidden />
+          </Link>
+        )}
+      </div>
 
       {/* mt-auto anchors the footer to the card's bottom edge (#256 review —
           cards without a description left the buttons floating); Assign left,
@@ -435,7 +452,7 @@ function ProjectCard({
             type="button"
             onClick={onArchive}
             aria-label={`Archive ${project.name}`}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover sm:min-h-0"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover sm:min-h-0"
           >
             <Archive className="h-4 w-4" aria-hidden />
             Archive
@@ -500,7 +517,7 @@ function ArchivedProjectCard({
         <button
           type="button"
           onClick={onUnarchive}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-field px-3 py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-field-hover"
         >
           <ArchiveRestore className="h-4 w-4" aria-hidden />
           Unarchive
@@ -508,7 +525,7 @@ function ArchivedProjectCard({
         <button
           type="button"
           onClick={onDelete}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-danger-tint px-3 py-1.5 text-sm font-semibold text-danger-ink transition hover:opacity-80"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-danger-tint px-3 py-1.5 text-sm font-semibold text-danger-ink transition hover:opacity-80"
         >
           <Trash2 className="h-4 w-4" aria-hidden />
           Delete

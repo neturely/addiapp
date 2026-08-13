@@ -221,4 +221,118 @@ final class NotificationsTest extends DbTestCase
         [$foreign] = $this->dispatch('DELETE', "/api/notifications/{$nid}", Sessions::create($other));
         self::assertSame(404, $foreign);
     }
+
+    // ---- Overrun nudge + auto-return (#403) ----
+
+    /** An in_progress task whose run started $minutesAgo minutes back. */
+    private function makeRunningTask(int $userId, int $estimatedMinutes, int $minutesAgo): int
+    {
+        $taskId = $this->makeTask($userId, 'low', $estimatedMinutes);
+        $this->pdo->prepare(
+            "UPDATE tasks SET status = 'in_progress',
+                    started_at = DATE_SUB(NOW(), INTERVAL ? MINUTE) WHERE id = ?",
+        )->execute([$minutesAgo, $taskId]);
+        return $taskId;
+    }
+
+    /** @param array<string,mixed> $body */
+    private function ofType(array $body, string $type): array
+    {
+        return array_values(array_filter(
+            $body['notifications'],
+            static fn (array $n): bool => $n['type'] === $type,
+        ));
+    }
+
+    public function testOverrunWarnsOnceAtThreeTimes(): void
+    {
+        $userId = $this->makeUser('notif-i@test.local');
+        $sid = Sessions::create($userId);
+        $calm = $this->makeRunningTask($userId, 10, 25);   // 2.5× — under the bar
+        $over = $this->makeRunningTask($userId, 10, 35);   // 3.5× — warn
+
+        [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
+        $warns = $this->ofType($body, 'task_overrun');
+        self::assertCount(1, $warns);
+        self::assertSame($over, $warns[0]['taskId']);
+        self::assertSame('test task', $warns[0]['data']['title']);
+        self::assertSame(10, $warns[0]['data']['estimatedMinutes']);
+        self::assertSame(35, $warns[0]['data']['elapsedMinutes']);
+        self::assertSame(5, $warns[0]['data']['returnRatio']);
+        self::assertCount(0, $this->ofType($body, 'task_returned'));
+
+        // The warned task keeps RUNNING (stage 1 never touches state), and the
+        // dedupe holds on a re-fetch.
+        $status = $this->pdo->query("SELECT status FROM tasks WHERE id = {$over}")->fetchColumn();
+        self::assertSame('in_progress', $status);
+        [, $again] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(1, $this->ofType($again, 'task_overrun'));
+        // The 2.5× task stayed silent.
+        self::assertNotContains($calm, array_column($again['notifications'], 'taskId'));
+    }
+
+    public function testOverrunReturnsToReadyAtFiveTimes(): void
+    {
+        $userId = $this->makeUser('notif-j@test.local');
+        $sid = Sessions::create($userId);
+        $task = $this->makeRunningTask($userId, 10, 55); // 5.5× — return
+
+        [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
+        // One "returned" notice, and NO same-fetch warn for the same task.
+        $returned = $this->ofType($body, 'task_returned');
+        self::assertCount(1, $returned);
+        self::assertSame($task, $returned[0]['taskId']);
+        self::assertCount(0, $this->ofType($body, 'task_overrun'));
+
+        // The normal pause semantics applied (#383): back to Ready, timing
+        // cleared, speed bonus forfeited sticky.
+        $row = $this->pdo->query(
+            "SELECT status, started_at, bonus_forfeited FROM tasks WHERE id = {$task}",
+        )->fetch();
+        self::assertSame('backlog', $row['status']);
+        self::assertNull($row['started_at']);
+        self::assertSame(1, (int) $row['bonus_forfeited']);
+    }
+
+    public function testReturnSupersedesAnEarlierWarn(): void
+    {
+        $userId = $this->makeUser('notif-k@test.local');
+        $sid = Sessions::create($userId);
+        $task = $this->makeRunningTask($userId, 10, 35); // 3.5× — warn first
+        [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(1, $this->ofType($body, 'task_overrun'));
+
+        // The run drags on past 5× — the warn is stale ("finish it or it goes
+        // back" no longer true) and must be replaced by the returned notice.
+        $this->pdo->prepare(
+            'UPDATE tasks SET started_at = DATE_SUB(NOW(), INTERVAL 55 MINUTE) WHERE id = ?',
+        )->execute([$task]);
+        [, $after] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(0, $this->ofType($after, 'task_overrun'));
+        self::assertCount(1, $this->ofType($after, 'task_returned'));
+    }
+
+    public function testStatusTransitionReArmsTheOverrunDedupe(): void
+    {
+        $userId = $this->makeUser('notif-l@test.local');
+        $sid = Sessions::create($userId);
+        $task = $this->makeRunningTask($userId, 10, 35);
+        [, $body] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(1, $this->ofType($body, 'task_overrun'));
+
+        // A manual send-back ends the run — its warn is stale and goes.
+        [$status] = $this->dispatch('PATCH', "/api/tasks/{$task}", $sid, ['status' => 'backlog']);
+        self::assertSame(200, $status);
+        [, $after] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(0, $this->ofType($after, 'task_overrun'));
+
+        // A fresh run that overruns again warns again (per-run dedupe).
+        [$status] = $this->dispatch('PATCH', "/api/tasks/{$task}", $sid, ['status' => 'in_progress']);
+        self::assertSame(200, $status);
+        $this->pdo->prepare(
+            'UPDATE tasks SET started_at = DATE_SUB(NOW(), INTERVAL 35 MINUTE) WHERE id = ?',
+        )->execute([$task]);
+        [, $rearmed] = $this->dispatch('GET', '/api/notifications', $sid);
+        self::assertCount(1, $this->ofType($rearmed, 'task_overrun'));
+    }
 }
