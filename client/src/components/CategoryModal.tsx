@@ -6,6 +6,7 @@ import { Modal } from './Modal'
 import { createCategory, updateCategory, type Category } from '@/lib/categories'
 import { randomSpectrumColor } from '@/lib/projectColors'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 
 const TITLE_ID = 'category-modal-title'
 const MAX_NAME = 255
@@ -31,6 +32,7 @@ export function CategoryModal({
   onDelete?: () => void
 }) {
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const editing = category !== undefined
 
   const [name, setName] = useState(category?.name ?? '')
@@ -62,7 +64,7 @@ export function CategoryModal({
       })
       onSaved(saved)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
+      reportError(err, "the category wasn't saved", setError)
       setSubmitting(false)
     }
   }

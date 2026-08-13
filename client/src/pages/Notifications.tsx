@@ -8,7 +8,7 @@ import {
   type AppNotification,
 } from '@/lib/notifications'
 import { useNotifications } from '@/notifications/useNotifications'
-import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 import { Mascot } from '@/components/Mascot'
 import { Loading } from '@/components/Loading'
 
@@ -76,7 +76,7 @@ function messageParts(n: AppNotification): { lead: string; rest: string } {
  */
 export function Notifications() {
   const navigate = useNavigate()
-  const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const { markAllRead, refresh } = useNotifications()
   const [list, setList] = useState<AppNotification[] | null>(null)
 
@@ -109,14 +109,14 @@ export function Notifications() {
     try {
       await dismissNotification(n.id)
       void refresh()
-    } catch {
+    } catch (e) {
       setList((l) => {
         if (!l) return l
         const restored = [...l, n]
         restored.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
         return restored
       })
-      showToast({ message: 'Could not dismiss the notification.', tone: 'warning' })
+      reportError(e, "the notification wasn't dismissed")
     }
   }
 

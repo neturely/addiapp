@@ -38,6 +38,8 @@ import { ProjectsView } from '@/components/ProjectsView'
 import { Loading } from '@/components/Loading'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 
 type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
 type View = 'tasks' | 'projects' | 'categories'
@@ -107,6 +109,7 @@ function filterFromTab(tab: string | null): Filter {
 export function Dashboard() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const { search } = useShell()
 
   // Tasks vs Projects vs Categories view (#336), URL-driven (`?view=`) —
@@ -188,7 +191,7 @@ export function Dashboard() {
         setTotal(page.total)
         setCounts(page.counts)
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load tasks'))
+      .catch((e) => !cancelled && setError(friendlyMessage(e, "your tasks didn't load")))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -278,7 +281,7 @@ export function Dashboard() {
       setDeletingCategory(null)
       navigate('/dashboard')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete the category.')
+      reportError(e, "the category wasn't deleted", setError)
       setDeletingCategory(null)
     } finally {
       setCategoryBusy(false)
@@ -305,7 +308,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not assign that task.')
+      reportError(e, "the task wasn't assigned", setError)
     }
   }
 
@@ -320,7 +323,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not archive that task.')
+      reportError(e, "the task wasn't archived", setError)
     }
   }
 
@@ -341,7 +344,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete that task.')
+      reportError(e, "the task wasn't deleted", setError)
       setDeletingTask(null)
     } finally {
       setTaskBusy(false)
@@ -354,7 +357,7 @@ export function Dashboard() {
       const started = await startTask(task.id)
       navigate(`/play/progress/${started.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start the task.')
+      reportError(e, "the task didn't start", setError)
     }
   }
 
@@ -776,7 +779,7 @@ export function Dashboard() {
                 setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
                 showToast({ message: `Project archived: ${target.name}`, icon: Archive, tone: 'neutral' })
               } catch (e) {
-                setError(e instanceof Error ? e.message : 'Could not archive the project.')
+                reportError(e, "the project wasn't archived", setError)
               }
             })()
           }}

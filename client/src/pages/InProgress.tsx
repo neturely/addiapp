@@ -16,6 +16,8 @@ import { fetchPoints, type PointsStats } from '@/lib/points'
 import { Loading } from '@/components/Loading'
 import { elapsedSecondsSince, formatClock, isOverdue } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
+import { friendlyMessage } from '@/lib/apiError'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 
 /** Effort → tint pill classes (#264; the #178 palette, AA dark-on-tint). */
 const EFFORT_PILL = {
@@ -80,6 +82,7 @@ export function InProgress() {
   const [elapsed, setElapsed] = useState(0) // seconds
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const reportError = useErrorReporter()
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
   const [projectDone, setProjectDone] = useState<ProjectCompletion | null>(null) // #240
@@ -111,7 +114,7 @@ export function InProgress() {
         setTask(t)
         setElapsed(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000)))
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the task')
+        if (!cancelled) setError(friendlyMessage(err, "the task didn't load"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -149,11 +152,11 @@ export function InProgress() {
       // chip imperatively — otherwise it would linger on the finished task (#135).
       void refreshActiveTask()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not complete the task')
+      reportError(err, "the task wasn't marked done", setError)
     } finally {
       setCompleting(false)
     }
-  }, [task, refreshActiveTask])
+  }, [task, refreshActiveTask, reportError])
 
   if (loading) {
     return <Loading page />
