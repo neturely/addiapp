@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { CircleCheck } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
 import {
@@ -74,6 +75,7 @@ function Section({
 function TotpSection() {
   const { user, updateUser } = useAuth()
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const enabled = user?.totpEnabled === true
 
   // Enable flow
@@ -106,7 +108,7 @@ function TotpSection() {
       setCopied(false)
       setSetupPassword('')
     } catch (err) {
-      setSetupError(err instanceof Error ? err.message : 'Could not start the setup.')
+      reportError(err, "the setup didn't start", setSetupError)
     } finally {
       setStartingSetup(false)
     }
@@ -121,7 +123,7 @@ function TotpSection() {
       setBackupCodes(codes)
       if (user) updateUser({ ...user, totpEnabled: true })
     } catch (err) {
-      setConfirmError(err instanceof Error ? err.message : 'Could not confirm the code.')
+      reportError(err, "the code wasn't confirmed", setConfirmError)
     } finally {
       setConfirming(false)
     }
@@ -144,7 +146,7 @@ function TotpSection() {
       setDisableCode('')
       showToast({ message: 'Two-factor authentication is off', icon: CircleCheck, tone: 'neutral' })
     } catch (err) {
-      setDisableError(err instanceof Error ? err.message : 'Could not turn off two-factor auth.')
+      reportError(err, "two-factor auth wasn't turned off", setDisableError)
     } finally {
       setDisabling(false)
     }
@@ -333,6 +335,7 @@ function TotpSection() {
 export function Settings() {
   const { user, updateUser, logout } = useAuth()
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
 
   const [displayName, setDisplayName] = useState(user?.displayName ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
@@ -368,7 +371,7 @@ export function Settings() {
       updateUser(updated)
       showToast({ message: 'Profile updated', icon: CircleCheck, tone: 'success' })
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Could not save your profile.')
+      reportError(err, "your profile wasn't saved", setProfileError)
     } finally {
       setSavingProfile(false)
     }
@@ -384,7 +387,7 @@ export function Settings() {
       setEmailSent(message)
       setNewEmail('')
     } catch (err) {
-      setEmailError(err instanceof Error ? err.message : 'Could not request the change.')
+      reportError(err, "the change wasn't requested", setEmailError)
     } finally {
       setSavingEmail(false)
     }
@@ -404,7 +407,7 @@ export function Settings() {
       setNewPassword('')
       showToast({ message: 'Password changed', icon: CircleCheck, tone: 'success' })
     } catch (err) {
-      setPwError(err instanceof Error ? err.message : 'Could not change your password.')
+      reportError(err, "your password wasn't changed", setPwError)
     } finally {
       setSavingPw(false)
     }
@@ -452,7 +455,7 @@ export function Settings() {
       // reload to the login screen drops all client state with it.
       window.location.assign('/login')
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Could not delete the account.')
+      reportError(err, "your account wasn't deleted", setDeleteError)
       setDeleting(false)
     }
   }

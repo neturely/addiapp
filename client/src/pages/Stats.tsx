@@ -5,6 +5,7 @@ import { Mascot } from '@/components/Mascot'
 import { PointsHelpLink } from '@/components/PointsHelpLink'
 import { Loading } from '@/components/Loading'
 import { fetchUserStats, type UserStats } from '@/lib/points'
+import { friendlyMessage } from '@/lib/apiError'
 
 /**
  * Color-identity stat card (#185, re-tinted #254). Each metric keeps its own
@@ -55,7 +56,7 @@ export function Stats() {
     let cancelled = false
     fetchUserStats()
       .then((s) => !cancelled && setStats(s))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load stats'))
+      .catch((e) => !cancelled && setError(friendlyMessage(e, "your stats didn't load")))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true

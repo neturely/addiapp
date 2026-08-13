@@ -13,6 +13,8 @@ import {
   type WinSize,
 } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
+import { friendlyMessage } from '@/lib/apiError'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 
 const COMPLEXITY_TAG: Record<TaskComplexity, { label: string; className: string }> = {
   low: { label: 'Low effort', className: 'bg-success-tint text-success-ink' },
@@ -48,6 +50,7 @@ export function TaskPresented() {
   const [points, setPoints] = useState<PointsStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const reportError = useErrorReporter()
   const [starting, setStarting] = useState(false)
   const navigate = useNavigate()
 
@@ -59,7 +62,7 @@ export function TaskPresented() {
         const next = await fetchNextTask({ size, minutes, exclude, mode, category })
         setTask(next)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load a task')
+        setError(friendlyMessage(err, "we couldn't pick a task"))
       } finally {
         setLoading(false)
       }
@@ -92,7 +95,7 @@ export function TaskPresented() {
       const qs = progressParams.toString()
       navigate(`/play/progress/${updated.id}${qs ? `?${qs}` : ''}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the task')
+      reportError(err, "the task didn't start", setError)
       setStarting(false)
     }
   }

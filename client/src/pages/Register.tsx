@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Mail } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { friendlyMessage } from '@/lib/apiError'
 import { Turnstile, TURNSTILE_SITE_KEY } from '@/components/Turnstile'
 
 export function Register() {
@@ -24,7 +25,7 @@ export function Register() {
       await register(email, password, displayName.trim() || undefined, captchaToken)
       setRegistered(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(friendlyMessage(err, "your account wasn't created"))
       // Turnstile tokens are single-use — get a fresh one for the next attempt.
       setCaptchaToken('')
       setWidgetKey((k) => k + 1)
