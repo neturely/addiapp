@@ -11,6 +11,8 @@ import { useNotifications } from '@/notifications/useNotifications'
 import { useErrorReporter } from '@/toast/useErrorReporter'
 import { Mascot } from '@/components/Mascot'
 import { Loading } from '@/components/Loading'
+import { Modal } from '@/components/Modal'
+import { Button } from '@/components/Button'
 
 /** '2026-08-06T…' → "Today" / "Yesterday" / "Aug 4" (dates, not clock time —
  * a recurring activation happens at midnight, hours would read as noise). */
@@ -79,6 +81,9 @@ export function Notifications() {
   const reportError = useErrorReporter()
   const { markAllRead, refresh } = useNotifications()
   const [list, setList] = useState<AppNotification[] | null>(null)
+  // #421: a row opens this detail modal (full untruncated text); the navigation
+  // the row used to perform moved to the modal's "Go to task" button.
+  const [detail, setDetail] = useState<AppNotification | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -159,11 +164,9 @@ export function Notifications() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => n.taskId !== null && navigate(`/tasks/${n.taskId}`)}
-                  aria-label={n.taskId !== null ? `Open ${lead}` : lead}
-                  className={`flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left ${
-                    n.taskId !== null ? '' : 'cursor-default'
-                  }`}
+                  onClick={() => setDetail(n)}
+                  aria-label={`View notification: ${lead}`}
+                  className="flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left"
                 >
                   <span className="min-w-0 flex-1 truncate text-sm">
                     <span
@@ -189,6 +192,33 @@ export function Notifications() {
             )
           })}
         </ul>
+      )}
+
+      {/* Detail modal (#421) — shared Modal primitive (#218): focus trap,
+          Escape/backdrop close, return-focus to the opening row. A deleted
+          task's notification has taskId null → no "Go to task". */}
+      {detail && (
+        <Modal titleId="notification-detail-title" onClose={() => setDetail(null)}>
+          <h2
+            id="notification-detail-title"
+            className="text-lg font-bold leading-snug text-gray-900"
+          >
+            {messageParts(detail).lead}
+          </h2>
+          <p className="mt-1 text-xs text-muted">{dayLabel(detail.createdAt)}</p>
+          <p className="mt-4 text-sm leading-relaxed text-gray-800">
+            {messageParts(detail).lead}
+            {messageParts(detail).rest}
+          </p>
+          <div className="mt-6 flex items-center justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDetail(null)}>
+              OK
+            </Button>
+            {detail.taskId !== null && (
+              <Button onClick={() => navigate(`/tasks/${detail.taskId}`)}>Go to task</Button>
+            )}
+          </div>
+        </Modal>
       )}
     </main>
   )

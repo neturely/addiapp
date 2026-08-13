@@ -88,7 +88,7 @@ const rowA = await page.evaluate(() => {
   if (!li) return null
   return {
     text: li.textContent || '',
-    hasOpen: !!li.querySelector('button[aria-label^="Open "]'),
+    hasOpen: !!li.querySelector('button[aria-label^="View notification"]'),
     unreadDot: !!li.querySelector('span.bg-primary'),
     hasDismiss: !!li.querySelector('button[aria-label^="Dismiss notification"]'),
   }
@@ -97,9 +97,43 @@ ok(
   rowA !== null && /was added — repeats every 2 weeks\./.test(rowA.text),
   `#366: message reads "<title> was added — repeats every 2 weeks."`,
 )
-ok(rowA?.hasOpen === true, '#366: row carries the Open-task action')
+ok(rowA?.hasOpen === true, '#421: row carries the View-notification action')
 ok(rowA?.unreadDot === true, '#366: unread row shows the primary dot')
 ok(rowA?.hasDismiss === true, '#366: row carries a trailing Dismiss button')
+
+// #421: clicking a row opens the detail modal (full untruncated text + OK +
+// Go to task); Escape closes and returns focus to the row; Go to task carries
+// the navigation the row used to perform.
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => /^View notification: e2e notify probe A/i.test(b.getAttribute('aria-label') || ''))
+    ?.click(),
+)
+await page.waitForSelector('[role=dialog]', { timeout: 5000 })
+const detailModal = await page.evaluate(() => {
+  const dialog = document.querySelector('[role=dialog]')
+  if (!dialog) return null
+  const buttons = [...dialog.querySelectorAll('button')].map((b) => b.textContent?.trim())
+  return {
+    labelledBy: !!dialog.getAttribute('aria-labelledby'),
+    fullText: /was added — repeats every 2 weeks\./.test(dialog.textContent || ''),
+    hasOk: buttons.includes('OK'),
+    hasGoToTask: buttons.includes('Go to task'),
+  }
+})
+ok(detailModal?.labelledBy === true, '#421: detail modal is aria-labelledby its heading')
+ok(detailModal?.fullText === true, '#421: modal shows the full untruncated message')
+ok(detailModal?.hasOk === true, '#421: modal has an OK close button')
+ok(detailModal?.hasGoToTask === true, '#421: modal has a Go to task button')
+await page.evaluate(() =>
+  [...document.querySelectorAll('[role=dialog] button')]
+    .find((b) => b.textContent?.trim() === 'Go to task')
+    ?.click(),
+)
+await page.waitForFunction(() => /^\/tasks\/\d+$/.test(location.pathname), { timeout: 5000 })
+ok(true, '#421: Go to task navigates to the task view')
+await page.goBack({ waitUntil: 'networkidle0' })
+await page.waitForSelector('ul[aria-label="Notifications"]', { timeout: 5000 })
 
 // Opening marked everything read: the badge DOWNGRADES to green (total-count
 // state — items still exist in the view) rather than disappearing.
