@@ -177,7 +177,68 @@ always deploy the two together. Cloudflare's dummy test keys
 (`1x000…AA` / `1x000…AA`) exercise the flow without a real challenge.
 
 Edge-level protection (Bot Fight Mode, WAF rule on `/api/auth/*`, managed DDoS)
-is tracked separately — dashboard-only, no code.
+is the next section — dashboard-only, no code.
+
+## Edge protection for `/api/auth/*` (Cloudflare dashboard, #412)
+
+Dashboard-only configuration on the `addiapp.com` zone — **no code**; the origin
+defenses (#80 app rate limiting, #79/#410 Turnstile, #107 origin headers) stay
+authoritative and this is the coarse outer layer above them. The dashboard is
+otherwise the only record of these settings, so **keep this section in sync with
+what is actually enabled** — it's the reproducible config if the zone is ever
+rebuilt.
+
+Target configuration (check off / annotate as enabled):
+
+- [ ] **Bot Fight Mode** — Security → Bots → Bot Fight Mode ON (Super Bot Fight
+  Mode if the plan offers it). Free-plan BFM cannot be scoped or excluded, so
+  after enabling, verify the SPA's own `/api/*` fetches are unaffected (they are
+  same-origin browser requests and should be — but test login/register/task
+  saves before walking away).
+- [ ] **WAF custom rule on the auth surface** — Security → WAF → Custom rules:
+  - Expression: `(http.request.uri.path wildcard "/api/auth/*") and (cf.bot_management.score lt 30 or cf.client.bot)`
+    — on plans without bot score, fall back to known-bot + threat-score:
+    `(http.request.uri.path wildcard "/api/auth/*") and (cf.threat_score gt 30 or cf.client.bot)`.
+  - Action: **Managed Challenge** (NOT interactive Block/Challenge pages as the
+    first resort). ⚠ The SPA calls these endpoints with same-origin `fetch`,
+    which **cannot answer an interactive challenge** — a mis-tuned rule locks
+    every real user out of login. Managed Challenge usually passes real
+    browsers non-interactively, but ALWAYS test the real login flow (fresh
+    private window, no CF cookies) right after enabling, and prefer loosening
+    the score threshold over challenging broadly.
+  - Do NOT challenge `POST /api/auth/verify-otp` more aggressively than the
+    rest: a TOTP challenge only exists after a Turnstile-passing password login
+    (#410), so it's already gated.
+- [ ] **Cloudflare rate-limiting rule** — Security → WAF → Rate limiting rules:
+  path wildcard `/api/auth/*`, something generous like **30 requests / 1 min per
+  IP → Managed Challenge (or Block, 1 min)**. This is a coarse outer cap; the
+  app's #80 fixed-window limiter (per-action, per-email/IP) stays the precise,
+  authoritative layer — the edge rule only blunts volumetric abuse before it
+  reaches PHP.
+- [ ] **Managed DDoS** — Security → DDoS: confirm the managed ruleset is active
+  (default ON for proxied zones; nothing to configure, just verify).
+- [ ] **No edge caching of `/api/*`** — Caching → Cache Rules: add an explicit
+  **Bypass cache** rule for path wildcard `/api/*`. (API responses are
+  `application/json`, not in Cloudflare's default cacheable set, so this is
+  belt-and-braces — but auth responses must never be cache-eligible, and an
+  explicit rule survives future "cache everything" experiments.)
+
+After enabling, record here: which rules exist, their thresholds, and any tuning
+that proved necessary (e.g. a challenge rate on legit users → threshold loosened).
+Then flip the CLAUDE.md open-decisions "Auth hardening" entry to resolved.
+
+Verification once configured (fresh private window, no Cloudflare cookies):
+
+```sh
+# Real login flow end-to-end (the critical test — fetch can't answer challenges)
+open https://addiapp.com/login   # sign in with a real account, then a task save
+# The API still answers normally from a plain client
+curl -s https://addiapp.com/api/health
+# Rapid-fire the login endpoint (>30/min) → expect 403/429 edge responses
+for i in $(seq 40); do curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST https://addiapp.com/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"email":"x@x.invalid","password":"x"}'; done
+```
 
 ## Security response headers (#107)
 
