@@ -211,6 +211,45 @@ const completion = await page.evaluate(() => {
 ok(completion.focused, 'A11Y-2: Completion heading is focused on mount')
 ok(/complete/i.test(completion.label || '') && /point/i.test(completion.label || ''), `A11Y-2: heading aria-label announces outcome + points ("${completion.label}")`)
 
+// ── A11Y-6: friendly copy on an unexpected failure (#415) ────────────────────
+// Force a 500 on the save PATCH and assert the danger toast carries the shared
+// friendly copy — the raw "Internal server error" body must never render.
+const probe500 = await seedTask(page, 'Friendly-error probe')
+await page.goto(`${BASE}/tasks/${probe500}`, { waitUntil: 'networkidle0' })
+await page.setRequestInterception(true)
+const force500 = (req) => {
+  if (req.method() === 'PATCH' && req.url().includes('/api/tasks/')) {
+    void req.respond({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Internal server error' }),
+    })
+  } else void req.continue()
+}
+page.on('request', force500)
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')].find((b) => /save changes/i.test(b.textContent || ''))?.click(),
+)
+await page
+  .waitForFunction(
+    () =>
+      [...document.querySelectorAll('[role=status]')].some((el) =>
+        /something went wrong on our side/i.test(el.textContent || ''),
+      ),
+    { timeout: 5000 },
+  )
+  .catch(() => {})
+const friendly = await page.evaluate(() => ({
+  toast: [...document.querySelectorAll('[role=status]')].some((el) =>
+    /something went wrong on our side/i.test(el.textContent || ''),
+  ),
+  raw: /internal server error/i.test(document.body.textContent || ''),
+}))
+ok(friendly.toast, 'A11Y-6: a 500 on save surfaces the friendly danger toast (#415)')
+ok(!friendly.raw, 'A11Y-6: the raw "Internal server error" string never renders (#415)')
+page.off('request', force500)
+await page.setRequestInterception(false)
+
 const failures = done()
 await browser.close()
 process.exit(failures ? 1 : 0)

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { CircleCheck } from 'lucide-react'
 import { apiRequest } from '@/lib/api'
+import { friendlyMessage } from '@/lib/apiError'
 
 /**
  * Set a new password from a reset link (issue #62). Reads the token from the URL,
@@ -54,7 +55,7 @@ export function ResetPassword() {
       setDone(true)
       setTimeout(() => navigate('/login', { replace: true }), 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reset your password.')
+      setError(friendlyMessage(err, "your password wasn't reset"))
     } finally {
       setSubmitting(false)
     }
