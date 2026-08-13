@@ -49,7 +49,7 @@ const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => 
 export function Header() {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
-  const { activeTask, activeTasks } = useInProgress()
+  const { activeTasks } = useInProgress()
   const { unreadCount, totalCount } = useNotifications()
   const {
     search,
@@ -101,6 +101,19 @@ export function Header() {
   }, [menuOpen])
   useEffect(() => setMenuOpen(false), [pathname])
 
+  // One clock per surface (#419). The right column's RunningMirror is the
+  // primary home for the live clock whenever it's rendered, so the chip hides
+  // under columnVisible. On the InProgress screen the hero card IS the viewed
+  // task's clock — the chip then only represents a DIFFERENT parallel running
+  // task (genuine "also running" information). On narrow viewports / solo /
+  // column-toggled-off the chip returns: a mid-flight task is never invisible
+  // (the epic #256 acceptance).
+  const viewedProgressId = pathname.match(/^\/play\/progress\/(\d+)$/)
+  const chipPool = activeTasks.filter(
+    (t) => t.id !== (viewedProgressId ? Number(viewedProgressId[1]) : null),
+  )
+  const chipTask = columnVisible ? null : (chipPool[0] ?? null)
+
   return (
     <header className="relative z-10 flex flex-none items-center gap-3 bg-surface px-3 py-2.5 sm:px-4">
       {!solo && (
@@ -137,7 +150,7 @@ export function Header() {
       )}
 
       <div className="ml-auto flex items-center gap-1.5">
-        {activeTask && <TimerChip task={activeTask} others={activeTasks.length - 1} />}
+        {chipTask && <TimerChip task={chipTask} others={chipPool.length - 1} />}
         <nav className="flex items-center gap-1" aria-label="Primary">
           {NAV.map(({ to, label, Icon, match }) => {
             const active = match(pathname)
