@@ -36,6 +36,7 @@ import { CategoriesView } from '@/components/CategoriesView'
 import { ProjectModal } from '@/components/ProjectModal'
 import { ProjectsView } from '@/components/ProjectsView'
 import { Loading } from '@/components/Loading'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
 import { useErrorReporter } from '@/toast/useErrorReporter'
@@ -448,6 +449,10 @@ export function Dashboard() {
     <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
       <h1 className="sr-only">Dashboard</h1>
 
+      {/* Surface-wide failure (#415 review round): a full-bleed bar at the top
+          of the page, not a small red line buried under the toolbar. */}
+      {error && <ErrorBanner message={error} />}
+
       {view === 'projects' ? (
         <ProjectsView />
       ) : view === 'categories' ? (
@@ -507,12 +512,6 @@ export function Dashboard() {
             <span className="tabular-nums">{rangeLabel}</span>
             <Pager />
           </div>
-
-          {error && (
-            <p role="alert" className="mb-3 text-sm text-danger-ink">
-              {error}
-            </p>
-          )}
 
           {loading ? (
             <Loading />

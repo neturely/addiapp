@@ -9,8 +9,10 @@ import {
 } from '@/lib/notifications'
 import { useNotifications } from '@/notifications/useNotifications'
 import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 import { Mascot } from '@/components/Mascot'
 import { Loading } from '@/components/Loading'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import { Modal } from '@/components/Modal'
 import { Button } from '@/components/Button'
 
@@ -81,6 +83,7 @@ export function Notifications() {
   const reportError = useErrorReporter()
   const { markAllRead, refresh } = useNotifications()
   const [list, setList] = useState<AppNotification[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   // #421: a row opens this detail modal (full untruncated text); the navigation
   // the row used to perform moved to the modal's "Go to task" button.
   const [detail, setDetail] = useState<AppNotification | null>(null)
@@ -94,8 +97,12 @@ export function Notifications() {
       let fetched: AppNotification[]
       try {
         ;({ notifications: fetched } = await fetchNotifications())
-      } catch {
-        if (!cancelled) setList([])
+      } catch (e) {
+        // Don't let a failure masquerade as the empty state (#415 round 2).
+        if (!cancelled) {
+          setLoadError(friendlyMessage(e, "your notifications didn't load"))
+          setList([])
+        }
         return
       }
       if (cancelled) return
@@ -128,6 +135,7 @@ export function Notifications() {
   return (
     <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
       <h1 className="sr-only">Notifications</h1>
+      {loadError && <ErrorBanner message={loadError} />}
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
         Notifications
       </div>
