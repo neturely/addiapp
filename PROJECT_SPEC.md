@@ -1,7 +1,12 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-08-11
-(2.6.0: the seven-issue polish/behaviour batch — "Overview" rename + archived
+Living document. Updated as decisions are made. Last updated: 2026-08-14
+(2.7.0: a five-issue refinement batch on top of 2.6.0 — a friendly-error system
+replacing raw server text (#415), one running clock per surface (#419), a
+notification detail modal (#421), client-side liveness for the overrun
+auto-return (#423), and play buttons that start a Play session focused on a
+category or project (#397), plus four review rounds. 2.6.0: the seven-issue
+polish/behaviour batch — "Overview" rename + archived
 visibility re-cut (#406), login Turnstile (#410), shared loading state (#398),
 overdue-red timers (#402), calm zero-point completions (#400), the two-stage
 overrun nudge/auto-return (#403), and the cursor-pointer fix (#408). 2.5.0
@@ -190,6 +195,12 @@ already-filtered candidate list + an injectable rng and return one task or null)
   active-project backlog candidates (time filter still applies), pick the project
   with the **least remaining effort** (Σ base points — closest to done), tie-break
   oldest project, then the oldest task within it. Same `{ task }` response shape.
+- **Project pin (#397, 2.7.0)**: `?project=N` alongside `mode=projects` scopes the
+  pick to one owned project (the play buttons on category rows / project cards).
+  It is a **filter, not a strategy change** — one extra WHERE clause in the route,
+  after which `focusProject` sees a single group, so its least-effort ranking is a
+  no-op and the oldest-task-within pick remains. Pin without `mode=projects` → 400;
+  a project the caller doesn't own → 404 (non-enumerating).
 - **Per-user selection preference — BUILT (#266, 2.0.0)**: `users.selection_strategy`
   (default `weightedByAge`) is read by `GET /api/tasks/next` and set from the
   Settings Play section via `PATCH /api/account` (validated against the seam,
@@ -539,3 +550,23 @@ production email (**#65, live**).
   cursor-pointer rule** (#408, Tailwind v4 preflight regression). §8's stale
   deferred list corrected (categories #276 / notifications #366 shipped);
   §10's #292 item moved to resolved. CLAUDE.md holds the authoritative detail.
+- **2026-08-14** — 2.7.0 sync. Folded in the five-issue refinement batch:
+  **friendly errors** (#415 — `isUnexpectedError`/`friendlyMessage` in
+  `lib/apiError`, the `useErrorReporter` hook putting unexpected 5xx/network
+  failures in a danger TOAST while the server's deliberate 4xx copy stays inline,
+  and the shared `ErrorBanner` card for surface-wide failures; a failed fetch may
+  no longer render as an empty state); **one clock per surface** (#419 — the
+  right-column mirror is the clock when visible, the header chip never mirrors the
+  InProgress task you're viewing, both return when the column is gone, §6);
+  **notification detail modal** (#421 — a row click opens the full text with OK +
+  "Go to task" instead of navigating); **overrun liveness** (#423 — the renderless
+  `OverrunWatcher` fires one timer per task/run/stage at the served 3×/5×
+  boundaries so the sweep's state change lands without a navigation, and the
+  InProgress screen flips in place to a "Sent back to Ready" card; tier 2
+  heartbeat deliberately unbuilt); **focused-Play entry points** (#397 — play
+  buttons on category rows and active project cards, `?category=`/`?project=`
+  pre-selection on Choice, and the `project` pin on `GET /api/tasks/next` which
+  scopes `focusProject` to one owned project WITHOUT changing the selection
+  algorithm, §5). Review rounds: the error card's placement/shape/centring, the
+  notification modal's date position, and the Dashboard's project column hidden on
+  the project's own filter view. CLAUDE.md holds the authoritative detail.

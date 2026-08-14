@@ -1,2 +1,2 @@
-<!-- okffs:type=Changed -->
-- Play buttons on category rows & project cards: jump into Play focused on that category/project ([#397](https://github.com/neturely/addiapp/issues/397))
+<!-- okffs:type=Added -->
+- Play buttons on category rows and project cards: one click starts a Play session focused on that category or project. It opens the usual choice screen with the focus pre-selected and clearable, so you still pick how much time you have; a pinned project keeps its own tasks for the rest of the session, including "Keep going" ([#397](https://github.com/neturely/addiapp/issues/397))

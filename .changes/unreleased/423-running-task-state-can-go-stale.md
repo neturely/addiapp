@@ -1,2 +1,2 @@
-<!-- okffs:type=Changed -->
-- Running-task state can go stale between navigations — client-side liveness for the #403 auto-return (and state checks… ([#423](https://github.com/neturely/addiapp/issues/423))
+<!-- okffs:type=Fixed -->
+- A running task that gets sent back to Ready for running way over its estimate no longer keeps ticking as though it were still going. The screen you're on notices the moment it happens: the task's own screen switches to a calm "sent back to Ready" message, the timers drop it, and the notification appears — all without navigating first ([#423](https://github.com/neturely/addiapp/issues/423))
