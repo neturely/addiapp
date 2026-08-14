@@ -205,18 +205,22 @@ export function Notifications() {
           >
             {messageParts(detail).lead}
           </h2>
-          <p className="mt-1 text-xs text-muted">{dayLabel(detail.createdAt)}</p>
           <p className="mt-4 text-sm leading-relaxed text-gray-800">
             {messageParts(detail).lead}
             {messageParts(detail).rest}
           </p>
-          <div className="mt-6 flex items-center justify-end gap-2">
-            <Button variant="secondary" onClick={() => setDetail(null)}>
-              OK
-            </Button>
-            {detail.taskId !== null && (
-              <Button onClick={() => navigate(`/tasks/${detail.taskId}`)}>Go to task</Button>
-            )}
+          {/* The date sits bottom-left, on the button row's baseline (user
+              feedback) — it's metadata, not a subtitle under the heading. */}
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted">{dayLabel(detail.createdAt)}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => setDetail(null)}>
+                OK
+              </Button>
+              {detail.taskId !== null && (
+                <Button onClick={() => navigate(`/tasks/${detail.taskId}`)}>Go to task</Button>
+              )}
+            </div>
           </div>
         </Modal>
       )}

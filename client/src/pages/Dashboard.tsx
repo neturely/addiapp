@@ -591,13 +591,20 @@ export function Dashboard() {
                       aria-label={`Open ${task.title}`}
                       className="flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left"
                     >
-                      <span
-                        className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
-                          task.project ? 'font-medium text-gray-700' : 'text-muted'
-                        }`}
-                      >
-                        {task.project?.name ?? 'No project'}
-                      </span>
+                      {/* Project cell — hidden on the project's OWN filter
+                          view (user feedback): every row there shares it, so
+                          the column is dead weight; the leading cell's play
+                          button carries that slot instead. Mirrors the
+                          category chip's rule below. */}
+                      {projectFilterId === null && (
+                        <span
+                          className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
+                            task.project ? 'font-medium text-gray-700' : 'text-muted'
+                          }`}
+                        >
+                          {task.project?.name ?? 'No project'}
+                        </span>
+                      )}
                       {/* Mixed-status lists — the Overview and the per-project/
                           category filters (both compute filter 'all') — spend
                           the pill slot on STATUS (#322): that's what the user
