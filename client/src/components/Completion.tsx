@@ -33,6 +33,8 @@ type CompletionProps = {
   mode?: PlayMode
   /** Category scope (#276) — carried so "Keep going" stays in the same list. */
   category?: number
+  /** Project pin (#397) — carried so "Keep going" stays in the pinned project. */
+  project?: number
   /** Project-completion bonus (#240) when this task finished its project. */
   projectBonus?: ProjectCompletion | null
   /** Next-occurrence date (#250, Y-m-d) when completing spawned a recurrence —
@@ -76,6 +78,7 @@ export function Completion({
   minutes,
   mode,
   category,
+  project,
   projectBonus,
   recursAt,
 }: CompletionProps) {
@@ -84,6 +87,7 @@ export function Completion({
   else if (size) params.set('size', size)
   if (minutes != null) params.set('minutes', String(minutes))
   if (category != null) params.set('category', String(category))
+  if (mode && project != null) params.set('project', String(project))
   const keepGoingHref = params.toString() ? `/play/task?${params.toString()}` : '/play'
 
   // Archive shortcut (#312): file the just-completed task away at the

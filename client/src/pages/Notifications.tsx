@@ -8,9 +8,13 @@ import {
   type AppNotification,
 } from '@/lib/notifications'
 import { useNotifications } from '@/notifications/useNotifications'
-import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 import { Mascot } from '@/components/Mascot'
 import { Loading } from '@/components/Loading'
+import { ErrorBanner } from '@/components/ErrorBanner'
+import { Modal } from '@/components/Modal'
+import { Button } from '@/components/Button'
 
 /** '2026-08-06T…' → "Today" / "Yesterday" / "Aug 4" (dates, not clock time —
  * a recurring activation happens at midnight, hours would read as noise). */
@@ -76,9 +80,13 @@ function messageParts(n: AppNotification): { lead: string; rest: string } {
  */
 export function Notifications() {
   const navigate = useNavigate()
-  const { showToast } = useToast()
+  const reportError = useErrorReporter()
   const { markAllRead, refresh } = useNotifications()
   const [list, setList] = useState<AppNotification[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  // #421: a row opens this detail modal (full untruncated text); the navigation
+  // the row used to perform moved to the modal's "Go to task" button.
+  const [detail, setDetail] = useState<AppNotification | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -89,8 +97,11 @@ export function Notifications() {
       let fetched: AppNotification[]
       try {
         ;({ notifications: fetched } = await fetchNotifications())
-      } catch {
-        if (!cancelled) setList([])
+      } catch (e) {
+        // Don't let a failure masquerade as the empty state (#415 round 2): the
+        // list stays null and the body below is suppressed, so the banner is
+        // the only thing rendered (setting it to [] showed "Nothing yet").
+        if (!cancelled) setLoadError(friendlyMessage(e, "your notifications didn't load"))
         return
       }
       if (cancelled) return
@@ -109,25 +120,26 @@ export function Notifications() {
     try {
       await dismissNotification(n.id)
       void refresh()
-    } catch {
+    } catch (e) {
       setList((l) => {
         if (!l) return l
         const restored = [...l, n]
         restored.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
         return restored
       })
-      showToast({ message: 'Could not dismiss the notification.', tone: 'warning' })
+      reportError(e, "the notification wasn't dismissed")
     }
   }
 
   return (
     <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
       <h1 className="sr-only">Notifications</h1>
+      {loadError && <ErrorBanner message={loadError} />}
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">
         Notifications
       </div>
 
-      {list === null ? (
+      {loadError ? null : list === null ? (
         <Loading />
       ) : list.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
@@ -159,11 +171,9 @@ export function Notifications() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => n.taskId !== null && navigate(`/tasks/${n.taskId}`)}
-                  aria-label={n.taskId !== null ? `Open ${lead}` : lead}
-                  className={`flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left ${
-                    n.taskId !== null ? '' : 'cursor-default'
-                  }`}
+                  onClick={() => setDetail(n)}
+                  aria-label={`View notification: ${lead}`}
+                  className="flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left"
                 >
                   <span className="min-w-0 flex-1 truncate text-sm">
                     <span
@@ -189,6 +199,37 @@ export function Notifications() {
             )
           })}
         </ul>
+      )}
+
+      {/* Detail modal (#421) — shared Modal primitive (#218): focus trap,
+          Escape/backdrop close, return-focus to the opening row. A deleted
+          task's notification has taskId null → no "Go to task". */}
+      {detail && (
+        <Modal titleId="notification-detail-title" onClose={() => setDetail(null)}>
+          <h2
+            id="notification-detail-title"
+            className="text-lg font-bold leading-snug text-gray-900"
+          >
+            {messageParts(detail).lead}
+          </h2>
+          <p className="mt-4 text-sm leading-relaxed text-gray-800">
+            {messageParts(detail).lead}
+            {messageParts(detail).rest}
+          </p>
+          {/* The date sits bottom-left, on the button row's baseline (user
+              feedback) — it's metadata, not a subtitle under the heading. */}
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <span className="text-xs text-muted">{dayLabel(detail.createdAt)}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => setDetail(null)}>
+                OK
+              </Button>
+              {detail.taskId !== null && (
+                <Button onClick={() => navigate(`/tasks/${detail.taskId}`)}>Go to task</Button>
+              )}
+            </div>
+          </div>
+        </Modal>
       )}
     </main>
   )

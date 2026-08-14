@@ -12,7 +12,11 @@
 > work" guide, plus the #324 Play Choice restructure); 2.6.0 sync 2026-08-11
 > (the seven-issue batch: #406 Overview + archived re-cut, #410 login Turnstile,
 > #398 shared Loading, #402 overdue-red timers, #400 calm zero completions,
-> #403 two-stage overrun nudge/auto-return, #408 cursor rule). Most core
+> #403 two-stage overrun nudge/auto-return, #408 cursor rule); 2.7.0 sync
+> 2026-08-14 (the five-issue refinement batch + four review rounds: #415
+> friendly-error system (ErrorBanner + danger toast), #419 one-clock-per-surface,
+> #421 notification detail modal, #423 client-side overrun liveness, #397
+> focused-Play buttons + the `?project=` pin). Most core
 > decisions are settled; open items live in the Open decisions log. Where this
 > file and the code disagree, the code (on `develop`) wins — update this file.
 
@@ -211,6 +215,14 @@ controller.
   backlog candidates (time-filter-respecting), pick the project with the **least remaining
   effort** (Σ `PointsConfig::BASE_POINTS`, closest to done), tie-break **oldest project**
   (`created_at`, then id), then the **oldest task** within it. Same `{ task }` shape.
+- **Project pin (#397):** `GET /api/tasks/next?mode=projects&project=N` scopes the
+  focus pick to ONE owned project — the manager views' play buttons. Validation in
+  the controller: the pin is **only valid with `mode=projects`** (else 400) and must
+  be an owned project (else **404**, non-enumerating per #129). It adds ONE
+  `t.project_id = ?` condition to the focus query — with a single group,
+  `focusProject`'s least-effort ranking is a no-op and the oldest-task-within pick
+  plus the time filter are what remain, so **the selection algorithm is unchanged**.
+  The active-only join stays, so a pinned done/archived project yields the empty state.
 - **Per-user selection preference — BUILT (#266, epic #256 E):**
   `users.selection_strategy` (migration 015, default `weightedByAge`);
   `Selection::pick($candidates, $strategy)` resolves via `strategies()` with a
@@ -295,6 +307,15 @@ to the old Node API.
   (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
   → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
+  **Focused-Play entry points (#397, 2.7.0):** a small **play button in the count cluster** of
+  CategoriesView rows and **ACTIVE** project cards (hidden at `remaining === 0`, and on done/archived
+  projects — nothing to play) deep-links **`/play?category=ID`** / **`/play?project=ID`**. Choice reads
+  both params: a category pre-checks its filter chip (**owned ids only** — a stale/foreign id silently
+  leaves "Any category"), a project resolves against active projects and swaps the projects row for a
+  **"Focus on {name}"** variant with a **clearable × pill** (clearing strips the param). Decided: it lands
+  on **Choice, not straight at `/play/task`** — the time filter still matters and Choice is where it lives.
+  The pin rides launch as `?project=N` through the whole chain (TaskPresented → InProgress → Completion
+  "Keep going"), like `category`; per-launch and URL-driven, **nothing stored** (no new preference).
   **Availability pruning (#306):** `GET /api/tasks/availability` → `{ small, big, projects }` (one grouped
   LEFT-JOIN pass over the caller's backlog; pools from `WIN_TYPE_COMPLEXITY`; `projects` = a backlog task in
   an ACTIVE project; the **time filter is deliberately excluded** — "nothing matched your time" stays the
@@ -359,7 +380,8 @@ to the old Node API.
   (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN rail
   section (between Tasks and Projects; the head links **`?view=categories`** —
   `CategoriesView`, a Dashboard-style row list: tag icon · bold name + muted
-  description · "X of Y left to do" · trailing pencil; a row opens the
+  description · "X of Y left to do" · **play button (#397 — hidden at 0 remaining)**
+  · trailing pencil; a row opens the
   category's task list — and its + → the `?newCategory=1` modal), entries led
   by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
   centered in the pole square's 8px slot so all rail labels share one x —
@@ -468,7 +490,24 @@ to the old Node API.
   PATCH; completion's `removeForTask` covers that path) so a restart re-arms
   both stages. The `data` snapshot carries title + estimate + elapsed-at-detection
   + **`returnRatio`** (client never hardcodes the 5×); the same two ratios ride
-  **`GET /api/points` → `limits.overrun`** for the InProgress countdown copy. No persistent process on this hosting, so
+  **`GET /api/points` → `limits.overrun`** for the InProgress countdown copy.
+  **Client-side liveness (#423, 2.7.0 — tier 1 ONLY, no polling/heartbeat):** the
+  sweep is the first place the server changes task state *underneath* an open view,
+  so the UI used to tick on a lie until the next navigation. **`OverrunWatcher`**
+  (`inprogress/OverrunWatcher.tsx`, renderless, mounted once in `AppLayout`)
+  schedules ONE `setTimeout` per **(task, run, stage)** at the served warn/return
+  boundaries (+2s grace — the SERVER's clock decides; a past-due boundary fires
+  immediately, e.g. a task left running overnight; `startedAt` is in the dedupe key
+  so a restart re-arms, matching the server's per-run dedupe). Firing = a
+  **notifications refresh, which IS the lazy-sweep trigger** (inserting the warn /
+  performing the return), then at the return stage an InProgressProvider refresh so
+  the chip/mirror/rows drop the task and the dot lights with no navigation. The
+  **InProgress screen** additionally notices the crossing on its own 1s tick,
+  re-fetches the task, and on confirmation flips **in place** to a calm "Sent back
+  to Ready" `PlayCard` (neutral mascot, focused heading, Back to Play / Overview);
+  re-checks are capped at **one per 15s** while past the boundary (bounded
+  verification, not ambient polling). Tier 2 (a visibility-gated heartbeat) remains
+  deliberately unbuilt. Locked by the #423 block in `e2e/play.mjs`. No persistent process on this hosting, so
   activation is detected by a **lazy sweep on `GET /api/notifications`**: one
   `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
   `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
@@ -504,6 +543,13 @@ to the old Node API.
   **Dashboard row list** (user feedback: surface rows + gap-px, leading dot
   cell = unread primary / read grey, bold-lead "Title was added — repeats …"
   message, date cell, trailing **X dismiss** action, optimistic with restore).
+  **A row click opens a DETAIL MODAL (#421, 2.7.0), it does not navigate:** the
+  shared `Modal` (#218) with the task-title heading, the FULL untruncated message,
+  and **OK + "Go to task"** (the row's old navigation moved here; absent when
+  `taskId` is null — a deleted task). Row aria-labels read
+  **"View notification: <title>"** (was "Open …" — e2e matchers changed with it);
+  the date sits **bottom-left on the button row** (review round). The trailing X
+  dismiss stays on the row. Per-item-read-on-open is still deliberately NOT built.
   It does its OWN fetch → render → mark-read → provider refresh, deliberately
   not the provider's list — the route-change refetch would race the mark-read
   and strip the unread styling; empty state = shared `empty` mascot.
@@ -545,7 +591,9 @@ to the old Node API.
   header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
-  name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
+  name (**the NAME cell is hidden on the project's own `?project=ID` filter view**,
+  2.7.0 review round — every row there repeats it; the pole cell and its hover play
+  button stay, mirroring the category chip's rule below) · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
   the Overview + the per-project/category filters; the homogeneous status tabs and
   Unassigned/Archived keep the **effort** pill) · **title [↻] description** (truncated; no
   separator — the bold title carries the split, and a recurring rule's ↻ sits inline
@@ -744,6 +792,19 @@ most-recently-started in-progress task (fetch on mount + route change, no
 polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
 
+**One clock per surface (#419, 2.7.0 — user-picked "mirror is the clock"):** the
+same countdown used to tick 2–3× per surface. Two rules, both in `Header.tsx`
+(chip) and `Dashboard.tsx` (rows), both keyed on **`columnVisible`**:
+- The chip **hides while the right-column `RunningMirror` is visible** (the mirror
+  is the primary home — it carries Open + Mark done), and its pool **excludes the
+  task whose `/play/progress/:id` you're viewing**, so on an InProgress screen the
+  chip only ever represents a *different* parallel running task ("also running").
+- Dashboard Started rows take **`<RowTimer dotOnly>`** while the column is visible:
+  pulse dot + a stable sr-only "Running"/"Running (over estimate)", no digits. It
+  still ticks internally so the #402 overdue colour flip lands on time.
+- **Never invisible** (the #256 acceptance): narrow viewport, solo mode, or column
+  toggled off ⇒ chip and row digits both return. Locked by `e2e/timer.mjs`.
+
 **Overdue running timers (#402, 2.6.0):** "out of time" = **elapsed ≥ estimate**
 (the exact speed-bonus-zero boundary — `isOverdue(task, now)` in `lib/time.ts`,
 one helper shared by every site). Overdue clocks render in **`text-danger-deep`**
@@ -929,6 +990,32 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   over a bespoke per-page toast. (The old Dashboard undo-delete toast is gone — #262 replaced
   deferred-delete with a confirm dialog in the task view. **In-column completion does NOT toast** —
   the right-column card's confetti celebration is the reward there; error toasts stay.)
+  Tones: success/primary/accent/warning/**danger** (#415) /neutral.
+- **Error presentation (#415, 2.7.0) — never render a raw server message for an
+  UNEXPECTED failure.** Two helpers in `lib/apiError.ts`: **`isUnexpectedError(err)`**
+  (a non-`ApiError` throw — i.e. network failure — or status **≥ 500**; the
+  client-made 408 timeout copy counts as EXPECTED) and
+  **`friendlyMessage(err, consequence)`** → "Something went wrong on our side —
+  {consequence}. Please try again." for unexpected, the server's own copy for 4xx
+  (those messages are written for users and must keep passing through).
+  - **Action failures** use the **`useErrorReporter()`** hook
+    (`toast/useErrorReporter.ts`): `reportError(err, "your changes weren't saved",
+    setInline)` — unexpected ⇒ a **danger toast** (7s, `CircleAlert`); expected 4xx ⇒
+    the inline alert next to the control. **Toast REPLACES inline for 5xx** (user
+    decision) so a failure is noticed even when the control is off-screen.
+  - **Surface-wide failures** (a list that didn't load) use
+    **`components/ErrorBanner`** — a rounded red card at the top of the content
+    column, `bg-danger` + white text (**4.83:1**, the one vivid fill where even
+    normal-size white clears AA, so it does NOT need the large/bold text-on-vivid
+    exemption), `rounded-xl` panel radius, centred message, no icon, `role="alert"`.
+    Adopted on Dashboard, ProjectsView, CategoriesView, Notifications. Field- and
+    section-level validation stays inline beside its control; the Play surfaces keep
+    their own full-screen error cards.
+  - A failed fetch must **never render as an empty state** — Notifications and
+    CategoriesView used to show "nothing yet" on failure; both now carry a real
+    error state. Any new list surface must do the same.
+  - Raw `text-red-600` is **not** in the palette — use `text-danger-ink` (on light)
+    or the banner. The #415 sweep removed the last of those.
 - **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
   loading indicators and the shared toast use `role="status"` (toast also
   `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).

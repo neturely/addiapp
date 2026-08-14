@@ -304,6 +304,53 @@ final class ProjectsTest extends DbTestCase
         self::assertNull($res2['task']);
     }
 
+    // --- #397: project pin on the focus endpoint (?project=N) ---
+
+    public function testProjectPinOverridesLeastEffortRanking(): void
+    {
+        $userId = $this->makeUser('focus-pin@test.local');
+        $sid = Sessions::create($userId);
+        // B is closest to done (least effort) — but the pin forces A.
+        [, $a] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'A']);
+        $pa = (int) $a['project']['id'];
+        [, $b] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'B']);
+        $pb = (int) $b['project']['id'];
+        $aOldest = $this->makeTask($userId, 'high', 30);
+        $this->assignTask($aOldest, $pa);
+        $this->assignTask($this->makeTask($userId, 'high', 30), $pa);
+        $this->assignTask($this->makeTask($userId, 'low', 10), $pb);
+
+        [$status, $res] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['mode' => 'projects', 'project' => (string) $pa]);
+        self::assertSame(200, $status);
+        self::assertSame($pa, $res['task']['projectId']);
+        self::assertSame($aOldest, $res['task']['id']); // oldest-within pick survives
+    }
+
+    public function testProjectPinValidation(): void
+    {
+        $userId = $this->makeUser('focus-pin-guard@test.local');
+        $sid = Sessions::create($userId);
+        [, $p] = $this->dispatch('POST', '/api/projects', $sid, ['name' => 'Mine']);
+        $pid = (int) $p['project']['id'];
+        $this->assignTask($this->makeTask($userId, 'low', 10), $pid);
+
+        // Foreign pin → 404, non-enumerating (#129).
+        $otherId = $this->makeUser('focus-pin-other@test.local');
+        $otherSid = Sessions::create($otherId);
+        [$s404] = $this->dispatch('GET', '/api/tasks/next', $otherSid, [], ['mode' => 'projects', 'project' => (string) $pid]);
+        self::assertSame(404, $s404);
+
+        // The pin without mode=projects is meaningless → 400.
+        [$s400] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['project' => (string) $pid]);
+        self::assertSame(400, $s400);
+
+        // A pinned archived project yields the empty pick (active-only join).
+        $this->dispatch('PATCH', "/api/projects/{$pid}", $sid, ['status' => 'archived']);
+        [$sOk, $res] = $this->dispatch('GET', '/api/tasks/next', $sid, [], ['mode' => 'projects', 'project' => (string) $pid]);
+        self::assertSame(200, $sOk);
+        self::assertNull($res['task']);
+    }
+
     // --- #240 (D): project-completion bonus ---
 
     public function testProjectBonusAwardedOnceWhenLastTaskDone(): void

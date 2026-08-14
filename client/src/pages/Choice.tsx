@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { Layers, Mountain, Play, Zap } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Layers, Mountain, Play, X, Zap } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { Mascot } from '@/components/Mascot'
 import { useInProgress } from '@/inprogress/useInProgress'
 import { fetchCategories, type Category } from '@/lib/categories'
 import { projectTint } from '@/lib/projectColors'
-import { type WinSize } from '@/lib/tasks'
+import { parseMinutes, type WinSize } from '@/lib/tasks'
 import { fetchTaskAvailability, type TaskAvailability } from '@/lib/tasks'
+import { fetchProjects, type Project } from '@/lib/projects'
 
 /** Rotating heading (#183) — a random one is picked per mount. */
 const HEADINGS = [
@@ -51,6 +52,11 @@ const BIG_TIMES: { label: string; minutes: number | null }[] = [
  */
 export function Choice() {
   const navigate = useNavigate()
+  // #397: the manager views' play buttons land here with ?category=ID /
+  // ?project=ID — a per-launch, URL-driven pre-selection (never stored).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const categoryParam = parseMinutes(searchParams.get('category')) // positive-int guard
+  const projectParam = parseMinutes(searchParams.get('project'))
   const { activeTask } = useInProgress()
   const [heading] = useState(() => HEADINGS[Math.floor(Math.random() * HEADINGS.length)])
 
@@ -80,13 +86,46 @@ export function Choice() {
     let cancelled = false
     fetchCategories()
       .then((c) => {
-        if (!cancelled) setCategories(c)
+        if (cancelled) return
+        setCategories(c)
+        // #397 pre-selection: only a category the user actually owns — a stale
+        // or foreign id just leaves "Any category" checked.
+        if (categoryParam != null && c.some((x) => x.id === categoryParam)) {
+          setCategory(categoryParam)
+        }
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // #397: a ?project=ID pin resolves against the ACTIVE projects (the play
+  // buttons only render on active cards); unresolvable ids clear silently.
+  const [pinnedProject, setPinnedProject] = useState<Project | null>(null)
+  useEffect(() => {
+    if (projectParam == null) {
+      setPinnedProject(null)
+      return
+    }
+    let cancelled = false
+    fetchProjects()
+      .then((ps) => {
+        if (!cancelled) setPinnedProject(ps.find((p) => p.id === projectParam) ?? null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [projectParam])
+
+  function clearPin() {
+    setPinnedProject(null)
+    const params = new URLSearchParams(searchParams)
+    params.delete('project')
+    setSearchParams(params, { replace: true })
+  }
 
   function go(size: WinSize, minutes: number | null) {
     const params = new URLSearchParams({ size })
@@ -100,6 +139,7 @@ export function Choice() {
   function goProjects() {
     const params = new URLSearchParams({ mode: 'projects' })
     if (category != null) params.set('category', String(category))
+    if (pinnedProject !== null) params.set('project', String(pinnedProject.id)) // #397 pin
     navigate(`/play/task?${params.toString()}`)
   }
 
@@ -269,26 +309,62 @@ export function Choice() {
 
         {/* Third path (#238): a MODE, not a size — whole-row tap, the server
             auto-picks. */}
-        {showProjects && (
-          <button
-            type="button"
-            onClick={goProjects}
-            className="flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
-          >
-            <span className="flex w-9 shrink-0 justify-center">
-              <Layers className="h-7 w-7 text-accent" strokeWidth={2.25} aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-semibold text-gray-800">
-                Focus on projects
+        {showProjects &&
+          (pinnedProject !== null ? (
+            // #397 pinned variant: the row launches locked to ONE project (the
+            // manager view's play button landed here); the trailing × clears
+            // the pin back to the auto-pick. Two buttons, so the row itself is
+            // a div — the launch half keeps the whole-row feel.
+            <div className="flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5">
+              <button
+                type="button"
+                onClick={goProjects}
+                className="flex min-w-0 flex-1 items-center gap-4 text-left"
+              >
+                <span className="flex w-9 shrink-0 justify-center">
+                  <Layers className="h-7 w-7 text-accent" strokeWidth={2.25} aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-gray-800">
+                    Focus on {pinnedProject.name}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    Just this project&rsquo;s tasks
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={clearPin}
+                aria-label={`Clear project: ${pinnedProject.name}`}
+                className="tap-44 inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-accent-tint px-2.5 text-[11px] font-semibold text-accent-ink transition hover:opacity-80"
+              >
+                {pinnedProject.name.length > 18
+                  ? `${pinnedProject.name.slice(0, 18)}…`
+                  : pinnedProject.name}
+                <X className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={goProjects}
+              className="flex w-full items-center gap-4 rounded-xl bg-page/70 p-3.5 text-left transition hover:bg-field"
+            >
+              <span className="flex w-9 shrink-0 justify-center">
+                <Layers className="h-7 w-7 text-accent" strokeWidth={2.25} aria-hidden />
               </span>
-              <span className="mt-0.5 block text-xs text-muted">The project closest to done</span>
-            </span>
-            <span className="shrink-0 rounded-full bg-accent-tint px-2.5 py-0.5 text-[11px] font-semibold text-accent-ink">
-              Auto-picked
-            </span>
-          </button>
-        )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold text-gray-800">
+                  Focus on projects
+                </span>
+                <span className="mt-0.5 block text-xs text-muted">The project closest to done</span>
+              </span>
+              <span className="shrink-0 rounded-full bg-accent-tint px-2.5 py-0.5 text-[11px] font-semibold text-accent-ink">
+                Auto-picked
+              </span>
+            </button>
+          ))}
 
       </div>
     </main>

@@ -36,8 +36,11 @@ import { CategoriesView } from '@/components/CategoriesView'
 import { ProjectModal } from '@/components/ProjectModal'
 import { ProjectsView } from '@/components/ProjectsView'
 import { Loading } from '@/components/Loading'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 
 type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
 type View = 'tasks' | 'projects' | 'categories'
@@ -107,7 +110,8 @@ function filterFromTab(tab: string | null): Filter {
 export function Dashboard() {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { search } = useShell()
+  const reportError = useErrorReporter()
+  const { search, columnVisible } = useShell()
 
   // Tasks vs Projects vs Categories view (#336), URL-driven (`?view=`) —
   // navigated from the rail's linkable section headings (the in-page toggle
@@ -188,7 +192,7 @@ export function Dashboard() {
         setTotal(page.total)
         setCounts(page.counts)
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load tasks'))
+      .catch((e) => !cancelled && setError(friendlyMessage(e, "your tasks didn't load")))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -278,7 +282,7 @@ export function Dashboard() {
       setDeletingCategory(null)
       navigate('/dashboard')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete the category.')
+      reportError(e, "the category wasn't deleted", setError)
       setDeletingCategory(null)
     } finally {
       setCategoryBusy(false)
@@ -305,7 +309,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not assign that task.')
+      reportError(e, "the task wasn't assigned", setError)
     }
   }
 
@@ -320,7 +324,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not archive that task.')
+      reportError(e, "the task wasn't archived", setError)
     }
   }
 
@@ -341,7 +345,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete that task.')
+      reportError(e, "the task wasn't deleted", setError)
       setDeletingTask(null)
     } finally {
       setTaskBusy(false)
@@ -354,7 +358,7 @@ export function Dashboard() {
       const started = await startTask(task.id)
       navigate(`/play/progress/${started.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start the task.')
+      reportError(e, "the task didn't start", setError)
     }
   }
 
@@ -445,6 +449,10 @@ export function Dashboard() {
     <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
       <h1 className="sr-only">Dashboard</h1>
 
+      {/* Surface-wide failure (#415 review round): a full-bleed bar at the top
+          of the page, not a small red line buried under the toolbar. */}
+      {error && <ErrorBanner message={error} />}
+
       {view === 'projects' ? (
         <ProjectsView />
       ) : view === 'categories' ? (
@@ -504,12 +512,6 @@ export function Dashboard() {
             <span className="tabular-nums">{rangeLabel}</span>
             <Pager />
           </div>
-
-          {error && (
-            <p role="alert" className="mb-3 text-sm text-danger-ink">
-              {error}
-            </p>
-          )}
 
           {loading ? (
             <Loading />
@@ -588,13 +590,20 @@ export function Dashboard() {
                       aria-label={`Open ${task.title}`}
                       className="flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left"
                     >
-                      <span
-                        className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
-                          task.project ? 'font-medium text-gray-700' : 'text-muted'
-                        }`}
-                      >
-                        {task.project?.name ?? 'No project'}
-                      </span>
+                      {/* Project cell — hidden on the project's OWN filter
+                          view (user feedback): every row there shares it, so
+                          the column is dead weight; the leading cell's play
+                          button carries that slot instead. Mirrors the
+                          category chip's rule below. */}
+                      {projectFilterId === null && (
+                        <span
+                          className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
+                            task.project ? 'font-medium text-gray-700' : 'text-muted'
+                          }`}
+                        >
+                          {task.project?.name ?? 'No project'}
+                        </span>
+                      )}
                       {/* Mixed-status lists — the Overview and the per-project/
                           category filters (both compute filter 'all') — spend
                           the pill slot on STATUS (#322): that's what the user
@@ -669,8 +678,13 @@ export function Dashboard() {
                         </span>
                       )}
                       {/* Started rows carry their own live clock (#256 review
-                          — tasks run in parallel, each on its own timer). */}
-                      {task.status === 'in_progress' && <RowTimer task={task} />}
+                          — tasks run in parallel, each on its own timer).
+                          With the column mirror visible the mirror is the one
+                          ticking clock (#419): the row demotes to its pulse
+                          dot; the digits return when the column is gone. */}
+                      {task.status === 'in_progress' && (
+                        <RowTimer task={task} dotOnly={columnVisible} />
+                      )}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for
@@ -776,7 +790,7 @@ export function Dashboard() {
                 setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
                 showToast({ message: `Project archived: ${target.name}`, icon: Archive, tone: 'neutral' })
               } catch (e) {
-                setError(e instanceof Error ? e.message : 'Could not archive the project.')
+                reportError(e, "the project wasn't archived", setError)
               }
             })()
           }}
@@ -860,9 +874,10 @@ export function Dashboard() {
  * they always agree. Not a live region (no per-second SR spam); hidden below sm
  * where the row is already tight.
  */
-function RowTimer({ task }: { task: Task }) {
+function RowTimer({ task, dotOnly = false }: { task: Task; dotOnly?: boolean }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
+    // dotOnly still ticks: the overdue colour flip (#402) has to land on time.
     const iv = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(iv)
   }, [])
@@ -879,8 +894,16 @@ function RowTimer({ task }: { task: Task }) {
         aria-hidden
         className={`animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full ${overdue ? 'bg-danger' : 'bg-primary'}`}
       />
-      {formatClock(elapsedSecondsSince(task.startedAt, now))}
-      {overdue && <span className="sr-only"> (over estimate)</span>}
+      {/* #419: the column mirror is the ticking clock when it's visible — the
+          row keeps the pulse dot (+ a stable sr-only state) without digits. */}
+      {dotOnly ? (
+        <span className="sr-only">{overdue ? 'Running (over estimate)' : 'Running'}</span>
+      ) : (
+        <>
+          {formatClock(elapsedSecondsSince(task.startedAt, now))}
+          {overdue && <span className="sr-only"> (over estimate)</span>}
+        </>
+      )}
     </span>
   )
 }

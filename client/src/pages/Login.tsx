@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/auth/useAuth'
-import { ApiError } from '@/lib/apiError'
+import { ApiError, friendlyMessage } from '@/lib/apiError'
 import { Turnstile, TURNSTILE_SITE_KEY } from '@/components/Turnstile'
 
 export function Login() {
@@ -49,7 +49,7 @@ export function Login() {
         setCode('')
         setUsingBackupCode(false)
       } else {
-        setError(err instanceof Error ? err.message : 'Login failed')
+        setError(friendlyMessage(err, "we couldn't sign you in"))
       }
     } finally {
       setSubmitting(false)
@@ -70,7 +70,7 @@ export function Login() {
         setChallenge(null)
         setPassword('')
       }
-      setError(err instanceof Error ? err.message : 'Sign-in failed')
+      setError(friendlyMessage(err, "we couldn't sign you in"))
     } finally {
       setSubmitting(false)
     }
