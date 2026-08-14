@@ -68,7 +68,12 @@ export function OverrunWatcher() {
               // sweep inserts the warn row / performs the return on it.
               await refreshNotifications()
               if (stage === 'return') await refresh()
-            })()
+            })().catch(() => {
+              // Both provider refreshes swallow their own errors today, so this
+              // is belt-and-braces — but a timer callback is a bad place to
+              // depend on that, and an unhandled rejection here would be
+              // untraceable. The next boundary or route change refetches anyway.
+            })
           }, delay),
         )
       }

@@ -98,11 +98,10 @@ export function Notifications() {
       try {
         ;({ notifications: fetched } = await fetchNotifications())
       } catch (e) {
-        // Don't let a failure masquerade as the empty state (#415 round 2).
-        if (!cancelled) {
-          setLoadError(friendlyMessage(e, "your notifications didn't load"))
-          setList([])
-        }
+        // Don't let a failure masquerade as the empty state (#415 round 2): the
+        // list stays null and the body below is suppressed, so the banner is
+        // the only thing rendered (setting it to [] showed "Nothing yet").
+        if (!cancelled) setLoadError(friendlyMessage(e, "your notifications didn't load"))
         return
       }
       if (cancelled) return
@@ -140,7 +139,7 @@ export function Notifications() {
         Notifications
       </div>
 
-      {list === null ? (
+      {loadError ? null : list === null ? (
         <Loading />
       ) : list.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
