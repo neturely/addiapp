@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-08-14
+### Added
+- Play buttons on category rows and project cards: one click starts a Play session focused on that category or project. It opens the usual choice screen with the focus pre-selected and clearable, so you still pick how much time you have; a pinned project keeps its own tasks for the rest of the session, including "Keep going" ([#397](https://github.com/neturely/addiapp/issues/397))
+### Fixed
+- A running task that gets sent back to Ready for running way over its estimate no longer keeps ticking as though it were still going. The screen you're on notices the moment it happens: the task's own screen switches to a calm "sent back to Ready" message, the timers drop it, and the notification appears — all without navigating first ([#423](https://github.com/neturely/addiapp/issues/423))
+- Unexpected failures no longer show raw developer text: a server error or lost connection now surfaces as a red notice explaining what didn't happen ("your changes weren't saved") instead of "Internal server error". Surface-wide failures (a list that didn't load) show a themed error card at the top of the page; action failures raise a toast, so a failure is noticed even when the button is out of view ([#415](https://github.com/neturely/addiapp/issues/415))
+### Changed
+- Review-round polish: page-level errors render as a rounded red card at the top of the content column (replacing small red text, including two spots that had drifted off the palette entirely), the notification detail view puts its date on the button row, the task list drops the project column when you're already filtered to that project, and Notifications and Categories no longer show their "nothing yet" empty state when the request actually failed ([#429](https://github.com/neturely/addiapp/pull/429), [#430](https://github.com/neturely/addiapp/pull/430), [#431](https://github.com/neturely/addiapp/pull/431), [#432](https://github.com/neturely/addiapp/pull/432))
+- Notifications with long messages are readable: clicking a row now opens a detail view with the full text instead of jumping straight to the task, with "Go to task" moved into that view ([#421](https://github.com/neturely/addiapp/issues/421))
+- One running clock per surface: the same countdown no longer ticks in two or three places at once. The right-column running card is the clock when it's on screen — the header chip hides and started rows keep just their pulse dot — and on a running task's own screen the header chip only appears for a *different* task running in parallel. Both come back on narrow screens or with the column closed, so a running task is never hidden ([#419](https://github.com/neturely/addiapp/issues/419))
+
 ## [2.6.0] - 2026-08-11
 ### Security
 - Turnstile CAPTCHA on the login form (password step), matching register and forgot-password — counters distributed credential stuffing beyond what rate limiting covers ([#410](https://github.com/neturely/addiapp/issues/410))
@@ -191,7 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.6.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.7.0...HEAD
+[2.7.0]: https://github.com/neturely/addiapp/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/neturely/addiapp/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/neturely/addiapp/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/neturely/addiapp/compare/v2.3.0...v2.4.0

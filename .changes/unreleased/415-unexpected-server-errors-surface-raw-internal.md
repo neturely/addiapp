@@ -1,2 +1,0 @@
-<!-- okffs:type=Fixed -->
-- Unexpected failures no longer show raw developer text: a server error or lost connection now surfaces as a red notice explaining what didn't happen ("your changes weren't saved") instead of "Internal server error". Surface-wide failures (a list that didn't load) show a themed error card at the top of the page; action failures raise a toast, so a failure is noticed even when the button is out of view ([#415](https://github.com/neturely/addiapp/issues/415))
