@@ -1,2 +1,0 @@
-<!-- okffs:type=Changed -->
-- One running clock per surface: the same countdown no longer ticks in two or three places at once. The right-column running card is the clock when it's on screen — the header chip hides and started rows keep just their pulse dot — and on a running task's own screen the header chip only appears for a *different* task running in parallel. Both come back on narrow screens or with the column closed, so a running task is never hidden ([#419](https://github.com/neturely/addiapp/issues/419))
