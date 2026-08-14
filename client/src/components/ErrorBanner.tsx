@@ -1,5 +1,3 @@
-import { CircleAlert } from 'lucide-react'
-
 /**
  * Page-level error card (#415 review rounds): a rounded red panel at the top of
  * the content column — the treatment for a failure that broke the whole surface
@@ -14,18 +12,18 @@ import { CircleAlert } from 'lucide-react'
  * It sits INSIDE the host surface's `p-4 sm:p-6` padding (the full-bleed band
  * was tried first and rejected on review), so it lines up with the toolbar and
  * list panels below and takes the same 12px panel radius as those (`rounded-xl`,
- * the repo radius scale). Render it as the first child of that padded container.
- * Field- and section-level validation messages stay inline next to their
- * control — this is for surface-wide failures only.
+ * the repo radius scale). The message is centred and carries no icon (review
+ * rounds) — the solid red field is already the signal. Render it as the first
+ * child of that padded container. Field- and section-level validation messages
+ * stay inline next to their control — this is for surface-wide failures only.
  */
 export function ErrorBanner({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="mb-3 flex items-start gap-2.5 rounded-xl bg-danger px-4 py-3 text-sm font-medium text-white sm:mb-4"
+      className="mb-3 rounded-xl bg-danger px-4 py-3 text-center text-sm font-medium text-white sm:mb-4"
     >
-      <CircleAlert className="mt-px h-4 w-4 flex-none" strokeWidth={2.5} aria-hidden />
-      <span className="min-w-0">{message}</span>
+      {message}
     </div>
   )
 }
