@@ -39,10 +39,10 @@ export function CategoriesView() {
         setCategories(c)
       })
       .catch((e) => {
-        // A failure must not read as "no categories yet" (#415 round 2).
+        // A failure must not read as "no categories yet" (#415 round 2) — the
+        // list stays null and the body is suppressed, leaving just the banner.
         if (cancelled) return
         setLoadError(friendlyMessage(e, "your categories didn't load"))
-        setCategories([])
       })
     return () => {
       cancelled = true
@@ -54,7 +54,7 @@ export function CategoriesView() {
       {loadError && <ErrorBanner message={loadError} />}
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">Categories</div>
 
-      {categories === null ? (
+      {loadError ? null : categories === null ? (
         <Loading />
       ) : categories.length === 0 ? (
         <div className="rounded-xl bg-surface p-10 text-center">
