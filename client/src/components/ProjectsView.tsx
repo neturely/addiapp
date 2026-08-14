@@ -20,6 +20,7 @@ import { useErrorReporter } from '@/toast/useErrorReporter'
 import { friendlyMessage } from '@/lib/apiError'
 import { Button } from './Button'
 import { Loading } from './Loading'
+import { ErrorBanner } from './ErrorBanner'
 import { Modal } from './Modal'
 import { ProjectModal } from './ProjectModal'
 
@@ -186,6 +187,7 @@ export function ProjectsView() {
 
   return (
     <section>
+      {error && <ErrorBanner message={error} />}
       {/* Toolbar (#256 review — the task list's layout): pool · sort toggle ·
           count, with the range + pager top right. The Active/Archived pools and
           the New-project plus live in the rail's Projects section. */}
@@ -231,12 +233,6 @@ export function ProjectsView() {
           </div>
         )}
       </div>
-
-      {error && (
-        <p role="alert" className="mb-3 text-sm text-red-600">
-          {error}
-        </p>
-      )}
 
       {loading ? (
         <Loading />

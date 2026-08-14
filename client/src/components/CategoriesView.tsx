@@ -5,6 +5,8 @@ import { CATEGORIES_CHANGED_EVENT, fetchCategories, type Category } from '@/lib/
 import { projectHex } from '@/lib/projectColors'
 import { Mascot } from '@/components/Mascot'
 import { Loading } from '@/components/Loading'
+import { ErrorBanner } from '@/components/ErrorBanner'
+import { friendlyMessage } from '@/lib/apiError'
 
 /**
  * The categories view (#336) — `?view=categories`, reached from the rail's
@@ -18,6 +20,7 @@ import { Loading } from '@/components/Loading'
 export function CategoriesView() {
   const navigate = useNavigate()
   const [categories, setCategories] = useState<Category[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Fetch on mount + the mutation signal (the rail's freshness pattern) — an
   // edit/delete lands back here without a route change.
@@ -30,8 +33,17 @@ export function CategoriesView() {
   useEffect(() => {
     let cancelled = false
     fetchCategories()
-      .then((c) => !cancelled && setCategories(c))
-      .catch(() => !cancelled && setCategories([]))
+      .then((c) => {
+        if (cancelled) return
+        setLoadError(null)
+        setCategories(c)
+      })
+      .catch((e) => {
+        // A failure must not read as "no categories yet" (#415 round 2).
+        if (cancelled) return
+        setLoadError(friendlyMessage(e, "your categories didn't load"))
+        setCategories([])
+      })
     return () => {
       cancelled = true
     }
@@ -39,6 +51,7 @@ export function CategoriesView() {
 
   return (
     <section aria-label="Categories">
+      {loadError && <ErrorBanner message={loadError} />}
       <div className="mb-2.5 flex items-center gap-2.5 px-1 text-xs text-muted">Categories</div>
 
       {categories === null ? (
