@@ -409,6 +409,11 @@ actually built and merged to `develop`.
   selection strategy / account deletion / sign-out-others (#266), project
   colours (#268), responsive pass with the below-640px rail drawer (#270),
   archived-projects view (#248).
+- ✅ **Notes scratchpad (#405, shipped 2.8.0)** — one plain-text page per user at
+  `/notes`, in the normal shell, reached from a header nav icon; ruled paper,
+  autosave with no Save button (debounce + blur + navigate-away), one row per
+  user. Deliberately v1-only: no markdown, no multiple pages, no per-task notes,
+  no history.
 - ⬜ Marketing / landing homepage (#40) and user guide (#41) — the only remaining
   Release-1 items, both **not yet scoped**.
 
@@ -570,3 +575,25 @@ production email (**#65, live**).
   algorithm, §5). Review rounds: the error card's placement/shape/centring, the
   notification modal's date position, and the Dashboard's project column hidden on
   the project's own filter view. CLAUDE.md holds the authoritative detail.
+- **2026-08-18** — 2.8.0 sync. A two-issue batch whose second issue paid for the
+  first. **Notes (#405)** — one plain-text scratchpad page per user at `/notes`,
+  in the normal shell, reached from a header nav icon (nav, not the avatar menu:
+  a scratchpad is a place you work, not an account setting). Table-not-column
+  with `UNIQUE(user_id)` and a `PUT` upsert; `mediumtext`, because the cap is
+  100,000 CHARACTERS and `text` holds 65,535 BYTES; the #114 request-body cap is
+  now path-aware (512 KB for `/api/notes`, the tight 64 KB default everywhere
+  else) so a long multi-byte note gets a real answer instead of a 413. Ruled
+  paper via one gradient (`.notes-paper`), full width, autosave with **no Save
+  button** — debounce + blur + navigate-away + tab-close, a quiet `role=status`
+  indicator as the only feedback. **e2e harness portability (#437)** — one
+  no-sudo `npm run e2e:setup` plus browser auto-discovery in `lib.mjs` makes the
+  suites runnable off a Mac; they had rotted over two releases while they
+  couldn't run, and are green again (11 suites). Running them is now a
+  documented step of the release pass, which is the actual fix: 2.7.0 shipped a
+  failure-path bug (#436) past clean lint and a green build because these
+  couldn't run. That paid off inside this very release — the restored suites
+  caught a **live #423 bug** (opening an already-auto-returned task's screen
+  bounced to `/play` with no account of where the run went; it now shows the
+  same calm "Sent back to Ready" card) and a **375px header overflow** the new
+  Notes icon introduced (nav icons paint `h-8` below `sm`; the `tap-44` halo
+  keeps the 44px hit target). CLAUDE.md holds the authoritative detail.
