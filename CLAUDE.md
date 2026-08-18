@@ -16,7 +16,9 @@
 > 2026-08-14 (the five-issue refinement batch + four review rounds: #415
 > friendly-error system (ErrorBanner + danger toast), #419 one-clock-per-surface,
 > #421 notification detail modal, #423 client-side overrun liveness, #397
-> focused-Play buttons + the `?project=` pin). Most core
+> focused-Play buttons + the `?project=` pin); 2.8.0 sync 2026-08-18 (#405 Notes
+> scratchpad + #437 e2e-harness portability, which surfaced a real #423 client
+> bug and a 375px header overflow). Most core
 > decisions are settled; open items live in the Open decisions log. Where this
 > file and the code disagree, the code (on `develop`) wins — update this file.
 
@@ -506,8 +508,16 @@ to the old Node API.
   re-fetches the task, and on confirmation flips **in place** to a calm "Sent back
   to Ready" `PlayCard` (neutral mascot, focused heading, Back to Play / Overview);
   re-checks are capped at **one per 15s** while past the boundary (bounded
-  verification, not ambient polling). Tier 2 (a visibility-gated heartbeat) remains
-  deliberately unbuilt. Locked by the #423 block in `e2e/play.mjs`. No persistent process on this hosting, so
+  verification, not ambient polling). **The sweep can also beat the screen's own
+  load** (it runs on ANY mount's notifications fetch), so a task left running
+  past the boundary already reads 'backlog' before a clock ever renders —
+  InProgress recognises that (a `task_returned` notification for the task is
+  what separates it from "never started") and shows the SAME calm card instead
+  of redirecting: bouncing to `/play` with no account of where the run went is
+  the exact silence #423 exists to remove. Fixed in 2.8.0 — the assertion had
+  never run until #437 made the suites runnable. Tier 2 (a visibility-gated
+  heartbeat) remains deliberately unbuilt. Locked by the #423 block in
+  `e2e/play.mjs`. No persistent process on this hosting, so
   activation is detected by a **lazy sweep on `GET /api/notifications`**: one
   `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
   `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
@@ -669,6 +679,44 @@ to the old Node API.
   the pending address (non-enumerating, rate-limited) and Resends a confirm link to it; the
   UNauthenticated `POST /api/auth/confirm-email-change` (client `/confirm-email-change`) swaps it in
   and revokes ALL sessions (login identifier changed → re-sign-in with the new address).
+- **Notes scratchpad (#405)**: ONE plain-text page per user at `/notes` — the
+  jotting that doesn't belong on a task's `description`. `notes` table
+  (migration 035), **one row per user via `UNIQUE(user_id)`** — a TABLE, not a
+  `users` column, so a later multi-page evolution drops the index and adds a
+  title instead of doing schema surgery on the user record; `content` is
+  **`mediumtext`, NOT `text`** (the cap is 100,000 CHARACTERS and `text` holds
+  65,535 BYTES — a long or multi-byte note would be truncated by the column
+  before the validator saw it). API: `GET /api/notes` → `{ content, updatedAt }`
+  with **empty defaults, not a 404**, before anything is written, and
+  `PUT /api/notes` — one `INSERT … ON DUPLICATE KEY UPDATE`, so two tabs
+  autosaving can't race a read-then-write (last write wins, the right semantic
+  for a single-user scratchpad); CRLF is normalised on the way in. The Router
+  gained **`put()`** (it had only GET/POST/PATCH/DELETE) and the CORS methods
+  header follows. **`Request`'s 64 KB body cap (#114) is now path-aware**:
+  `/api/notes` gets 512 KB (a note at the cap is up to 400 KB of UTF-8, so a
+  legitimate long note in a multi-byte script was being refused as abuse with
+  413 instead of getting a real answer); every other endpoint keeps the tight
+  default — extend the allowance only for a route that genuinely posts a large
+  body. Client: `lib/notes.ts`, `pages/Notes.tsx` inside the **normal shell**
+  (rail + right column stay — NOT a solo surface), full-width with the
+  Dashboard's `p-4 sm:p-6`, and a borderless textarea filling the content pane
+  via flex (`flex-1` + `min-h-0`) rather than a viewport calculation. **Ruled
+  paper** = the **`.notes-paper`** class in `index.css`: one
+  `repeating-linear-gradient` rather than real elements, so the rules cost
+  nothing and can't desync — but the gradient's period MUST equal the
+  line-height (both 28px; change them together), `background-attachment: local`
+  is what makes the lines scroll with the content, and the class is unlayered so
+  it beats the Tailwind text-size utility's own line-height (the
+  `.app-shell-content` trick). Rules take `--color-field-hover`, the Settings
+  divider hairline — no new colour. **Autosave, no Save button** (the decision:
+  losing jotted notes to a forgotten save is the one failure mode a scratchpad
+  must not have): 1.5s debounce + flush on blur + flush on unmount (SPA
+  navigation) + `beforeunload`, with a quiet `role="status"` indicator as the
+  ONLY feedback — a toast per save would be noise on a page whose whole job is
+  to save constantly; a save landing while you keep typing does not claim
+  "Saved". Deliberately out of v1: markdown/rich text, multiple pages, per-task
+  notes, sharing, revision history. Locked by `tests/Db/NotesTest.php` +
+  `e2e/notes.mjs`.
 - **Deploy (#39)** + **production email (#65)** done.
 
 NOT yet built: marketing homepage (#40, unscoped), user guide (#41, unscoped).
@@ -682,6 +730,7 @@ Monorepo (npm workspaces for the client only; the PHP `api/` isn't an npm packag
 addiapp/
 ├── docker-compose.yml            # local MySQL 8.0 for development
 ├── scripts/db.sh                 # db:up/down/reset helper (macOS vs Linux compose)
+├── scripts/e2e-setup.sh          # provision the e2e browser + libs, no sudo (#437)
 ├── .github/workflows/deploy.yml  # build SPA + rsync + migrate over SSH (#39)
 ├── docs/DEPLOY.md                # pipeline, secrets, one-time server setup
 ├── client/                       # React 19 + Vite SPA (TypeScript)
@@ -741,8 +790,13 @@ routes render inside `AppLayout` as a fixed-viewport frame — Header on top, th
 **rail | scrolling content | right column**, then a thin footer; the three middle
 panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Header** (`Header.tsx`): hamburger (rail toggle) + wordmark + **search field**
-  + icon nav (**Play + Dashboard + Settings** — that order (#256 review), then the
-  conditional Stats icon; `bg-primary-tint` active state) +
+  + icon nav (**Play + Dashboard + Notes + Settings** — that order; Notes added
+  by #405, deliberately in the NAV and not the avatar menu, which is
+  meta/account territory — then the conditional Stats icon; `bg-primary-tint`
+  active state; icons paint **`h-8 w-8` below `sm`, `h-9 w-9` from `sm`** —
+  the fifth icon pushed a 375px viewport into horizontal scroll, and the
+  `tap-44` halo keeps the hit target at 44px while only the painted box
+  shrinks) +
   right-column toggle + **avatar menu** (a plain disclosure — NOT role=menu — with
   Notifications + Account settings + **Sign out**, then a hairline + **"How
   points work"** (#385, below the account actions); logout moved here from the
@@ -1041,14 +1095,42 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   follow one of those two patterns; `responsive.mjs` has a halo-aware hit-area helper.
   Don't add ARIA
   without verifying the SR/keyboard interaction it produces — use the
-  `client/e2e/` harness (`npm run e2e:a11y -w client`, #170): puppeteer-core drives
-  the real app in system Chrome and asserts focus/keyboard/ARIA behavior. It's the
-  in-repo tool for live-verifying any client interaction; needs the dev stack up
-  (not in CI). See `client/e2e/README.md`. **#383 harness notes:** fresh seeded
-  tasks now rightly score 0 (the <1-min rule) — flows that need a real award call
-  `backdateTask(id)` from `lib.mjs` (ages `created_at`/`started_at` via docker
-  MySQL, harness-only); heavy suite runs can trip the **#80 login rate limiter**
-  (suites suddenly time out AT login) — clear the dev DB's `rate_limits` table.
+  `client/e2e/` harness (#170): puppeteer-core drives the real app in a real
+  Chrome and asserts focus/keyboard/ARIA behavior. It's the in-repo tool for
+  live-verifying any client interaction; needs the dev stack up (not in CI —
+  the suites need Vite + PHP + MySQL, and CI is deliberately the PR-into-`main`
+  gate only). See `client/e2e/README.md`.
+  **Portable since #437 (2.8.0):** `npm run e2e:setup -w client`
+  (`scripts/e2e-setup.sh`) provisions everything idempotently and **without
+  sudo** — on Linux/WSL a pinned Chrome for Testing plus the five shared objects
+  Ubuntu lacks, unpacked via `apt-get download` + `dpkg-deb -x` into
+  `~/.cache/e2e-chrome` (**never `/tmp`** — WSL wipes it); on macOS it just
+  checks for system Chrome. `lib.mjs` then DISCOVERS the browser (`$CHROME` →
+  provisioned → system) and hands `LD_LIBRARY_PATH` to the browser process, so
+  no exported env is needed; the old hardcoded macOS path is why the suites
+  looked unrunnable off a Mac. `BASE` honours `VITE_PORT`, and `launch()` fails
+  fast when Chrome is missing or the dev client is unreachable. Every suite has
+  an `e2e:<name>` script, plus **`e2e:all`** (sequential — they share one user
+  and one DB).
+  **Running them is a step of the RELEASE PASS** (docs/DEPLOY.md), not an
+  optional extra: 2.7.0 shipped a real failure-path bug (#436) past clean lint
+  and a green build because these couldn't run, and 2.8.0's own run caught both
+  a live #423 bug and a 375px header overflow before the gate.
+  **Scoring rules govern any completion flow (#383/#400):** a task completed
+  seconds after creation scores 0 (`too_fast`) and renders "Done.", not "Nice
+  work!" — a flow needing a REAL award calls `backdateTask(id)` **and**
+  `resetDailyStats()` (the 25-completion / 720-minute daily caps are per user
+  per day, and one `e2e:all` pass completes well over a dozen tasks, so without
+  it the LATER suites silently start scoring 0); a flow that just needs the task
+  completed uses **`waitForCompletion(page)`**, which matches either heading.
+  `e2e:all` calls **`clearRateLimits()`** itself — ten suites is ten logins, and
+  the **#80 limiter** otherwise fails a repeat run AT the login form. All three
+  helpers talk straight to the docker MySQL and are harness-only.
+  **Two habits that keep a check from rotting** (both were live bugs in the
+  #437 audit): wait for the change with `waitForFunction` rather than sleeping
+  through the refetch, and never identify a row by its **title** — suites reuse
+  fixed titles, so duplicates make a title compare quietly stop meaning what it
+  says.
 - **Backend (PHP 8.2)**: plain PHP + PDO, no framework, no Composer runtime deps.
   Thin controllers; logic in modules (`Points/`, `Tasks/Selection.php`, `Auth/`).
   PDO **parameterized** queries only — never string-concatenate SQL. PSR-4-ish

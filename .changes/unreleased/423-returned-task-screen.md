@@ -1,0 +1,2 @@
+<!-- okffs:type=Fixed -->
+- A task that ran so far past its estimate that AddiApp sent it back to Ready **while its screen was open** now says so, on the same calm "Sent back to Ready" card the in-place hand-off already used. Opening such a task's link (for instance after leaving it running overnight) previously bounced you to the Play screen with no account of where the run had gone ([#423](https://github.com/neturely/addiapp/issues/423), found via [#437](https://github.com/neturely/addiapp/issues/437))
