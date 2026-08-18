@@ -7,7 +7,16 @@
 //
 // This doubles as the worked example for writing new checks: launch(), login(),
 // seedTask() from ./lib.mjs; assert via reporter().ok(); process.exit(fail).
-import { launch, login, seedTask, reporter, sleep, BASE } from './lib.mjs'
+import {
+  backdateTask,
+  launch,
+  login,
+  seedTask,
+  reporter,
+  resetDailyStats,
+  sleep,
+  BASE,
+} from './lib.mjs'
 
 const { ok, done } = reporter()
 const browser = await launch()
@@ -34,7 +43,10 @@ const skip = await page.evaluate(() => {
   ].filter((el) => el.tabIndex >= 0)
   return { exists: !!link, text: link?.textContent?.trim(), isFirst: tabbables[0] === link }
 })
-ok(skip.exists && /skip to main content/i.test(skip.text || ''), `A11Y-2: skip link present ("${skip.text}")`)
+ok(
+  skip.exists && /skip to main content/i.test(skip.text || ''),
+  `A11Y-2: skip link present ("${skip.text}")`,
+)
 ok(skip.isFirst, 'A11Y-2: skip link is the first tabbable element (before the header nav)')
 const skipVisible = await page.evaluate(() => {
   const link = document.querySelector('a[href="#main-content"]')
@@ -44,7 +56,10 @@ const skipVisible = await page.evaluate(() => {
 })
 ok(skipVisible, 'A11Y-2: skip link is focusable and becomes visible on focus')
 await page.click('a[href="#main-content"]')
-ok((await page.evaluate(() => document.activeElement?.id)) === 'main-content', 'A11Y-2: activating skip link focuses #main-content')
+ok(
+  (await page.evaluate(() => document.activeElement?.id)) === 'main-content',
+  'A11Y-2: activating skip link focuses #main-content',
+)
 
 // ── A11Y-2: RouteFocus moves focus on client-side navigation ─────────────────
 // Blur the content target, navigate via a real header link, and confirm focus
@@ -54,7 +69,10 @@ await page.evaluate(() => document.getElementById('main-content')?.blur())
 await page.click('a[href="/tasks/new"]')
 await page.waitForFunction(() => location.pathname === '/tasks/new', { timeout: 3000 })
 await sleep(300)
-ok((await page.evaluate(() => document.activeElement?.id)) === 'main-content', 'A11Y-2: client-side route change focuses #main-content')
+ok(
+  (await page.evaluate(() => document.activeElement?.id)) === 'main-content',
+  'A11Y-2: client-side route change focuses #main-content',
+)
 
 // ── A11Y-5: Choice launchers are plain buttons (#324 review rounds) ──────────
 // The time selections are direct launch chips inside the option rows, so they
@@ -67,9 +85,7 @@ const launchers = await page.evaluate(() => {
   const buttons = [...document.querySelectorAll('main button')]
   return {
     timeRadios: ['A little time', 'A few hours', 'A day', 'Any time'].filter((label) =>
-      [...document.querySelectorAll('[role=radio]')].some(
-        (r) => r.textContent?.trim() === label,
-      ),
+      [...document.querySelectorAll('[role=radio]')].some((r) => r.textContent?.trim() === label),
     ).length,
     chipsAreButtons: ['A little time', 'A few hours', 'A day', 'Any time'].every((label) =>
       buttons.some((b) => b.textContent?.trim() === label),
@@ -94,7 +110,10 @@ const eg = await page.evaluate(() => {
   }
 })
 ok(eg.hasGroup && eg.count === 3, `A11Y-5: effort radiogroup with ${eg.count} radios`)
-ok(eg.labelled === 'task-difficulty-label', 'A11Y-5: effort radiogroup aria-labelledby the question')
+ok(
+  eg.labelled === 'task-difficulty-label',
+  'A11Y-5: effort radiogroup aria-labelledby the question',
+)
 ok(eg.checked === 1, 'A11Y-5: effort — exactly one radio aria-checked')
 ok(eg.tabbable === 1, 'A11Y-5: effort — roving tabindex (only checked is tabbable)')
 // default selection is Medium (index 1); ArrowRight → High (index 2)
@@ -107,7 +126,10 @@ const earrow = await page.evaluate(() => {
     focused: radios.indexOf(document.activeElement),
   }
 })
-ok(earrow.checked === 2 && earrow.focused === 2, 'A11Y-5: effort — ArrowRight moves checked + focus together')
+ok(
+  earrow.checked === 2 && earrow.focused === 2,
+  'A11Y-5: effort — ArrowRight moves checked + focus together',
+)
 
 // ── A11Y-5 task list + A11Y-3 open-in-place view + A11Y-1 dialog (#262) ──────
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
@@ -190,26 +212,57 @@ ok(
 
 // ── A11Y-2 Completion focus + A11Y-4 milestone announcer ─────────────────────
 const taskId = await page.evaluate(async () => {
-  const r = await fetch('/api/tasks', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Complete probe', complexity: 'high', estimatedMinutes: 30 }) })
+  const r = await fetch('/api/tasks', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Complete probe', complexity: 'high', estimatedMinutes: 30 }),
+  })
   const { task } = await r.json()
-  await fetch(`/api/tasks/${task.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress' }) })
+  await fetch(`/api/tasks/${task.id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'in_progress' }),
+  })
   return task.id
 })
+// #383/#400: a task completed seconds after creation scores 0 (`too_fast`) and
+// renders the calm "Done." Completion, not the celebratory one — age it and
+// clear today's caps so this exercises the REAL award path it was written for.
+// Only 2 minutes: past the 1-minute floor so it scores, but well inside the
+// speed-bonus window the milestone announcer below asserts on.
+backdateTask(taskId, 2)
+resetDailyStats()
 await page.goto(`${BASE}/play/progress/${taskId}`, { waitUntil: 'networkidle0' })
 const milestone = await page.evaluate(() => {
-  const sr = [...document.querySelectorAll('[role=status]')].find((r) => r.className.includes('sr-only'))
+  const sr = [...document.querySelectorAll('[role=status]')].find((r) =>
+    r.className.includes('sr-only'),
+  )
   return { present: !!sr, text: sr?.textContent ?? null }
 })
-ok(milestone.present && milestone.text === '', 'A11Y-4: InProgress sr-only milestone announcer present + empty in the bonus window')
-await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /mark done/i.test(b.textContent || ''))?.click())
-await page.waitForFunction(() => /nice work/i.test(document.body.textContent || ''), { timeout: 5000 })
+ok(
+  milestone.present && milestone.text === '',
+  'A11Y-4: InProgress sr-only milestone announcer present + empty in the bonus window',
+)
+await page.evaluate(() =>
+  [...document.querySelectorAll('button')]
+    .find((b) => /mark done/i.test(b.textContent || ''))
+    ?.click(),
+)
+await page.waitForFunction(() => /nice work/i.test(document.body.textContent || ''), {
+  timeout: 5000,
+})
 await sleep(200)
 const completion = await page.evaluate(() => {
   const h1 = document.querySelector('h1')
   return { focused: document.activeElement === h1, label: h1?.getAttribute('aria-label') }
 })
 ok(completion.focused, 'A11Y-2: Completion heading is focused on mount')
-ok(/complete/i.test(completion.label || '') && /point/i.test(completion.label || ''), `A11Y-2: heading aria-label announces outcome + points ("${completion.label}")`)
+ok(
+  /complete/i.test(completion.label || '') && /point/i.test(completion.label || ''),
+  `A11Y-2: heading aria-label announces outcome + points ("${completion.label}")`,
+)
 
 // ── A11Y-6: friendly copy on an unexpected failure (#415) ────────────────────
 // Force a 500 on the save PATCH and assert the danger toast carries the shared
@@ -228,7 +281,9 @@ const force500 = (req) => {
 }
 page.on('request', force500)
 await page.evaluate(() =>
-  [...document.querySelectorAll('button')].find((b) => /save changes/i.test(b.textContent || ''))?.click(),
+  [...document.querySelectorAll('button')]
+    .find((b) => /save changes/i.test(b.textContent || ''))
+    ?.click(),
 )
 await page
   .waitForFunction(

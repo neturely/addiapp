@@ -8,7 +8,17 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
+    "e2e:setup": "bash ../scripts/e2e-setup.sh",
+    "e2e:all": "node e2e/all.mjs",
     "e2e:a11y": "node e2e/a11y.mjs",
+    "e2e:categories": "node e2e/categories.mjs",
+    "e2e:notifications": "node e2e/notifications.mjs",
+    "e2e:play": "node e2e/play.mjs",
+    "e2e:projectcolors": "node e2e/projectcolors.mjs",
+    "e2e:responsive": "node e2e/responsive.mjs",
+    "e2e:settings": "node e2e/settings.mjs",
+    "e2e:shell": "node e2e/shell.mjs",
+    "e2e:tasklist": "node e2e/tasklist.mjs",
     "e2e:timer": "node e2e/timer.mjs"
   },
   "dependencies": {

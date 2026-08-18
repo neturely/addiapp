@@ -49,10 +49,19 @@ ok(
 )
 
 // Sort toggle: "newest first" (the default) ↔ "oldest first" flips row order + URL.
-const firstBefore = await page.$eval(
-  'ul[aria-label="Tasks"] button[aria-label^="Open "]',
-  (b) => b.getAttribute('aria-label'),
-)
+// Identify the order by the first few row labels JOINED, not by the top row
+// alone: suites reuse fixed task titles, so across runs the newest and the
+// oldest task can share a title and a single-row compare reads "unchanged"
+// even though the list did flip (#437 — this failed only in a full run, right
+// after shell.mjs seeded another "Shell probe task").
+const topLabels = () =>
+  page.$$eval('ul[aria-label="Tasks"] button[aria-label^="Open "]', (bs) =>
+    bs
+      .slice(0, 5)
+      .map((b) => b.getAttribute('aria-label'))
+      .join(' | '),
+  )
+const firstBefore = await topLabels()
 await page.evaluate(() =>
   [...document.querySelectorAll('button')]
     .find((b) => b.textContent?.trim() === 'newest first')
@@ -63,11 +72,25 @@ ok(
   await page.evaluate(() => location.search.includes('sort=oldest')),
   '#256r: sort toggle writes ?sort=oldest',
 )
-const firstAfter = await page.$eval(
-  'ul[aria-label="Tasks"] button[aria-label^="Open "]',
-  (b) => b.getAttribute('aria-label'),
-)
-ok(firstAfter !== firstBefore, '#256r: oldest-first reverses the row order')
+// Wait for the re-fetched list rather than a fixed sleep: the URL updates
+// synchronously but the rows arrive with the request, so a flat 500ms made this
+// assertion race the network (#437).
+let reordered = true
+try {
+  await page.waitForFunction(
+    (before) =>
+      [...document.querySelectorAll('ul[aria-label="Tasks"] button[aria-label^="Open "]')]
+        .slice(0, 5)
+        .map((b) => b.getAttribute('aria-label'))
+        .join(' | ') !== before,
+    { timeout: 5000 },
+    firstBefore,
+  )
+} catch {
+  reordered = false
+}
+const firstAfter = await topLabels()
+ok(reordered, `#256r: oldest-first reverses the row order ("${firstBefore}" → "${firstAfter}")`)
 ok(
   await page.evaluate(() =>
     [...document.querySelectorAll('button')].some((b) => b.textContent?.trim() === 'oldest first'),
@@ -80,17 +103,25 @@ await page.evaluate(() =>
     ?.click(),
 )
 await sleep(500)
-ok(
-  (await page.$eval('ul[aria-label="Tasks"] button[aria-label^="Open "]', (b) =>
-    b.getAttribute('aria-label'),
-  )) === firstBefore,
-  '#256r: toggling back restores newest-first',
-)
+let restored = true
+try {
+  await page.waitForFunction(
+    (before) =>
+      [...document.querySelectorAll('ul[aria-label="Tasks"] button[aria-label^="Open "]')]
+        .slice(0, 5)
+        .map((b) => b.getAttribute('aria-label'))
+        .join(' | ') === before,
+    { timeout: 5000 },
+    firstBefore,
+  )
+} catch {
+  restored = false
+}
+ok(restored, '#256r: toggling back restores newest-first')
 
 // Row → task view → edit round-trip.
-const title = await page.$eval(
-  'ul[aria-label="Tasks"] button[aria-label^="Open "]',
-  (b) => b.getAttribute('aria-label').replace(/^Open /, ''),
+const title = await page.$eval('ul[aria-label="Tasks"] button[aria-label^="Open "]', (b) =>
+  b.getAttribute('aria-label').replace(/^Open /, ''),
 )
 await page.click('ul[aria-label="Tasks"] button[aria-label^="Open "]')
 await page.waitForSelector('input[aria-label="Title"]', { timeout: 3000 })
@@ -200,8 +231,14 @@ const probe = await page.evaluate(async () => {
   await patch(`/projects/${project.id}`, { status: 'archived' })
   return { id: project.id, name: project.name, afterComplete, afterAssign }
 })
-ok(probe.afterComplete === 'done', `#310: completing every task auto-marks the project done (${probe.afterComplete})`)
-ok(probe.afterAssign === 'active', `#310: assigning an unfinished task reverts done → active (${probe.afterAssign})`)
+ok(
+  probe.afterComplete === 'done',
+  `#310: completing every task auto-marks the project done (${probe.afterComplete})`,
+)
+ok(
+  probe.afterAssign === 'active',
+  `#310: assigning an unfinished task reverts done → active (${probe.afterAssign})`,
+)
 
 // Archived grid: Delete → confirm dialog (states the kept-tasks consequence) → toast.
 await page.goto(`${BASE}/dashboard?view=projects&archived=1`, { waitUntil: 'networkidle0' })
@@ -259,7 +296,11 @@ const archTask = await page.evaluate(async () => {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: `e2e archive probe ${Date.now()}`, complexity: 'low', estimatedMinutes: 5 }),
+    body: JSON.stringify({
+      title: `e2e archive probe ${Date.now()}`,
+      complexity: 'low',
+      estimatedMinutes: 5,
+    }),
   })
   const { task } = await r.json()
   await fetch(`/api/tasks/${task.id}`, {
@@ -296,12 +337,17 @@ ok(
 )
 ok(
   await page.evaluate(() => {
-    const link = [...document.querySelectorAll('#app-rail a')].find(
+    // The clickable "Tasks" section HEAD (#256) also points at /dashboard and
+    // comes first, so match the last one — the entry (#437: this used to grab
+    // the head and read "Tasks", failing a rename that had actually shipped).
+    const links = [...document.querySelectorAll('#app-rail a')].filter(
       (a) => a.getAttribute('href') === '/dashboard',
     )
-    return /Overview/.test(link?.textContent || '')
+    const entry = links[links.length - 1]
+    const rail = document.querySelector('#app-rail')?.textContent || ''
+    return /Overview/.test(entry?.textContent || '') && !/All tasks/i.test(rail)
   }),
-  '#406: the rail\'s first Tasks entry reads "Overview"',
+  '#406: the rail\'s first Tasks entry reads "Overview" (and "All tasks" is gone)',
 )
 // #406: a per-project filter KEEPS the archived row, pill "Archived", sorted
 // to the bottom below every open row.
@@ -349,31 +395,40 @@ for (const sort of ['', '&sort=oldest']) {
     probeIdx === rows.length - 1 && rows.length >= 2,
     `#406: project filter (${sort || 'newest'}) sorts the archived row last`,
   )
-  ok(rows[probeIdx]?.pill === 'Archived', `#406: project filter keeps the "Archived" pill (${sort || 'newest'})`)
+  ok(
+    rows[probeIdx]?.pill === 'Archived',
+    `#406: project filter keeps the "Archived" pill (${sort || 'newest'})`,
+  )
 }
 // Unhook the probe from the project again so the later archive-tab blocks see
 // the original shape; remove the helper project + its open task.
-await page.evaluate(async ({ projectId, openId }, taskId) => {
-  await fetch(`/api/tasks/${openId}`, { method: 'DELETE', credentials: 'include' })
-  await fetch(`/api/tasks/${taskId}`, {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId: null }),
-  })
-  await fetch(`/api/projects/${projectId}`, {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'archived' }),
-  })
-  await fetch(`/api/projects/${projectId}`, { method: 'DELETE', credentials: 'include' })
-}, projArch, archTask)
+await page.evaluate(
+  async ({ projectId, openId }, taskId) => {
+    await fetch(`/api/tasks/${openId}`, { method: 'DELETE', credentials: 'include' })
+    await fetch(`/api/tasks/${taskId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: null }),
+    })
+    await fetch(`/api/projects/${projectId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' }),
+    })
+    await fetch(`/api/projects/${projectId}`, { method: 'DELETE', credentials: 'include' })
+  },
+  projArch,
+  archTask,
+)
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 // …but the Done STATUS tab still excludes it (done = done-not-filed).
 await page.goto(`${BASE}/dashboard?tab=done`, { waitUntil: 'networkidle0' })
 ok(
-  await page.evaluate(() => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || '')),
+  await page.evaluate(
+    () => !/e2e archive probe/i.test(document.querySelector('main')?.textContent || ''),
+  ),
   '#332: the Done tab still excludes archived tasks',
 )
 // #363: the toolbar count scopes to the tab — Done shows the done figure +
@@ -484,7 +539,11 @@ const oneClick = await page.evaluate(async () => {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: `e2e oneclick probe ${Date.now()}`, complexity: 'low', estimatedMinutes: 5 }),
+    body: JSON.stringify({
+      title: `e2e oneclick probe ${Date.now()}`,
+      complexity: 'low',
+      estimatedMinutes: 5,
+    }),
   })
   const { task } = await r.json()
   await fetch(`/api/tasks/${task.id}`, {
@@ -513,7 +572,9 @@ await page.waitForFunction(
 )
 ok(
   await page.evaluate(async (tid) => {
-    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) => r.json())
+    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) =>
+      r.json(),
+    )
     return task.archivedAt !== null
   }, oneClick),
   '#321: row Archive files the done task (archivedAt set, row gone)',
@@ -536,7 +597,12 @@ const doneProject = await page.evaluate(async () => {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: 'done-card task', complexity: 'low', estimatedMinutes: 5, projectId: project.id }),
+    body: JSON.stringify({
+      title: 'done-card task',
+      complexity: 'low',
+      estimatedMinutes: 5,
+      projectId: project.id,
+    }),
   })
   const { task } = await tr.json()
   await fetch(`/api/tasks/${task.id}`, {
@@ -570,9 +636,9 @@ await page.waitForFunction(
 )
 ok(
   await page.evaluate(async (pid) => {
-    const { projects } = await fetch('/api/projects?status=archived', { credentials: 'include' }).then(
-      (r) => r.json(),
-    )
+    const { projects } = await fetch('/api/projects?status=archived', {
+      credentials: 'include',
+    }).then((r) => r.json())
     return projects.some((p) => p.id === pid)
   }, doneProject.id),
   '#321: card Archive moves the done project to Archived (card gone)',
@@ -589,7 +655,11 @@ const pillProbe = await page.evaluate(async () => {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: `e2e pill probe ${Date.now()}`, complexity: 'high', estimatedMinutes: 5 }),
+    body: JSON.stringify({
+      title: `e2e pill probe ${Date.now()}`,
+      complexity: 'high',
+      estimatedMinutes: 5,
+    }),
   })
   const { task } = await r.json()
   return task.id
@@ -662,7 +732,9 @@ const recurBadge = await page.evaluate(() => {
   return {
     probeImg: !!badge,
     badgeBeforeCell:
-      !!badge && !!cell && !!(badge.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING),
+      !!badge &&
+      !!cell &&
+      !!(badge.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING),
     plainRepeat: !!plain?.querySelector('svg.lucide-repeat'),
   }
 })

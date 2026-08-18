@@ -75,7 +75,10 @@ ok(
 // --- rail drawer ---
 await page.click('button[aria-label="Toggle sidebar"]')
 await sleep(200)
-ok((await page.$('[role=dialog][aria-label="Navigation"]')) !== null, '#270: hamburger opens the drawer')
+ok(
+  (await page.$('[role=dialog][aria-label="Navigation"]')) !== null,
+  '#270: hamburger opens the drawer',
+)
 ok((await page.$('#app-rail')) !== null, '#270: drawer contains the rail')
 const railTarget = await page.evaluate(
   () => document.querySelector('#app-rail a')?.getBoundingClientRect().height ?? 0,

@@ -15,8 +15,8 @@ over, gated by a fresh DB backup (OPS-2, #103):
 3. `rsync` `api/migrations/` → `~/api/migrations/` (ship the `.sql` before running
    them; no `--delete`).
 4. `ssh … '~/bin/backup-db.sh --pre-deploy && php ~/api/migrate.php'` — the backup
-   **gates** the migrate (`&&`), so a failed dump aborts the deploy *before* any
-   schema change, and a failed migrate aborts *before* code cuts over. This runs
+   **gates** the migrate (`&&`), so a failed dump aborts the deploy _before_ any
+   schema change, and a failed migrate aborts _before_ code cuts over. This runs
    the on-box (old) `migrate.php` against the just-shipped `.sql`; the runner
    contract (per-file, split on `;`, exec) is stable, so that's safe. A deploy
    that changes `migrate.php` itself runs that deploy's migrations under the prior
@@ -39,7 +39,7 @@ mid-way is left partially applied and not recorded. To keep a re-run safe:
 - **One logical change (ideally one statement) per migration file** — a failure
   then can't leave a file half-applied.
 - **Idempotent DDL**: `CREATE TABLE/INDEX IF NOT EXISTS`, `ALTER TABLE … ADD
-  COLUMN IF NOT EXISTS` (MariaDB 10.11 supports these). `001`/`002` carry
+COLUMN IF NOT EXISTS` (MariaDB 10.11 supports these). `001`/`002` carry
   `IF NOT EXISTS` so a fresh apply is re-runnable.
 
 On failure `migrate.php` prints which statement index failed and whether the file
@@ -59,12 +59,12 @@ zcat ~/backups/pre-deploy/pre-deploy-<ts>.sql.gz | mysql addiapp_prod
 
 ### Required GitHub Actions secrets
 
-| Secret | Value |
-| --- | --- |
-| `DEPLOY_SSH_HOST` | `209.42.255.1` |
-| `DEPLOY_SSH_USER` | `addiapp` |
-| `DEPLOY_SSH_PORT` | `22` |
-| `DEPLOY_SSH_KEY`  | private half of a dedicated deploy keypair (public half in the account's `~/.ssh/authorized_keys`) |
+| Secret               | Value                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `DEPLOY_SSH_HOST`    | `209.42.255.1`                                                                                                           |
+| `DEPLOY_SSH_USER`    | `addiapp`                                                                                                                |
+| `DEPLOY_SSH_PORT`    | `22`                                                                                                                     |
+| `DEPLOY_SSH_KEY`     | private half of a dedicated deploy keypair (public half in the account's `~/.ssh/authorized_keys`)                       |
 | `TURNSTILE_SITE_KEY` | Cloudflare Turnstile **site** key (#79) — public, baked into the SPA build. Pairs with `turnstileSecret` in `config.php` |
 
 ## CI release gate (`.github/workflows/ci.yml`)
@@ -90,7 +90,7 @@ dependency-free.
 
 ### ⚠ Manual branch protection (one-time, required to actually block merges)
 
-The workflow only *reports* status. To make a red CI **block the merge**, the two
+The workflow only _reports_ status. To make a red CI **block the merge**, the two
 checks must be marked **required**. Protection here is managed by an **org-level
 ruleset** (`neturely` → **"Branch Rules"**) that already targets both
 `refs/heads/develop` and `refs/heads/main` and enforces: no deletion, no
@@ -127,6 +127,27 @@ DATABASE_URL="mysql://addiapp:addiapp@127.0.0.1:3306/addiapp_test" vendor/bin/ph
 
 Without `DATABASE_URL` the pure-math/selection unit tests still run; the DB-backed
 tests skip (they never touch dev/prod data).
+
+### Running the e2e suites locally — part of the release pass (#437)
+
+CI covers the backend and the build; it does **not** cover client behaviour. The
+`client/e2e/` suites are the only check that the UI actually behaves, and they
+can't run in CI (they need the whole dev stack). So they are a **manual step on
+the release pass** — run them on `develop` before opening the promotion PR, not
+after:
+
+```bash
+npm run e2e:setup -w client   # one-time per machine, no sudo
+npm run dev                   # dev stack up in another shell
+npm run e2e:all -w client     # all suites; non-zero exit if any failed
+```
+
+**Why this is written down.** The 2.7.0 promotion shipped a real failure-path bug
+(#436) past clean lint, a green build and a manual diff read. The e2e block that
+would have caught it existed — it just couldn't run on the dev box, and had been
+unable to for two releases, so the suites had quietly rotted. Provisioning is now
+one command (`scripts/e2e-setup.sh`); the remaining defence is running them.
+Details and the harness's own gotchas: `client/e2e/README.md`.
 
 ## One-time server setup
 
@@ -186,13 +207,13 @@ the SPA via `client/public/.htaccess` (top-level `Header always set`) and the AP
 via early `header()` calls in `api/public/index.php` (before the OPTIONS
 short-circuit, so preflight + errors carry them too).
 
-| Header | Value |
-| --- | --- |
-| `Strict-Transport-Security` | `max-age=15552000` (180d, **apex only**, no `preload`) |
-| `X-Content-Type-Options` | `nosniff` |
-| `X-Frame-Options` | `DENY` |
-| `Content-Security-Policy` | `frame-ancestors 'none'` (anti-clickjacking only — **not** a content CSP) |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| Header                      | Value                                                                     |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `Strict-Transport-Security` | `max-age=15552000` (180d, **apex only**, no `preload`)                    |
+| `X-Content-Type-Options`    | `nosniff`                                                                 |
+| `X-Frame-Options`           | `DENY`                                                                    |
+| `Content-Security-Policy`   | `frame-ancestors 'none'` (anti-clickjacking only — **not** a content CSP) |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                         |
 
 Verify with **GET** (the API router 404s on HEAD, so `curl -I` misleads); the
 headers must appear on success, error, and SPA responses:
@@ -219,7 +240,7 @@ consistent, gzipped, timestamped dump to `~/backups/db/`; an external NAS pull
 (separate repo) handles offsite retention.
 
 > **JetBackup at the host level** — the empty cPanel Databases tab only proves DB
-> restore points aren't exposed to *this* cPanel account. Whether JetBackup runs
+> restore points aren't exposed to _this_ cPanel account. Whether JetBackup runs
 > DB backups at the WHM/root level (just not surfaced to this reseller tier) can't
 > be determined from a normal cPanel-user SSH session — it's an **open question
 > for a KnownHost support ticket**. This app-level backup stands on its own
@@ -246,9 +267,9 @@ consistent, gzipped, timestamped dump to `~/backups/db/`; an external NAS pull
 The deploy rsync only ships `client/dist` + `api/`, so the script is installed by
 hand (like `config.php`). All steps run on the box (`ssh addiapp@209.42.255.1`).
 
-1. **Dedicated read-only DB user.** In cPanel → *MySQL® Databases* create user
+1. **Dedicated read-only DB user.** In cPanel → _MySQL® Databases_ create user
    `addiapp_bak` (cPanel prefixes it to the account, matching `addiapp_prod`),
-   then *Add User To Database* → grant only **SELECT, LOCK TABLES, SHOW VIEW** on
+   then _Add User To Database_ → grant only **SELECT, LOCK TABLES, SHOW VIEW** on
    `addiapp_prod`. (Least-privilege: a leaked credential can't mutate or drop
    data.) Equivalent SQL if you have direct access:
    ```sql
@@ -267,7 +288,7 @@ hand (like `config.php`). All steps run on the box (`ssh addiapp@209.42.255.1`).
    mkdir -p ~/backups/db ~/bin
    chmod 600 ~/backups/.my.cnf
    ```
-3. **Install the script** — needed once for the *first* nightly run; after that
+3. **Install the script** — needed once for the _first_ nightly run; after that
    every deploy rsyncs `scripts/backup-db.sh` → `~/bin/` automatically (OPS-2,
    #103), so the box copy stays current with the repo:
    ```bash

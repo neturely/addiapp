@@ -17,9 +17,27 @@ import { Loading } from '@/components/Loading'
 import { elapsedSecondsSince, formatClock, isOverdue } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
 import { useNotifications } from '@/notifications/useNotifications'
+import { fetchNotifications } from '@/lib/notifications'
 import { buttonClasses } from '@/components/buttonClasses'
 import { friendlyMessage } from '@/lib/apiError'
 import { useErrorReporter } from '@/toast/useErrorReporter'
+
+/**
+ * Did the #403 sweep just send this task back to Ready? (#423)
+ *
+ * The task_returned notification is the only record that a RUN was ended by the
+ * server rather than by the user, so it's what separates "your task was
+ * returned" from "this task was never started". Best-effort: if the lookup
+ * fails we fall through to the plain redirect rather than block the screen.
+ */
+async function wasAutoReturned(taskId: number): Promise<boolean> {
+  try {
+    const { notifications } = await fetchNotifications()
+    return notifications.some((n) => n.type === 'task_returned' && n.taskId === taskId)
+  } catch {
+    return false
+  }
+}
 
 /** Effort → tint pill classes (#264; the #178 palette, AA dark-on-tint). */
 const EFFORT_PILL = {
@@ -115,6 +133,19 @@ export function InProgress() {
         const t = await getTask(taskId)
         if (cancelled) return
         if (t.status !== 'in_progress') {
+          // #423: the #403 auto-return may already have landed — the lazy sweep
+          // runs on ANY mount's notifications fetch, so on a task left running
+          // past the 5x boundary it can beat this screen's own load and the
+          // task reads 'backlog' before we ever render a clock. Redirecting
+          // then would drop the user on /play with no account of where their
+          // run went, which is the exact silence #423 exists to remove — so
+          // show the same calm card the in-place flip shows.
+          if (t.status === 'backlog' && (await wasAutoReturned(t.id))) {
+            if (cancelled) return
+            setTask(t)
+            setReturned(true)
+            return
+          }
           // Already done, or never started — the in-progress screen doesn't apply.
           navigate(t.status === 'done' ? '/' : '/play', { replace: true })
           return
@@ -244,14 +275,18 @@ export function InProgress() {
         mascot={<Mascot expression="neutral" halo className="h-24 w-24" />}
         eyebrow="Sent back to Ready"
         title={
-          <h1 ref={returnedHeadingRef} tabIndex={-1} className="text-2xl font-bold text-gray-800 focus:outline-none">
+          <h1
+            ref={returnedHeadingRef}
+            tabIndex={-1}
+            className="text-2xl font-bold text-gray-800 focus:outline-none"
+          >
             {task.title}
           </h1>
         }
         body={
           <p className="text-muted">
-            It ran way past its estimate, so it went back to the Ready list for
-            another day. There&rsquo;s a note about it in your notifications.
+            It ran way past its estimate, so it went back to the Ready list for another day.
+            There&rsquo;s a note about it in your notifications.
           </p>
         }
         primary={
