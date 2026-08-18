@@ -169,7 +169,10 @@ export function Header() {
                 to={to}
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
-                className={`tap-44 inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
+                // h-8 below sm (#405): a fifth nav icon pushed the cluster past
+                // a 375px viewport. The tap-44 halo keeps the hit target at
+                // 44px, so only the painted box shrinks.
+                className={`tap-44 inline-flex h-8 w-8 items-center justify-center rounded-control transition sm:h-9 sm:w-9 ${
                   active ? 'bg-primary-tint text-primary-ink' : 'text-gray-700 hover:bg-page'
                 }`}
               >
@@ -182,7 +185,7 @@ export function Header() {
               to="/stats"
               aria-label="Your stats"
               aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
-              className={`tap-44 inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
+              className={`tap-44 inline-flex h-8 w-8 items-center justify-center rounded-control transition sm:h-9 sm:w-9 ${
                 pathname.startsWith('/stats')
                   ? 'bg-primary-tint text-primary-ink'
                   : 'text-gray-700 hover:bg-page'
