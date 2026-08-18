@@ -9,6 +9,7 @@ use App\Controllers\AccountController;
 use App\Controllers\AuthController;
 use App\Controllers\CategoriesController;
 use App\Controllers\HealthController;
+use App\Controllers\NotesController;
 use App\Controllers\NotificationsController;
 use App\Controllers\PointsController;
 use App\Controllers\ProjectsController;
@@ -53,7 +54,7 @@ if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Vary: Origin');
     header('Access-Control-Allow-Credentials: true');
-    header('Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
 }
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
@@ -70,6 +71,7 @@ $account = new AccountController();
 $projects = new ProjectsController();
 $categories = new CategoriesController();
 $notifications = new NotificationsController();
+$notes = new NotesController();
 
 $router->get('/api/health', [$health, 'index']);
 
@@ -113,6 +115,10 @@ $router->delete('/api/projects/{id}', [$projects, 'destroy'], true);
 $router->get('/api/notifications', [$notifications, 'index'], true);
 $router->post('/api/notifications/read', [$notifications, 'readAll'], true);
 $router->delete('/api/notifications/{id}', [$notifications, 'destroy'], true);
+
+// Personal notes scratchpad (#405) — one page per user; auth required.
+$router->get('/api/notes', [$notes, 'show'], true);
+$router->put('/api/notes', [$notes, 'save'], true);
 
 // Account settings (#187, #200, #266) — all require auth.
 $router->patch('/api/account', [$account, 'update'], true);

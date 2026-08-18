@@ -12,6 +12,7 @@ import { TaskView } from '@/pages/TaskView'
 import { Dashboard } from '@/pages/Dashboard'
 import { Stats } from '@/pages/Stats'
 import { HowPointsWork } from '@/pages/HowPointsWork'
+import { Notes } from '@/pages/Notes'
 import { Notifications } from '@/pages/Notifications'
 import { Settings } from '@/pages/Settings'
 import { NotFound } from '@/pages/NotFound'
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
           // The friendly scoring guide (#385) — linked from the avatar menu
           // and the ? icons on the points panels.
           { path: '/how-points-work', element: <HowPointsWork /> },
+          { path: '/notes', element: <Notes /> },
           { path: '/notifications', element: <Notifications /> },
           { path: '/settings', element: <Settings /> },
         ],

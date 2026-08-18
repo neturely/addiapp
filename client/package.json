@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "e2e:a11y": "node e2e/a11y.mjs",
+    "e2e:notes": "node e2e/notes.mjs",
     "e2e:timer": "node e2e/timer.mjs"
   },
   "dependencies": {

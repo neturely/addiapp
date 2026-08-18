@@ -4,6 +4,7 @@ import {
   BarChart3,
   LayoutGrid,
   Menu,
+  NotebookPen,
   PanelRight,
   Play,
   Search,
@@ -30,7 +31,15 @@ function initialsFor(user: AuthUser): string {
 /** Icon-only nav; a section stays active across its sub-routes. */
 const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => boolean }[] = [
   { to: '/play', label: 'Play', Icon: Play, match: (p) => p === '/' || p.startsWith('/play') },
-  { to: '/dashboard', label: 'Dashboard', Icon: LayoutGrid, match: (p) => p.startsWith('/dashboard') },
+  {
+    to: '/dashboard',
+    label: 'Dashboard',
+    Icon: LayoutGrid,
+    match: (p) => p.startsWith('/dashboard'),
+  },
+  // #405: notes sit in the nav, not the avatar menu — a scratchpad is a place
+  // you work, not an account setting.
+  { to: '/notes', label: 'Notes', Icon: NotebookPen, match: (p) => p.startsWith('/notes') },
   { to: '/settings', label: 'Settings', Icon: Settings, match: (p) => p.startsWith('/settings') },
 ]
 
