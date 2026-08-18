@@ -8,6 +8,8 @@ const TONE_BADGE: Record<ToastTone, string> = {
   primary: 'bg-primary',
   accent: 'bg-accent',
   warning: 'bg-warning',
+  // the one vivid fill where even small white passes (4.83, index.css) — no deep needed
+  danger: 'bg-danger',
   neutral: 'bg-gray-600',
 }
 
@@ -116,7 +118,7 @@ function ToastPill({ toast, onDone }: { toast: StackedToast; onDone: () => void 
             onDone()
             act.onClick()
           }}
-          className="ml-1 shrink-0 cursor-pointer font-bold text-white underline underline-offset-2 hover:opacity-80"
+          className="ml-1 shrink-0 font-bold text-white underline underline-offset-2 hover:opacity-80"
         >
           {toast.action.label}
         </button>
@@ -124,7 +126,7 @@ function ToastPill({ toast, onDone }: { toast: StackedToast; onDone: () => void 
       <button
         onClick={onDone}
         aria-label="Dismiss"
-        className="ml-1 shrink-0 cursor-pointer text-gray-400 transition hover:text-white"
+        className="ml-1 shrink-0 text-gray-400 transition hover:text-white"
       >
         <X className="h-4 w-4" />
       </button>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { CircleCheck } from 'lucide-react'
 import { confirmEmailChange } from '@/lib/account'
+import { friendlyMessage } from '@/lib/apiError'
 
 type Status = 'confirming' | 'success' | 'error'
 
@@ -34,7 +35,7 @@ export function ConfirmEmailChange() {
       })
       .catch((err: unknown) => {
         setStatus('error')
-        setMessage(err instanceof Error ? err.message : 'Could not confirm the change.')
+        setMessage(friendlyMessage(err, "the change wasn't confirmed"))
       })
   }, [params])
 

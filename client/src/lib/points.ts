@@ -25,6 +25,9 @@ export type PointsStats = {
     dailyBudgetMinutes: number
     dailyCompletionsCap: number
     projectBonus: { ratio: number; min: number; max: number; minTasks: number }
+    /** Overrun thresholds (#403): warn notification at warnRatio×estimate,
+     * auto-return to Ready at returnRatio×estimate. */
+    overrun: { warnRatio: number; returnRatio: number }
   }
 }
 

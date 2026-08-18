@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/auth/useAuth'
-import { ApiError } from '@/lib/apiError'
+import { ApiError, friendlyMessage } from '@/lib/apiError'
+import { Turnstile, TURNSTILE_SITE_KEY } from '@/components/Turnstile'
 
 export function Login() {
   const { login, verifyOtp, resendVerification } = useAuth()
@@ -12,6 +13,10 @@ export function Login() {
   const sessionExpired = (location.state as { sessionExpired?: boolean } | null)?.sessionExpired
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // Turnstile on the password step (#410) — same wiring as Register: tokens
+  // are single-use, so the widget remounts (key bump) after every attempt.
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [needsVerify, setNeedsVerify] = useState(false)
   const [resent, setResent] = useState(false)
@@ -29,9 +34,13 @@ export function Login() {
     setResent(false)
     setSubmitting(true)
     try {
-      await login(email, password)
+      await login(email, password, captchaToken)
       navigate('/')
     } catch (err) {
+      // The token was spent on this attempt (even a totp_required "success"
+      // consumed it server-side) — remount the widget for the next one.
+      setCaptchaToken('')
+      setWidgetKey((k) => k + 1)
       if (err instanceof ApiError && err.code === 'email_not_verified') {
         setNeedsVerify(true)
         setError(err.message)
@@ -40,7 +49,7 @@ export function Login() {
         setCode('')
         setUsingBackupCode(false)
       } else {
-        setError(err instanceof Error ? err.message : 'Login failed')
+        setError(friendlyMessage(err, "we couldn't sign you in"))
       }
     } finally {
       setSubmitting(false)
@@ -61,7 +70,7 @@ export function Login() {
         setChallenge(null)
         setPassword('')
       }
-      setError(err instanceof Error ? err.message : 'Sign-in failed')
+      setError(friendlyMessage(err, "we couldn't sign you in"))
     } finally {
       setSubmitting(false)
     }
@@ -173,6 +182,7 @@ export function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <Turnstile key={widgetKey} onToken={setCaptchaToken} className="flex justify-center" />
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           {needsVerify && !resent && (
             <button
@@ -190,7 +200,7 @@ export function Login() {
           )}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (!!TURNSTILE_SITE_KEY && !captchaToken)}
             className="w-full rounded-lg bg-primary py-2.5 text-xl font-bold text-white transition hover:opacity-90 disabled:bg-gray-400"
           >
             {submitting ? 'Signing in…' : 'Sign in'}

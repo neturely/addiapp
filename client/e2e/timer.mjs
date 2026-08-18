@@ -47,11 +47,61 @@ ok(t2 !== t1, `#135: chip ticks ("${t1}" → "${t2}")`)
 await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
 ok((await page.$(CHIP(id))) !== null, '#135: chip persists across pages')
 
-// complete on the InProgress screen (in-place, no route change) → chip disappears
+// #419: one clock per surface — on the task's own InProgress screen the hero
+// card is the clock, so the chip for THAT task hides…
+await page.goto(`${BASE}/play/progress/${id}`, { waitUntil: 'networkidle0' })
+ok((await page.$(CHIP(id))) === null, '#419: chip hides while its task is the viewed InProgress screen')
+// …but a DIFFERENT parallel running task still earns the chip there.
+const id2 = await seedTask(page, 'Timer chip probe B', 'medium', 20)
+await start(id2)
+await page.goto(`${BASE}/play/progress/${id}`, { waitUntil: 'networkidle0' })
+ok((await page.$(CHIP(id2))) !== null, '#419: chip shows the OTHER running task on an InProgress screen')
+ok((await page.$(CHIP(id))) === null, '#419: …and never the viewed task itself')
+await page.evaluate(async (i) => {
+  await fetch(`/api/tasks/${i}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'backlog' }) })
+}, id2)
+
+// #419: with the right column visible (wide), the RunningMirror is the one
+// ticking clock — the chip hides and the Started row demotes to its pulse dot.
+await page.setViewport({ width: 1400, height: 900 })
+await page.goto(`${BASE}/dashboard?tab=in_progress`, { waitUntil: 'networkidle0' })
+ok((await page.$('header a[href^="/play/progress/"]')) === null, '#419: chip hides while the column mirror is visible')
+const wideRow = await page.evaluate(() => {
+  const li = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((el) =>
+    /Timer chip probe/.test(el.textContent || ''),
+  )
+  return {
+    digits: /\d+:\d\d/.test(li?.textContent || ''),
+    dot: !!li?.querySelector('span.animate-pulse-dot'),
+    mirrorClock: /\d+:\d\d/.test(
+      [...document.querySelectorAll('aside, [class*=w-72]')].map((e) => e.textContent).join('') || '',
+    ),
+  }
+})
+ok(wideRow.dot && !wideRow.digits, '#419: Started row keeps the pulse dot but drops the ticking digits (wide)')
+ok(wideRow.mirrorClock, '#419: the column mirror carries the live clock (wide)')
+// …and both return on a narrow viewport (column gone) — never invisible.
+await page.setViewport({ width: 800, height: 600 })
+await page.goto(`${BASE}/dashboard?tab=in_progress`, { waitUntil: 'networkidle0' })
+ok((await page.$(CHIP(id))) !== null, '#419: chip returns when the column is gone (narrow)')
+ok(
+  await page.evaluate(() => {
+    const li = [...document.querySelectorAll('ul[aria-label="Tasks"] li')].find((el) =>
+      /Timer chip probe/.test(el.textContent || ''),
+    )
+    return /\d+:\d\d/.test(li?.textContent || '')
+  }),
+  '#419: Started row digits return when the column is gone (narrow)',
+)
+
+// complete on the InProgress screen (in-place, no route change) → chip gone
+// everywhere (checked from the dashboard — the chip is hidden on the viewed
+// InProgress screen since #419, so assert on a plain shell page instead)
 await page.goto(`${BASE}/play/progress/${id}`, { waitUntil: 'networkidle0' })
 await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /mark done/i.test(b.textContent || ''))?.click())
 await page.waitForFunction(() => /nice work/i.test(document.body.textContent || ''), { timeout: 5000 })
 await sleep(400)
+await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
 ok((await page.$(CHIP(id))) === null, '#135: chip disappears after in-place completion (imperative refresh)')
 
 const failures = done()

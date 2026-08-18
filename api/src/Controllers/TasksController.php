@@ -57,15 +57,18 @@ final class TasksController
             $args[] = $status;
         }
 
-        // Archived axis (#312, visibility revised #332): the WORKING lists —
-        // the status tabs and the Unassigned axis — exclude filed-away tasks,
-        // but the mixed "all" views (plain All tasks + the per-project/category
-        // filters) INCLUDE them ("All" means all; the client renders their
-        // pill as "Archived"). `archived=1` flips to the archive-only view.
+        // Archived axis (#312; visibility revised #332, re-revised #406): the
+        // per-project/category filters are the ONLY mixed views that still
+        // include filed-away tasks (the Archived tab mixes everything, so
+        // they're the sane place to find one list's filed task — sorted last,
+        // see the ORDER BY below, pill rendered "Archived"). The Overview
+        // (no-filter) view and the working lists (status tabs, Unassigned)
+        // exclude them. `archived=1` flips to the archive-only view.
         $archived = $req->query('archived') === '1';
+        $scoped = $req->query('projectId') !== null || $req->query('categoryId') !== null;
         if ($archived) {
             $conditions[] = 't.archived_at IS NOT NULL';
-        } elseif ($status !== null || $req->query('unassigned') === '1') {
+        } elseif (!$scoped || $status !== null || $req->query('unassigned') === '1') {
             $conditions[] = 't.archived_at IS NULL';
         }
 
@@ -185,8 +188,13 @@ final class TasksController
         // The archive orders by WHEN it was filed (#312 — newest-archived first
         // under the default desc), with id as a same-second tiebreak.
         $orderCol = $archived ? 't.archived_at' : 't.id';
+        // #406: the per-project/category mixed views sort archived rows to the
+        // BOTTOM — a leading group key ahead of the user's newest/oldest sort,
+        // so the grouping survives offset pagination (the toggle applies
+        // within each group).
+        $groupKey = !$archived && $scoped ? '(t.archived_at IS NULL) DESC, ' : '';
         $stmt = $pdo->prepare(
-            $select . $where . " ORDER BY {$orderCol} {$order}, t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
+            $select . $where . " ORDER BY {$groupKey}{$orderCol} {$order}, t.id {$order} LIMIT " . $limit . ' OFFSET ' . $offset,
         );
         $stmt->execute($args);
 
@@ -229,7 +237,8 @@ final class TasksController
         $a = $pdo->prepare('SELECT COUNT(*) FROM tasks WHERE user_id = ? AND archived_at IS NOT NULL');
         $a->execute([$userId]);
         $counts['archived'] = (int) $a->fetchColumn();
-        $counts['all'] += $counts['archived'];
+        // #406: `all` (the Overview figure) EXCLUDES archived — the Overview
+        // view no longer shows filed tasks; the Archived tab has its own count.
 
         // Live recurring chains (2.3.0 review round) — mirrors the recurring=1
         // filter above, so the rail entry's count matches its list.
@@ -242,7 +251,7 @@ final class TasksController
         return $counts;
     }
 
-    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&category=3 */
+    /** GET /api/tasks/next?size=small|big&minutes=15&exclude=42&mode=projects&project=7&category=3 */
     public function next(Request $req, array $params): void
     {
         $mode = $req->query('mode');
@@ -276,10 +285,29 @@ final class TasksController
             }
         }
 
+        // Project pin (#397): scope the projects-mode pick to ONE owned project
+        // (the manager views' play buttons). Only meaningful with mode=projects.
+        $project = null;
+        if ($req->query('project') !== null) {
+            if ($mode !== 'projects') {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            $project = self::positiveInt($req->query('project'));
+            if ($project === null) {
+                Response::error('Invalid filters', 400);
+                return;
+            }
+            if (ProjectsController::findOwnedProject(Db::pdo(), $project, (int) $req->userId) === null) {
+                Response::error('Project not found', 404); // non-enumerating (#129)
+                return;
+            }
+        }
+
         // "Focus on projects" (#238): win-type is ignored; pick the oldest task of
         // the active project closest to done, respecting the time filter.
         if ($mode === 'projects') {
-            $this->nextInProjects($req, $minutes, $exclude, $category);
+            $this->nextInProjects($req, $minutes, $exclude, $category, $project);
             return;
         }
 
@@ -371,7 +399,7 @@ final class TasksController
      * lives in Selection::focusProject (deterministic, swappable). Same `{ task }`
      * shape as the default mode, so TaskPresented → InProgress is unchanged.
      */
-    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null): void
+    private function nextInProjects(Request $req, ?int $minutes, ?int $exclude, ?int $category = null, ?int $project = null): void
     {
         // Same availability cutoff as the default mode (#250).
         $conditions = ['t.user_id = ?', "t.status = 'backlog'", '(t.available_from IS NULL OR t.available_from <= ?)'];
@@ -387,6 +415,15 @@ final class TasksController
         if ($category !== null) {
             $conditions[] = 't.category_id = ?';
             $args[] = $category;
+        }
+        // Pin (#397): one owned project only. With a single group,
+        // Selection::focusProject's least-effort ranking is a no-op and the
+        // oldest-task-within pick (+ the time filter) is exactly what remains —
+        // no selection-algorithm change needed. The active-only join stays: a
+        // pinned done/archived project simply yields the empty state.
+        if ($project !== null) {
+            $conditions[] = 't.project_id = ?';
+            $args[] = $project;
         }
 
         $stmt = Db::pdo()->prepare(
@@ -731,6 +768,14 @@ final class TasksController
         // #240 bonus (which requires an active project).
         if (is_int($assign)) {
             Lifecycle::reactivate($assign, (int) $req->userId);
+        }
+
+        // #403: any status transition ends the task's current RUN — its
+        // overrun-family notifications (warn/returned) belong to that run:
+        // a manual send-back makes the warn stale, and a restart must re-arm
+        // the per-run dedupe. (Completion deletes everything just below.)
+        if ($newStatus !== null && $newStatus !== $existing['status'] && !$completing) {
+            Notifications::removeOverrunForTask($pdo, (int) $updated['id'], (int) $req->userId);
         }
 
         $pointsAwarded = null;

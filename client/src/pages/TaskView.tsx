@@ -15,11 +15,13 @@ import { Button } from '@/components/Button'
 import { CategoryModal } from '@/components/CategoryModal'
 import { Modal } from '@/components/Modal'
 import { ProjectModal } from '@/components/ProjectModal'
-import { ApiError } from '@/lib/apiError'
+import { ApiError, friendlyMessage } from '@/lib/apiError'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 import { projectPole } from '@/lib/projectColors'
 import { fetchPoints, type PointsStats } from '@/lib/points'
 import { fetchCategories, type Category } from '@/lib/categories'
 import { fetchProjects, type Project } from '@/lib/projects'
+import { Loading } from '@/components/Loading'
 import {
   createTask,
   deleteTask,
@@ -99,7 +101,7 @@ function FieldPlusButton({ label, onClick }: { label: string; onClick: () => voi
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="tap-44 -my-1 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
+      className="tap-44 -my-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-muted transition hover:bg-field-hover hover:text-primary-ink"
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
     </button>
@@ -122,6 +124,7 @@ export function TaskView() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const { showToast } = useToast()
+  const reportError = useErrorReporter()
 
   // Create mode (#256 review — replaces the AddTask page): /tasks/new renders
   // this same view with blank fields; `?project=ID` pre-assigns (project card's
@@ -180,7 +183,7 @@ export function TaskView() {
           if (p.some((proj) => proj.id === preselect)) setProjectId(preselect)
           if (cats.some((c) => c.id === preselectCategory)) setCategoryId(preselectCategory)
         })
-        .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load'))
+        .catch((e) => !cancelled && setError(friendlyMessage(e, "the page didn't load")))
         .finally(() => !cancelled && setLoading(false))
       return () => {
         cancelled = true
@@ -217,7 +220,7 @@ export function TaskView() {
       .catch((e) => {
         if (cancelled) return
         if (e instanceof ApiError && e.status === 404) setNotFound(true)
-        else setError(e instanceof Error ? e.message : 'Could not load the task')
+        else setError(friendlyMessage(e, "the task didn't load"))
       })
       .finally(() => !cancelled && setLoading(false))
     return () => {
@@ -318,7 +321,7 @@ export function TaskView() {
       setStatus(updated.archivedAt ? 'archived' : updated.status)
       showToast({ message: 'Task saved', icon: CircleCheck, tone: 'success' })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save the task.')
+      reportError(err, "your changes weren't saved", setError)
     } finally {
       setSaving(false)
     }
@@ -333,7 +336,7 @@ export function TaskView() {
       navigate('/dashboard')
     } catch (err) {
       setConfirmingDelete(false)
-      setError(err instanceof Error ? err.message : 'Could not delete the task.')
+      reportError(err, "the task wasn't deleted", setError)
     } finally {
       setDeleting(false)
     }
@@ -346,16 +349,12 @@ export function TaskView() {
       const started = task.status === 'in_progress' ? task : await startTask(task.id)
       navigate(`/play/progress/${started.id}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start the task.')
+      reportError(err, "the task didn't start", setError)
     }
   }
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-muted">
-        <span role="status">Loading…</span>
-      </main>
-    )
+    return <Loading page />
   }
   if (!creating && (notFound || !task)) {
     return (
@@ -384,7 +383,7 @@ export function TaskView() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <Button variant="secondary" onClick={() => navigate(from)}>
           <ChevronLeft className="h-4 w-4" aria-hidden />
-          {creating ? 'Back' : 'All tasks'}
+          {creating ? 'Back' : 'Overview'}
         </Button>
         <div className="flex items-center gap-2 px-1 text-xs text-muted">
           {/* Filed-away indicator (#332) — the archived state visible at a
@@ -633,7 +632,7 @@ export function TaskView() {
                       tabIndex={checked ? 0 : -1}
                       onClick={() => setComplexity(c)}
                       onKeyDown={(e) => onSegKeyDown(e, i)}
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
+                      className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-left transition ${
                         checked ? checkedFill : 'bg-page/70 hover:bg-field'
                       }`}
                     >

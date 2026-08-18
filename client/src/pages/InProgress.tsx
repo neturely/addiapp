@@ -13,8 +13,13 @@ import {
   type Task,
 } from '@/lib/tasks'
 import { fetchPoints, type PointsStats } from '@/lib/points'
-import { elapsedSecondsSince, formatClock } from '@/lib/time'
+import { Loading } from '@/components/Loading'
+import { elapsedSecondsSince, formatClock, isOverdue } from '@/lib/time'
 import { useInProgress } from '@/inprogress/useInProgress'
+import { useNotifications } from '@/notifications/useNotifications'
+import { buttonClasses } from '@/components/buttonClasses'
+import { friendlyMessage } from '@/lib/apiError'
+import { useErrorReporter } from '@/toast/useErrorReporter'
 
 /** Effort → tint pill classes (#264; the #178 palette, AA dark-on-tint). */
 const EFFORT_PILL = {
@@ -22,6 +27,17 @@ const EFFORT_PILL = {
   medium: 'bg-[#ffe3a0] text-on-warning',
   high: 'bg-[#ffcdb8] text-on-primary',
 } as const
+
+/** Seconds → "42 min" / "2 h" / "1 h 20 min" for the auto-return countdown
+ * (#403 review) — coarser than the clock on purpose: it's a deadline notice,
+ * not a timer, so it only changes once a minute. */
+function roughDuration(totalSeconds: number): string {
+  const minutes = Math.max(1, Math.ceil(totalSeconds / 60))
+  if (minutes < 60) return `${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m === 0 ? `${h} h` : `${h} h ${m} min`
+}
 
 /** Rotating "in progress" labels (#181) — a random one is picked per mount. */
 const WORKING_LABELS = [
@@ -49,6 +65,7 @@ export function InProgress() {
   const taskId = Number(id)
   const navigate = useNavigate()
   const { refresh: refreshActiveTask } = useInProgress()
+  const { refresh: refreshNotifications } = useNotifications()
 
   // Win/time filters carried from the task-presented screen (#31), so the #34
   // "Keep going" action can offer another task without re-asking.
@@ -62,17 +79,24 @@ export function InProgress() {
       : undefined
   const minutes = parseMinutes(params.get('minutes'))
   const category = parseMinutes(params.get('category')) // same positive-int guard (#276)
+  const project = mode ? parseMinutes(params.get('project')) : undefined // #397 pin
 
   const [task, setTask] = useState<Task | null>(null)
   const [points, setPoints] = useState<PointsStats | null>(null)
   const [elapsed, setElapsed] = useState(0) // seconds
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const reportError = useErrorReporter()
   const [completing, setCompleting] = useState(false)
   const [awarded, setAwarded] = useState<AwardResult | null>(null)
   const [projectDone, setProjectDone] = useState<ProjectCompletion | null>(null) // #240
   const [recursAt, setRecursAt] = useState<string | null>(null) // #250 comes-back date
   const [done, setDone] = useState(false)
+  // #423: the #403 sweep sent the task back to Ready while we stood here —
+  // flip to a calm "sent back" card instead of ticking on a lie.
+  const [returned, setReturned] = useState(false)
+  const returnCheckAtRef = useRef(0)
+  const returnedHeadingRef = useRef<HTMLHeadingElement>(null)
   const [workingLabel] = useState(
     () => WORKING_LABELS[Math.floor(Math.random() * WORKING_LABELS.length)],
   )
@@ -99,7 +123,7 @@ export function InProgress() {
         setTask(t)
         setElapsed(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000)))
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the task')
+        if (!cancelled) setError(friendlyMessage(err, "the task didn't load"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -123,6 +147,38 @@ export function InProgress() {
     return () => clearInterval(iv)
   }, [task, done])
 
+  // #423 tier-1 liveness: past the 5x return boundary (plus a 2s grace for the
+  // server clock, which decides), verify ONCE — the notifications fetch runs
+  // the lazy sweep (performing the return), then the task refetch confirms it.
+  // If the server still says in_progress (clock skew / transient failure), a
+  // re-check is allowed at most every 15s while the screen sits past the
+  // boundary — an event-at-a-boundary check, not ambient polling.
+  useEffect(() => {
+    if (!task || done || returned || completing || points === null) return
+    const returnSec = task.estimatedMinutes * 60 * points.limits.overrun.returnRatio
+    if (elapsed < returnSec + 2) return
+    const now = Date.now()
+    if (now < returnCheckAtRef.current) return
+    returnCheckAtRef.current = now + 15_000
+    void (async () => {
+      try {
+        await refreshNotifications() // triggers the server's lazy #403 sweep
+        const t = await getTask(task.id)
+        if (t.status !== 'in_progress') {
+          setReturned(true)
+          void refreshActiveTask() // chip/mirror drop it without a navigation
+        }
+      } catch {
+        // Transient — the next allowed tick re-checks.
+      }
+    })()
+  }, [elapsed, task, done, returned, completing, points, refreshActiveTask, refreshNotifications])
+
+  // The flip is in-place (no route change) — focus its heading (#126).
+  useEffect(() => {
+    if (returned) returnedHeadingRef.current?.focus()
+  }, [returned])
+
   const onComplete = useCallback(async () => {
     if (!task) return
     setCompleting(true)
@@ -137,18 +193,14 @@ export function InProgress() {
       // chip imperatively — otherwise it would linger on the finished task (#135).
       void refreshActiveTask()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not complete the task')
+      reportError(err, "the task wasn't marked done", setError)
     } finally {
       setCompleting(false)
     }
-  }, [task, refreshActiveTask])
+  }, [task, refreshActiveTask, reportError])
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center text-muted">
-        <span role="status">Loading…</span>
-      </main>
-    )
+    return <Loading page />
   }
 
   if (error && !task) {
@@ -176,8 +228,45 @@ export function InProgress() {
         minutes={minutes}
         mode={mode}
         category={category}
+        project={project}
         projectBonus={projectDone}
         recursAt={recursAt}
+      />
+    )
+  }
+
+  // #423: calm "sent back to Ready" card — the #403 auto-return happened under
+  // this open screen. No celebration, no alarm; the run's timing is gone and
+  // the sprint bonus is forfeited (sticky), so just say where the task went.
+  if (returned && task) {
+    return (
+      <PlayCard
+        mascot={<Mascot expression="neutral" halo className="h-24 w-24" />}
+        eyebrow="Sent back to Ready"
+        title={
+          <h1 ref={returnedHeadingRef} tabIndex={-1} className="text-2xl font-bold text-gray-800 focus:outline-none">
+            {task.title}
+          </h1>
+        }
+        body={
+          <p className="text-muted">
+            It ran way past its estimate, so it went back to the Ready list for
+            another day. There&rsquo;s a note about it in your notifications.
+          </p>
+        }
+        primary={
+          <Link to="/play" className={buttonClasses('primary', 'lg', 'w-full')}>
+            Back to Play
+          </Link>
+        }
+        secondary={
+          <Link
+            to="/dashboard"
+            className="tap-44 inline-flex items-center justify-center text-sm font-semibold text-muted underline underline-offset-2 hover:text-gray-700"
+          >
+            Open the Overview
+          </Link>
+        }
       />
     )
   }
@@ -216,7 +305,13 @@ export function InProgress() {
         </>
       }
       hero={
-        <div className="font-mono text-5xl font-bold tabular-nums text-gray-900">
+        // Overdue (#402): the hero clock goes danger past the estimate — the
+        // "Past the estimate" copy below already carries it for SRs.
+        <div
+          className={`font-mono text-5xl font-bold tabular-nums ${
+            inBonus ? 'text-gray-900' : 'text-danger-deep'
+          }`}
+        >
           {formatClock(elapsed)}
         </div>
       }
@@ -253,10 +348,28 @@ export function InProgress() {
                 for a speed bonus
               </>
             ) : (
+              // #403 review: name the consequence — the sweep returns the task
+              // to Ready at returnRatio× the estimate (threshold served on
+              // GET /api/points; if that fetch failed, fall back to the old
+              // encouragement rather than inventing a number).
               <>
                 Past the estimate — no speed bonus now
-                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}. Finish
-                strong.
+                {basePoints != null ? `, but it's still worth ${basePoints} pts` : ''}.{' '}
+                {points != null ? (
+                  estimateSec * points.limits.overrun.returnRatio - elapsed > 0 ? (
+                    <>
+                      Finish it or it returns to Ready in{' '}
+                      <span className="font-bold text-danger-deep">
+                        {roughDuration(estimateSec * points.limits.overrun.returnRatio - elapsed)}
+                      </span>
+                      .
+                    </>
+                  ) : (
+                    'Finish it — it returns to Ready any moment now.'
+                  )
+                ) : (
+                  'Finish strong.'
+                )}
               </>
             )}
           </p>
@@ -282,7 +395,7 @@ export function InProgress() {
             type="button"
             onClick={() => void onComplete()}
             disabled={completing}
-            className="w-full cursor-pointer rounded-control bg-success-deep py-3 text-lg font-semibold text-white transition hover:bg-success-deep-hover disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400"
+            className="w-full rounded-control bg-success-deep py-3 text-lg font-semibold text-white transition hover:bg-success-deep-hover disabled:cursor-not-allowed disabled:bg-field disabled:text-gray-400"
           >
             {completing ? 'Completing…' : 'Mark done'}
           </button>
@@ -323,11 +436,15 @@ function AlsoRunning({ currentId }: { currentId: number }) {
           key={t.id}
           type="button"
           onClick={() => navigate(`/play/progress/${t.id}${qs ? `?${qs}` : ''}`)}
-          aria-label={`Switch to ${t.title}`}
-          className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page sm:min-h-0"
+          aria-label={`Switch to ${t.title}${isOverdue(t, now) ? ' (over estimate)' : ''}`}
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition hover:bg-page sm:min-h-0"
         >
           <span className="min-w-0 truncate font-medium text-gray-800">{t.title}</span>
-          <span className="flex-none font-mono text-xs tabular-nums text-muted">
+          <span
+            className={`flex-none font-mono text-xs tabular-nums ${
+              isOverdue(t, now) ? 'text-danger-deep' : 'text-muted'
+            }`}
+          >
             {formatClock(elapsedSecondsSince(t.startedAt, now))}
           </span>
         </button>

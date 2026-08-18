@@ -9,7 +9,14 @@
 > column, TaskView, offset pagination, palette, parallel running tasks; #292 points
 > integrity + #295 mobile pass filed); points-integrity sync 2026-08-08 (2.5.0
 > candidate — **#292 designed AND built** via #383 regulation + #385 "How points
-> work" guide, plus the #324 Play Choice restructure). Most core
+> work" guide, plus the #324 Play Choice restructure); 2.6.0 sync 2026-08-11
+> (the seven-issue batch: #406 Overview + archived re-cut, #410 login Turnstile,
+> #398 shared Loading, #402 overdue-red timers, #400 calm zero completions,
+> #403 two-stage overrun nudge/auto-return, #408 cursor rule); 2.7.0 sync
+> 2026-08-14 (the five-issue refinement batch + four review rounds: #415
+> friendly-error system (ErrorBanner + danger toast), #419 one-clock-per-surface,
+> #421 notification detail modal, #423 client-side overrun liveness, #397
+> focused-Play buttons + the `?project=` pin). Most core
 > decisions are settled; open items live in the Open decisions log. Where this
 > file and the code disagree, the code (on `develop`) wins — update this file.
 
@@ -208,6 +215,14 @@ controller.
   backlog candidates (time-filter-respecting), pick the project with the **least remaining
   effort** (Σ `PointsConfig::BASE_POINTS`, closest to done), tie-break **oldest project**
   (`created_at`, then id), then the **oldest task** within it. Same `{ task }` shape.
+- **Project pin (#397):** `GET /api/tasks/next?mode=projects&project=N` scopes the
+  focus pick to ONE owned project — the manager views' play buttons. Validation in
+  the controller: the pin is **only valid with `mode=projects`** (else 400) and must
+  be an owned project (else **404**, non-enumerating per #129). It adds ONE
+  `t.project_id = ?` condition to the focus query — with a single group,
+  `focusProject`'s least-effort ranking is a no-op and the oldest-task-within pick
+  plus the time filter are what remain, so **the selection algorithm is unchanged**.
+  The active-only join stays, so a pinned done/archived project yields the empty state.
 - **Per-user selection preference — BUILT (#266, epic #256 E):**
   `users.selection_strategy` (migration 015, default `weightedByAge`);
   `Selection::pick($candidates, $strategy)` resolves via `strategies()` with a
@@ -229,8 +244,10 @@ to the old Node API.
   survives email-send failures (best-effort, #67) and is **non-enumerating** —
   an existing email gets the same 201 + neutral body as a new one, no insert, no
   re-sent email (#118); login/forgot/resend are neutral too. login/register + the
-  email endpoints are rate-limited (#80). **Cloudflare Turnstile CAPTCHA** on register +
-  forgot-password, verified server-side via `siteverify` (#79) — all-or-nothing on
+  email endpoints are rate-limited (#80). **Cloudflare Turnstile CAPTCHA** on register,
+  forgot-password + **login (password step, #410 — after the rate-limit checks;
+  `verify-otp` deliberately unguarded: a TOTP challenge only exists after a
+  Turnstile-passing password login)**, verified server-side via `siteverify` (#79) — all-or-nothing on
   `turnstileSecret` (`config.php`) + `TURNSTILE_SITE_KEY` (build env); unset =
   disabled (dev default, fails closed if only the secret is set). Client pages:
   `/verify`, `/forgot-password`, `/reset`.
@@ -290,6 +307,15 @@ to the old Node API.
   (+ time; **no size**). `mode=projects` carries through the whole Play chain (TaskPresented → InProgress
   → Completion "Keep going") alongside `minutes`, mutually exclusive with `size`. Server pick =
   `Selection::focusProject` (see Task-selection algorithm above). `fetchNextTask({mode})` + `PlayMode` in `lib/tasks`.
+  **Focused-Play entry points (#397, 2.7.0):** a small **play button in the count cluster** of
+  CategoriesView rows and **ACTIVE** project cards (hidden at `remaining === 0`, and on done/archived
+  projects — nothing to play) deep-links **`/play?category=ID`** / **`/play?project=ID`**. Choice reads
+  both params: a category pre-checks its filter chip (**owned ids only** — a stale/foreign id silently
+  leaves "Any category"), a project resolves against active projects and swaps the projects row for a
+  **"Focus on {name}"** variant with a **clearable × pill** (clearing strips the param). Decided: it lands
+  on **Choice, not straight at `/play/task`** — the time filter still matters and Choice is where it lives.
+  The pin rides launch as `?project=N` through the whole chain (TaskPresented → InProgress → Completion
+  "Keep going"), like `category`; per-launch and URL-driven, **nothing stored** (no new preference).
   **Availability pruning (#306):** `GET /api/tasks/availability` → `{ small, big, projects }` (one grouped
   LEFT-JOIN pass over the caller's backlog; pools from `WIN_TYPE_COMPLEXITY`; `projects` = a backlog task in
   an ACTIVE project; the **time filter is deliberately excluded** — "nothing matched your time" stays the
@@ -354,7 +380,8 @@ to the old Node API.
   (#336 — the toolbar Edit/Delete is GONE):** categories are their OWN rail
   section (between Tasks and Projects; the head links **`?view=categories`** —
   `CategoriesView`, a Dashboard-style row list: tag icon · bold name + muted
-  description · "X of Y left to do" · trailing pencil; a row opens the
+  description · "X of Y left to do" · **play button (#397 — hidden at 0 remaining)**
+  · trailing pencil; a row opens the
   category's task list — and its + → the `?newCategory=1` modal), entries led
   by a **coloured TAG icon** in the category's palette hue (`projectHex()`;
   centered in the pole square's 8px slot so all rail labels share one x —
@@ -389,14 +416,19 @@ to the old Node API.
   400; false unarchives; IFNULL keeps the original filing time on re-archive).
   **Invariant: archived ⇒ done** — a status transition leaving 'done' clears
   `archived_at`, so a filed task can never re-enter the Play backlog pool.
-  Visibility (**revised #332** — supersedes the original all-lists exclusion):
-  the **mixed "all" views (All tasks + per-project/category filters) INCLUDE
-  archived rows** ("All" means all — rendered with the "Archived" pill), while
-  the WORKING lists (status tabs + Unassigned) exclude them; `GET
+  Visibility (**re-revised #406**, superseding #332's "All means all"): the
+  **per-project/category filters are the ONLY mixed views that still include
+  archived rows** — server-sorted to the BOTTOM (a leading `(archived_at IS
+  NULL) DESC` group key ahead of the validated `order`, so the grouping
+  survives offset pagination; the newest/oldest toggle applies within each
+  group) and rendered with the "Archived" pill. The **Overview** (the #406
+  rename of "All tasks" — rail entry, toolbar label, TaskView back button;
+  presentation-only, `?tab=`/`filter==='all'` internals unchanged) and the
+  WORKING lists (status tabs + Unassigned) exclude them; `GET
   /api/tasks?archived=1` is the archive-only view (ordered by `archived_at`,
   newest-filed first under the default desc). `counts`: the status figures
-  exclude archived ("Done" = done-not-filed), **`all` includes them**, and an
-  **`archived`** key serves the tab.
+  exclude archived ("Done" = done-not-filed), **`all` excludes them too
+  (#406)**, and an **`archived`** key serves the tab.
   No points effect. Client: `archiveTask(id, archived)` in `lib/tasks` (pings the
   rail), a rail Tasks **"Archived" entry** below Done (`?tab=archived`), the
   archived tab's trailing **Delete** row action (#330 — confirm modal; NOT
@@ -443,9 +475,39 @@ to the old Node API.
   cell stays the row's last element, so the column keeps one right edge with no
   reserved whitespace on ruleless rows; #364 + user-feedback follow-ups). Locked by
   `tests/Unit/RecurTest.php` + `tests/Db/RecurringTasksTest.php`.
-- **In-app notifications (#366)**: avatar unread indicator + a `/notifications`
-  view; first (only, v1) type = **`recurring_activated`** — a #250 clone's
-  `available_from` date arriving. No persistent process on this hosting, so
+- **In-app notifications (#366; overrun pair #403)**: avatar unread indicator + a
+  `/notifications` view; first type = **`recurring_activated`** — a #250 clone's
+  `available_from` date arriving. **#403 (2.6.0, user decision) added the
+  two-stage overrun pair**: **`task_overrun`** at ≥3× the estimate (warning —
+  the task keeps running) and **`task_returned`** at ≥5× (the sweep sends the
+  task back to Ready itself, reusing the #383 pause transition's exact SETs —
+  timing cleared, `bonus_forfeited` sticky; no Lifecycle sync needed). Ratios =
+  `Notifications::OVERRUN_WARN_RATIO/OVERRUN_RETURN_RATIO`; `sweepOverrun` runs
+  on the same lazy fetch, **RETURN stage first** (an abandoned-overnight task
+  gets ONE returned notice, never a same-fetch pair; the superseded warn row is
+  deleted). **Overrun dedupe is per RUN, not per task**: any status transition
+  clears the task's overrun-family rows (`removeOverrunForTask` in the task
+  PATCH; completion's `removeForTask` covers that path) so a restart re-arms
+  both stages. The `data` snapshot carries title + estimate + elapsed-at-detection
+  + **`returnRatio`** (client never hardcodes the 5×); the same two ratios ride
+  **`GET /api/points` → `limits.overrun`** for the InProgress countdown copy.
+  **Client-side liveness (#423, 2.7.0 — tier 1 ONLY, no polling/heartbeat):** the
+  sweep is the first place the server changes task state *underneath* an open view,
+  so the UI used to tick on a lie until the next navigation. **`OverrunWatcher`**
+  (`inprogress/OverrunWatcher.tsx`, renderless, mounted once in `AppLayout`)
+  schedules ONE `setTimeout` per **(task, run, stage)** at the served warn/return
+  boundaries (+2s grace — the SERVER's clock decides; a past-due boundary fires
+  immediately, e.g. a task left running overnight; `startedAt` is in the dedupe key
+  so a restart re-arms, matching the server's per-run dedupe). Firing = a
+  **notifications refresh, which IS the lazy-sweep trigger** (inserting the warn /
+  performing the return), then at the return stage an InProgressProvider refresh so
+  the chip/mirror/rows drop the task and the dot lights with no navigation. The
+  **InProgress screen** additionally notices the crossing on its own 1s tick,
+  re-fetches the task, and on confirmation flips **in place** to a calm "Sent back
+  to Ready" `PlayCard` (neutral mascot, focused heading, Back to Play / Overview);
+  re-checks are capped at **one per 15s** while past the boundary (bounded
+  verification, not ambient polling). Tier 2 (a visibility-gated heartbeat) remains
+  deliberately unbuilt. Locked by the #423 block in `e2e/play.mjs`. No persistent process on this hosting, so
   activation is detected by a **lazy sweep on `GET /api/notifications`**: one
   `INSERT IGNORE…SELECT` inserts a row per rule-carrying BACKLOG task with
   `available_from` ≤ today (APP_TIMEZONE); dedupe = **`UNIQUE(type, task_id)`**
@@ -481,6 +543,13 @@ to the old Node API.
   **Dashboard row list** (user feedback: surface rows + gap-px, leading dot
   cell = unread primary / read grey, bold-lead "Title was added — repeats …"
   message, date cell, trailing **X dismiss** action, optimistic with restore).
+  **A row click opens a DETAIL MODAL (#421, 2.7.0), it does not navigate:** the
+  shared `Modal` (#218) with the task-title heading, the FULL untruncated message,
+  and **OK + "Go to task"** (the row's old navigation moved here; absent when
+  `taskId` is null — a deleted task). Row aria-labels read
+  **"View notification: <title>"** (was "Open …" — e2e matchers changed with it);
+  the date sits **bottom-left on the button row** (review round). The trailing X
+  dismiss stays on the row. Per-item-read-on-open is still deliberately NOT built.
   It does its OWN fetch → render → mark-read → provider refresh, deliberately
   not the provider's list — the route-change refetch would race the mark-read
   and strip the unread styling; empty state = shared `empty` mascot.
@@ -522,8 +591,10 @@ to the old Node API.
   header timer chip, AND the column mirror. e2e: `e2e/play.mjs`.
 - **Dashboard (#262, GUI-refresh epic #256 C — supersedes the #36/#178 table)**:
   `/dashboard` is a **single-line row list** (`ul[aria-label="Tasks"]`): project pole +
-  name · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
-  All tasks + the per-project/category filters; the homogeneous status tabs and
+  name (**the NAME cell is hidden on the project's own `?project=ID` filter view**,
+  2.7.0 review round — every row there repeats it; the pole cell and its hover play
+  button stay, mirroring the category chip's rule below) · tint pill (**status — Ready/Started/Done — on mixed-status lists** (#322):
+  the Overview + the per-project/category filters; the homogeneous status tabs and
   Unassigned/Archived keep the **effort** pill) · **title [↻] description** (truncated; no
   separator — the bold title carries the split, and a recurring rule's ↻ sits inline
   between the two, user feedback 2026-08-06) · ONE combined
@@ -556,8 +627,9 @@ to the old Node API.
   "X of Y left to do"; the sort text is a TOGGLE button flipping newest/oldest via
   `?sort=oldest` + the server's validated `order=asc|desc` param) + range +
   prev/next pagers (top and foot), 25/page. **Default order: NEWEST FIRST**
-  (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (All tasks /
-  Ready / Started / Unassigned / Done, with counts — that order) live in the
+  (#256 review; the unbounded legacy list stays id DESC). **There is no in-page filter UI** — the status filters (**Overview**
+  (the #406 "All tasks" rename) / Ready / Started / Unassigned / Done, with
+  counts — that order) live in the
   rail's Tasks section as `?tab=` links, and the filter is purely URL-derived.
   Empty states show the **`empty` mascot expression** (shrug + side-glance —
   the shared nothing-here treatment; a 404 adoption is a later candidate).
@@ -646,7 +718,9 @@ addiapp/
   3. `npm run db:up` — MySQL 8.0 on `localhost:3306` (data in the `db_data` volume)
   4. `npm run db:migrate` — runs `php api/migrate.php`
   5. `npm run dev` — client on http://localhost:5173, PHP API on
-     http://127.0.0.1:3001 (Vite proxies `/api`)
+     http://127.0.0.1:3001 (Vite proxies `/api`). Both ports are overridable —
+     `VITE_PORT` / `VITE_API_PORT` (2.6.0 review round) — so AddiApp can run
+     beside another Vite/PHP stack on the same machine.
 - No local `api/config.php` is needed — the built-in defaults point at the docker
   MySQL. With no `RESEND_API_KEY`, emails use the console transport (links logged
   to the API output).
@@ -682,10 +756,10 @@ panes scroll internally (`h-screen`, `min-h-0`). Pieces:
 - **Rail** (`Rail.tsx`, `w-56`, collapsible; below `sm` it's an **overlay drawer**,
   #270 — hamburger opens it, scrim/Escape/navigation close it, focus returns to the
   hamburger, entries are ≥44px targets): Tasks section
-  (All tasks / Ready / **[category entries]** / Started / Unassigned / Done →
+  (**Overview** (#406, was "All tasks") / Ready / **[category entries]** / Started / Unassigned / Done →
   the Dashboard's `?tab=` filters, counts from the server `counts`; **+ Archived**,
   the #312 task-archive axis → `?tab=archived`). **Tasks section order (#336):
-  the fixed axes group under Ready** — All tasks / Ready / Recurring /
+  the fixed axes group under Ready** — Overview / Ready / Recurring /
   Unassigned / Started / Done / Archived. **Categories then get their OWN
   section between Tasks and Projects (#336 final round — the in-Tasks
   placement was tried twice and rejected):** a plain non-link head (no
@@ -717,6 +791,57 @@ task is in progress — `InProgressProvider` (wrapping `AppLayout`) tracks the
 most-recently-started in-progress task (fetch on mount + route change, no
 polling); `TimerChip` ticks client-side off `startedAt` and links to
 `/play/progress/:id`.
+
+**One clock per surface (#419, 2.7.0 — user-picked "mirror is the clock"):** the
+same countdown used to tick 2–3× per surface. Two rules, both in `Header.tsx`
+(chip) and `Dashboard.tsx` (rows), both keyed on **`columnVisible`**:
+- The chip **hides while the right-column `RunningMirror` is visible** (the mirror
+  is the primary home — it carries Open + Mark done), and its pool **excludes the
+  task whose `/play/progress/:id` you're viewing**, so on an InProgress screen the
+  chip only ever represents a *different* parallel running task ("also running").
+- Dashboard Started rows take **`<RowTimer dotOnly>`** while the column is visible:
+  pulse dot + a stable sr-only "Running"/"Running (over estimate)", no digits. It
+  still ticks internally so the #402 overdue colour flip lands on time.
+- **Never invisible** (the #256 acceptance): narrow viewport, solo mode, or column
+  toggled off ⇒ chip and row digits both return. Locked by `e2e/timer.mjs`.
+
+**Overdue running timers (#402, 2.6.0):** "out of time" = **elapsed ≥ estimate**
+(the exact speed-bonus-zero boundary — `isOverdue(task, now)` in `lib/time.ts`,
+one helper shared by every site). Overdue clocks render in **`text-danger-deep`**
+(review-lightened from danger-ink) at all six live-clock sites: InProgress hero +
+"Also running" rows, the RunningMirror hero + compact mirrors, the header
+TimerChip (its pulse dot goes `bg-danger` too), and the Dashboard RowTimer
+(dot + an sr-only suffix). A11y: stable "(over estimate)" aria-label suffixes,
+never a ticking live region. The InProgress past-the-estimate copy **counts down
+to the #403 auto-return** ("Finish it or it returns to Ready in 42 min" —
+`limits.overrun.returnRatio` served on `GET /api/points`, coarse `roughDuration`
+formatting; falls back to "Finish strong." if the points fetch failed).
+
+**Calm zeroed Completion (#400, 2.6.0):** a #383-zeroed award skips the party —
+no confetti, `neutral` mascot, **"Done."** heading (the SR announcement drops
+the "Nice work!" open), and the `ZERO_REASONS` explanation promoted to the
+screen's main content with the guide link. A #240 project bonus still renders
+its accent panel (real earned points) but the layout stays calm; the
+right-column in-column celebration gets the same treatment (no confetti,
+neutral mascot, muted "Done" eyebrow — the ~5s moment and "No points this
+time" note stay). Streak fetch kept: a zeroed completion still counts toward
+the streak.
+
+**Shared loading state (#398, 2.6.0):** `components/Loading.tsx` — three
+staggered brand-hue pulse dots (`animate-pulse-dot`, already stilled under
+reduced-motion) + sr-only "Loading…" behind `role="status"`, appearing after a
+~180ms delay so fast transitions don't flash. `<Loading page />` = the
+full-surface route gates (ProtectedRoute, TaskView, InProgress, Stats); plain
+`<Loading />` centers in a list area (Dashboard, Notifications,
+CategoriesView, ProjectsView, HowPointsWork's surface). Reach for it instead of
+ad-hoc "Loading…" text.
+
+**Button cursor (#408, 2.6.0):** Tailwind v4's preflight sets `cursor: default`
+on buttons (v3 set `pointer`) — fixed globally by `button:not(:disabled) {
+cursor: pointer }` in **`@layer base`** in `index.css` (base so `cursor-*`
+utilities — the drawer scrim, the null-task notification row — still win;
+disabled buttons keep the default cursor). Never add per-button
+`cursor-pointer` utilities; the sweep removed all 49.
 
 Shared **`PlayCard`** (`components/PlayCard.tsx`, #204 epic / #208 Phase 1 / #211
 Phase 2; supersedes the old `CardScreen`): the canonical Play-moment card — a
@@ -865,6 +990,32 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   over a bespoke per-page toast. (The old Dashboard undo-delete toast is gone — #262 replaced
   deferred-delete with a confirm dialog in the task view. **In-column completion does NOT toast** —
   the right-column card's confetti celebration is the reward there; error toasts stay.)
+  Tones: success/primary/accent/warning/**danger** (#415) /neutral.
+- **Error presentation (#415, 2.7.0) — never render a raw server message for an
+  UNEXPECTED failure.** Two helpers in `lib/apiError.ts`: **`isUnexpectedError(err)`**
+  (a non-`ApiError` throw — i.e. network failure — or status **≥ 500**; the
+  client-made 408 timeout copy counts as EXPECTED) and
+  **`friendlyMessage(err, consequence)`** → "Something went wrong on our side —
+  {consequence}. Please try again." for unexpected, the server's own copy for 4xx
+  (those messages are written for users and must keep passing through).
+  - **Action failures** use the **`useErrorReporter()`** hook
+    (`toast/useErrorReporter.ts`): `reportError(err, "your changes weren't saved",
+    setInline)` — unexpected ⇒ a **danger toast** (7s, `CircleAlert`); expected 4xx ⇒
+    the inline alert next to the control. **Toast REPLACES inline for 5xx** (user
+    decision) so a failure is noticed even when the control is off-screen.
+  - **Surface-wide failures** (a list that didn't load) use
+    **`components/ErrorBanner`** — a rounded red card at the top of the content
+    column, `bg-danger` + white text (**4.83:1**, the one vivid fill where even
+    normal-size white clears AA, so it does NOT need the large/bold text-on-vivid
+    exemption), `rounded-xl` panel radius, centred message, no icon, `role="alert"`.
+    Adopted on Dashboard, ProjectsView, CategoriesView, Notifications. Field- and
+    section-level validation stays inline beside its control; the Play surfaces keep
+    their own full-screen error cards.
+  - A failed fetch must **never render as an empty state** — Notifications and
+    CategoriesView used to show "nothing yet" on failure; both now carry a real
+    error state. Any new list surface must do the same.
+  - Raw `text-red-600` is **not** in the palette — use `text-danger-ink` (on light)
+    or the banner. The #415 sweep removed the last of those.
 - **Accessibility conventions (#126)**: standalone error messages use `role="alert"`;
   loading indicators and the shared toast use `role="status"` (toast also
   `aria-live="polite"` + `aria-atomic`, and pauses its auto-dismiss on hover/focus).

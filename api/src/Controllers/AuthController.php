@@ -115,6 +115,17 @@ final class AuthController
             return;
         }
 
+        // Turnstile on the password step (#410) — rate limiting only throttles
+        // per-bucket; the widget counters DISTRIBUTED credential stuffing. Same
+        // all-or-nothing config semantics as register/forgot (#79): no secret =
+        // disabled (dev), fails closed otherwise. verify-otp (#319) is NOT
+        // guarded — a totp_challenge can only exist after a Turnstile-passing
+        // password login and carries its own rate limit.
+        if (!Turnstile::verify($req->input('turnstileToken'), $req->clientIp())) {
+            Response::error('captcha_failed', 400, 'Captcha verification failed. Please try again.');
+            return;
+        }
+
         $stmt = Db::pdo()->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
         $stmt->execute([$email]);
         $user = $stmt->fetch();

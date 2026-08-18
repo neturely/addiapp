@@ -24,7 +24,7 @@ import {
   type TaskStatus,
 } from '@/lib/tasks'
 import { fetchPoints } from '@/lib/points'
-import { elapsedSecondsSince, formatClock } from '@/lib/time'
+import { elapsedSecondsSince, formatClock, isOverdue } from '@/lib/time'
 import { projectPole, projectTint } from '@/lib/projectColors'
 import { fetchProjects, updateProject, type Project } from '@/lib/projects'
 import { deleteCategory, fetchCategories, type Category } from '@/lib/categories'
@@ -35,8 +35,12 @@ import { Modal } from '@/components/Modal'
 import { CategoriesView } from '@/components/CategoriesView'
 import { ProjectModal } from '@/components/ProjectModal'
 import { ProjectsView } from '@/components/ProjectsView'
+import { Loading } from '@/components/Loading'
+import { ErrorBanner } from '@/components/ErrorBanner'
 import { useShell } from '@/shell/useShell'
 import { useToast } from '@/toast/useToast'
+import { useErrorReporter } from '@/toast/useErrorReporter'
+import { friendlyMessage } from '@/lib/apiError'
 
 type Filter = 'all' | TaskStatus | 'unassigned' | 'archived' | 'recurring'
 type View = 'tasks' | 'projects' | 'categories'
@@ -106,7 +110,8 @@ function filterFromTab(tab: string | null): Filter {
 export function Dashboard() {
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { search } = useShell()
+  const reportError = useErrorReporter()
+  const { search, columnVisible } = useShell()
 
   // Tasks vs Projects vs Categories view (#336), URL-driven (`?view=`) —
   // navigated from the rail's linkable section headings (the in-page toggle
@@ -187,7 +192,7 @@ export function Dashboard() {
         setTotal(page.total)
         setCounts(page.counts)
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : 'Could not load tasks'))
+      .catch((e) => !cancelled && setError(friendlyMessage(e, "your tasks didn't load")))
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -277,7 +282,7 @@ export function Dashboard() {
       setDeletingCategory(null)
       navigate('/dashboard')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete the category.')
+      reportError(e, "the category wasn't deleted", setError)
       setDeletingCategory(null)
     } finally {
       setCategoryBusy(false)
@@ -304,7 +309,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not assign that task.')
+      reportError(e, "the task wasn't assigned", setError)
     }
   }
 
@@ -319,7 +324,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not archive that task.')
+      reportError(e, "the task wasn't archived", setError)
     }
   }
 
@@ -340,7 +345,7 @@ export function Dashboard() {
       setTotal(page.total)
       setCounts(page.counts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete that task.')
+      reportError(e, "the task wasn't deleted", setError)
       setDeletingTask(null)
     } finally {
       setTaskBusy(false)
@@ -353,7 +358,7 @@ export function Dashboard() {
       const started = await startTask(task.id)
       navigate(`/play/progress/${started.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start the task.')
+      reportError(e, "the task didn't start", setError)
     }
   }
 
@@ -382,7 +387,7 @@ export function Dashboard() {
             type="button"
             onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
             aria-label="Previous page"
-            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden />
           </button>
@@ -392,7 +397,7 @@ export function Dashboard() {
             type="button"
             onClick={() => setOffset((o) => o + PAGE_SIZE)}
             aria-label="Next page"
-            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-gray-700 transition hover:bg-field-hover sm:h-8 sm:w-8"
           >
             <ChevronRight className="h-4 w-4" aria-hidden />
           </button>
@@ -403,7 +408,8 @@ export function Dashboard() {
 
   const rangeLabel = `${first}–${last} of ${total}`
   // Toolbar's selection label — mirrors the rail choice (project name, a status
-  // filter, or "All tasks").
+  // filter, or "Overview" — the #406 rename; the `all` URL value is unchanged,
+  // presentation-only like the Ready/Started labels).
   const filterProject =
     projectFilterId !== null ? projects.find((p) => p.id === projectFilterId) : undefined
   const selectionLabel =
@@ -412,13 +418,13 @@ export function Dashboard() {
       : categoryFilterId !== null
         ? (filterCategory?.name ?? 'Category')
         : filter === 'all'
-          ? 'All tasks'
+          ? 'Overview'
           : filter === 'unassigned'
             ? 'Unassigned'
-            : (FILTERS.find((f) => f.key === filter)?.label ?? 'All tasks')
+            : (FILTERS.find((f) => f.key === filter)?.label ?? 'Overview')
   // Count text scopes to the selection (#256 review; per-tab figures #363): a
   // project/category filter shows THAT list's remaining count (the rail's
-  // figure); a status tab shows its own count + wording. "All tasks" keeps the
+  // figure); a status tab shows its own count + wording. The Overview keeps the
   // actionable backlog figure — it mirrors the rail's Ready badge.
   const statusCount: Record<Filter, { count: number; noun: string }> = {
     all: { count: counts?.backlog ?? 0, noun: 'ready to do' },
@@ -443,6 +449,10 @@ export function Dashboard() {
     <main className="flex min-h-screen w-full flex-col p-4 sm:p-6">
       <h1 className="sr-only">Dashboard</h1>
 
+      {/* Surface-wide failure (#415 review round): a full-bleed bar at the top
+          of the page, not a small red line buried under the toolbar. */}
+      {error && <ErrorBanner message={error} />}
+
       {view === 'projects' ? (
         <ProjectsView />
       ) : view === 'categories' ? (
@@ -451,7 +461,7 @@ export function Dashboard() {
         <>
           {/* (The old project-filter banner is gone, #256 review — the toolbar's
               selection label + scoped count carry the same information, and the
-              rail's All tasks is the way back.) */}
+              rail's Overview is the way back.) */}
 
           {/* Ride-along assign banner (#236). */}
           {filter === 'unassigned' && rideAlongProject && (
@@ -463,7 +473,7 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={clearRideAlong}
-                className="shrink-0 cursor-pointer rounded-md p-1 text-accent-ink transition hover:bg-white/50"
+                className="shrink-0 rounded-md p-1 text-accent-ink transition hover:bg-white/50"
                 aria-label="Stop assigning to this project"
               >
                 <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
@@ -489,7 +499,7 @@ export function Dashboard() {
                 type="button"
                 onClick={toggleSort}
                 aria-label={`Sorted ${newestFirst ? 'newest' : 'oldest'} first — switch to ${newestFirst ? 'oldest' : 'newest'} first`}
-                className="cursor-pointer transition hover:text-primary-ink"
+                className="transition hover:text-primary-ink"
               >
                 {newestFirst ? 'newest first' : 'oldest first'}
               </button>
@@ -503,16 +513,8 @@ export function Dashboard() {
             <Pager />
           </div>
 
-          {error && (
-            <p role="alert" className="mb-3 text-sm text-danger-ink">
-              {error}
-            </p>
-          )}
-
           {loading ? (
-            <p role="status" className="p-8 text-center text-muted">
-              Loading…
-            </p>
+            <Loading />
           ) : visible.length === 0 ? (
             <div className="rounded-xl bg-surface p-10 text-center">
               {/* "Nothing to see here" mascot (#256 review) — the shared empty
@@ -565,7 +567,7 @@ export function Dashboard() {
                           type="button"
                           onClick={() => void playNow(task)}
                           aria-label={`Start ${task.title}`}
-                          className="peer absolute left-1/2 top-1/2 hidden h-8 w-8 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-success-ink opacity-0 transition hover:bg-success-tint focus-visible:opacity-100 group-hover:opacity-100 sm:inline-flex"
+                          className="peer absolute left-1/2 top-1/2 hidden h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg text-success-ink opacity-0 transition hover:bg-success-tint focus-visible:opacity-100 group-hover:opacity-100 sm:inline-flex"
                         >
                           <Play
                             className="h-4 w-4"
@@ -586,21 +588,30 @@ export function Dashboard() {
                       type="button"
                       onClick={() => navigate(`/tasks/${task.id}`)}
                       aria-label={`Open ${task.title}`}
-                      className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-3.5 pl-3.5 pr-5 text-left"
+                      className="flex h-full min-w-0 flex-1 items-center gap-3.5 pl-3.5 pr-5 text-left"
                     >
-                      <span
-                        className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
-                          task.project ? 'font-medium text-gray-700' : 'text-muted'
-                        }`}
-                      >
-                        {task.project?.name ?? 'No project'}
-                      </span>
-                      {/* Mixed-status lists — All tasks and the per-project/
+                      {/* Project cell — hidden on the project's OWN filter
+                          view (user feedback): every row there shares it, so
+                          the column is dead weight; the leading cell's play
+                          button carries that slot instead. Mirrors the
+                          category chip's rule below. */}
+                      {projectFilterId === null && (
+                        <span
+                          className={`hidden w-32 flex-none truncate text-[13px] sm:block ${
+                            task.project ? 'font-medium text-gray-700' : 'text-muted'
+                          }`}
+                        >
+                          {task.project?.name ?? 'No project'}
+                        </span>
+                      )}
+                      {/* Mixed-status lists — the Overview and the per-project/
                           category filters (both compute filter 'all') — spend
                           the pill slot on STATUS (#322): that's what the user
                           scans a mixed list for. The archived tab uses it too,
                           resolving the archived axis first (#330 — a filed
-                          task reads "Archived", never "Done"). Homogeneous
+                          task reads "Archived", never "Done"; post-#406 only
+                          the project/category filters still surface archived
+                          rows here, sorted last by the server). Homogeneous
                           status tabs (and Unassigned) keep the difficulty pill. */}
                       {(() => {
                         const tag =
@@ -667,8 +678,13 @@ export function Dashboard() {
                         </span>
                       )}
                       {/* Started rows carry their own live clock (#256 review
-                          — tasks run in parallel, each on its own timer). */}
-                      {task.status === 'in_progress' && <RowTimer startedAt={task.startedAt} />}
+                          — tasks run in parallel, each on its own timer).
+                          With the column mirror visible the mirror is the one
+                          ticking clock (#419): the row demotes to its pulse
+                          dot; the digits return when the column is gone. */}
+                      {task.status === 'in_progress' && (
+                        <RowTimer task={task} dotOnly={columnVisible} />
+                      )}
                       {/* Estimate + points as ONE cell — "10 min / 5 pts"
                           (#256 review): same weight/size as the minutes, the
                           points half in gold (warning ink — the AA gold for
@@ -695,7 +711,7 @@ export function Dashboard() {
                         type="button"
                         onClick={() => void playNow(task)}
                         aria-label={`Start ${task.title}`}
-                        className="mr-3 inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint sm:hidden"
+                        className="mr-3 inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg text-success-ink transition hover:bg-success-tint sm:hidden"
                       >
                         <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} aria-hidden />
                       </button>
@@ -715,7 +731,7 @@ export function Dashboard() {
                         type="button"
                         onClick={() => void archiveDone(task)}
                         aria-label={`Archive ${task.title}`}
-                        className="mr-4 flex-none cursor-pointer rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
+                        className="mr-4 flex-none rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
                       >
                         Archive
                       </button>
@@ -727,7 +743,7 @@ export function Dashboard() {
                         type="button"
                         onClick={() => setDeletingTask(task)}
                         aria-label={`Delete ${task.title}`}
-                        className="mr-4 flex-none cursor-pointer rounded-lg bg-danger-tint px-3 py-2.5 text-xs font-semibold text-danger-ink transition hover:opacity-80 sm:py-1.5"
+                        className="mr-4 flex-none rounded-lg bg-danger-tint px-3 py-2.5 text-xs font-semibold text-danger-ink transition hover:opacity-80 sm:py-1.5"
                       >
                         Delete
                       </button>
@@ -774,7 +790,7 @@ export function Dashboard() {
                 setProjects((ps) => ps.map((p) => (p.id === saved.id ? saved : p)))
                 showToast({ message: `Project archived: ${target.name}`, icon: Archive, tone: 'neutral' })
               } catch (e) {
-                setError(e instanceof Error ? e.message : 'Could not archive the project.')
+                reportError(e, "the project wasn't archived", setError)
               }
             })()
           }}
@@ -858,16 +874,36 @@ export function Dashboard() {
  * they always agree. Not a live region (no per-second SR spam); hidden below sm
  * where the row is already tight.
  */
-function RowTimer({ startedAt }: { startedAt?: string | null }) {
+function RowTimer({ task, dotOnly = false }: { task: Task; dotOnly?: boolean }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
+    // dotOnly still ticks: the overdue colour flip (#402) has to land on time.
     const iv = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(iv)
   }, [])
+  // Overdue (#402): clock + dot go danger past the estimate; a stable sr-only
+  // suffix keeps colour from being the only indicator (#126) without ticking.
+  const overdue = isOverdue(task, now)
   return (
-    <span className="hidden flex-none items-center gap-1.5 font-mono text-xs tabular-nums text-gray-700 sm:inline-flex">
-      <span aria-hidden className="animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-      {formatClock(elapsedSecondsSince(startedAt, now))}
+    <span
+      className={`hidden flex-none items-center gap-1.5 font-mono text-xs tabular-nums sm:inline-flex ${
+        overdue ? 'text-danger-deep' : 'text-gray-700'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`animate-pulse-dot h-1.5 w-1.5 shrink-0 rounded-full ${overdue ? 'bg-danger' : 'bg-primary'}`}
+      />
+      {/* #419: the column mirror is the ticking clock when it's visible — the
+          row keeps the pulse dot (+ a stable sr-only state) without digits. */}
+      {dotOnly ? (
+        <span className="sr-only">{overdue ? 'Running (over estimate)' : 'Running'}</span>
+      ) : (
+        <>
+          {formatClock(elapsedSecondsSince(task.startedAt, now))}
+          {overdue && <span className="sr-only"> (over estimate)</span>}
+        </>
+      )}
     </span>
   )
 }
@@ -905,7 +941,7 @@ function AssignControl({
         type="button"
         onClick={() => onAssign(target)}
         aria-label={`Assign ${task.title} to ${target.name}`}
-        className="mr-4 flex-none cursor-pointer rounded-lg bg-accent-tint px-3 py-2.5 text-xs font-semibold text-accent-ink transition hover:opacity-80 sm:py-1.5"
+        className="mr-4 flex-none rounded-lg bg-accent-tint px-3 py-2.5 text-xs font-semibold text-accent-ink transition hover:opacity-80 sm:py-1.5"
       >
         Assign
       </button>
@@ -919,7 +955,7 @@ function AssignControl({
         onClick={() => setOpen((v) => !v)}
         aria-label={`Assign ${task.title} to a project`}
         aria-expanded={open}
-        className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
+        className="inline-flex items-center gap-1 rounded-lg bg-field px-3 py-2.5 text-xs font-semibold text-gray-700 transition hover:bg-field-hover sm:py-1.5"
       >
         Assign
         <ChevronDown className="h-3.5 w-3.5" aria-hidden />
@@ -958,7 +994,7 @@ function AssignControl({
                         setOpen(false)
                         onAssign(p)
                       }}
-                      className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-page"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-page"
                     >
                       <span
                         className={`h-2 w-2 flex-none rounded-[3px] ${projectPole(p.color)}`}

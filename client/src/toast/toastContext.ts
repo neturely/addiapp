@@ -8,7 +8,7 @@ import type { LucideIcon } from 'lucide-react'
  * Generalized from the dashboard's bespoke undo-delete toast — same pause-on-hover
  * dismissal, but reusable from any screen via useToast().
  */
-export type ToastTone = 'success' | 'primary' | 'accent' | 'warning' | 'neutral'
+export type ToastTone = 'success' | 'primary' | 'accent' | 'warning' | 'danger' | 'neutral'
 
 /** Optional inline action (e.g. "Play"); clicking it dismisses the toast first. */
 export type ToastAction = { label: string; onClick: () => void }

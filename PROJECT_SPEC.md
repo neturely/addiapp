@@ -1,8 +1,17 @@
 # AddiApp — Rebuild Project Spec
 
-Living document. Updated as decisions are made. Last updated: 2026-08-08
-(2.5.0 candidate: **#292 points-integrity regulation built** — §7's fair-play
-rules (#383) + the `/how-points-work` guide (#385) — and the #324 Play Choice
+Living document. Updated as decisions are made. Last updated: 2026-08-14
+(2.7.0: a five-issue refinement batch on top of 2.6.0 — a friendly-error system
+replacing raw server text (#415), one running clock per surface (#419), a
+notification detail modal (#421), client-side liveness for the overrun
+auto-return (#423), and play buttons that start a Play session focused on a
+category or project (#397), plus four review rounds. 2.6.0: the seven-issue
+polish/behaviour batch — "Overview" rename + archived
+visibility re-cut (#406), login Turnstile (#410), shared loading state (#398),
+overdue-red timers (#402), calm zero-point completions (#400), the two-stage
+overrun nudge/auto-return (#403), and the cursor-pointer fix (#408). 2.5.0
+shipped the **#292 points-integrity regulation** — §7's fair-play rules (#383)
++ the `/how-points-work` guide (#385) — and the #324 Play Choice
 restructure (category filter chips + per-row time launch chips). 2.0.0 shipped
 the **GUI-refresh epic #256** — app shell (header/rail/right column),
 `/tasks/:id` TaskView as the single task surface, Dashboard row list + offset
@@ -186,6 +195,12 @@ already-filtered candidate list + an injectable rng and return one task or null)
   active-project backlog candidates (time filter still applies), pick the project
   with the **least remaining effort** (Σ base points — closest to done), tie-break
   oldest project, then the oldest task within it. Same `{ task }` response shape.
+- **Project pin (#397, 2.7.0)**: `?project=N` alongside `mode=projects` scopes the
+  pick to one owned project (the play buttons on category rows / project cards).
+  It is a **filter, not a strategy change** — one extra WHERE clause in the route,
+  after which `focusProject` sees a single group, so its least-effort ranking is a
+  no-op and the oldest-task-within pick remains. Pin without `mode=projects` → 400;
+  a project the caller doesn't own → 404 (non-enumerating).
 - **Per-user selection preference — BUILT (#266, 2.0.0)**: `users.selection_strategy`
   (default `weightedByAge`) is read by `GET /api/tasks/next` and set from the
   Settings Play section via `PATCH /api/account` (validated against the seam,
@@ -214,10 +229,13 @@ keyset pagination, and #218 edit modal)**:
   `offset` returns `{ tasks, total, counts }` — exact "X–Y of Z" ranges,
   prev/next pagers top and foot, 25/page, **newest first** by default with a
   sort-text toggle (`?sort=oldest`). Filtering stays **server-side** and purely
-  **URL-driven** — there is no in-page filter UI: the status filters (All tasks /
-  Ready / Started / Unassigned / Done, with server counts) live in the **rail's
-  Tasks section** as `?tab=` links, and per-project browsing is `?project=ID`
-  (#245/#260).
+  **URL-driven** — there is no in-page filter UI: the status filters (**Overview**
+  (renamed from "All tasks", #406) / Ready / Started / Unassigned / Done, with
+  server counts) live in the **rail's Tasks section** as `?tab=` links, and
+  per-project browsing is `?project=ID` (#245/#260). **Archived visibility
+  (#312 → #332 → #406):** the Overview and its `counts.all` EXCLUDE archived
+  tasks; the per-project/category filters keep them, server-sorted to the
+  bottom with an "Archived" pill; the Archived tab is the archive-only view.
 - **A row opens the task at `/tasks/:id` (TaskView) — THE one edit path**: back
   bar → borderless title input → an extensible field grid (Project / Estimate /
   Difficulty / Status / Description) → a served points-forecast panel → Save ·
@@ -408,9 +426,10 @@ actually built and merged to `develop`.
 - Real (illustrated) mascot art — the expression-driven SVG **icon** shipped and
   advanced through the v3 "star character" rebuild (#210, live; superseded the v2
   #96 icon); fully **illustrated** art remains the deferred pass
-- Anything else from `OLD_SPEC.md` not listed above (categories/tags #179, due
-  dates, attachments, notifications, dark mode, search, filtering, drag & drop,
-  PWA/offline, audit history, AI-assisted management)
+- Anything else from `OLD_SPEC.md` not listed above (due dates, attachments,
+  dark mode, drag & drop, PWA/offline, audit history, AI-assisted management —
+  categories shipped as #276, in-app notifications as #366, and shell search
+  covers basic filtering)
 
 ## 9. Old codebase audit — summary
 
@@ -443,8 +462,9 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
 - [ ] **#40 marketing / landing homepage** — scope/content not defined.
 - [ ] **#41 user guide / help content** — scope/content not defined.
 - [ ] **Auth hardening — edge protection only** — rate-limiting (#80) and the
-  Turnstile CAPTCHA (#79) are done; what remains is Cloudflare edge config
-  (WAF on `/api/auth/*`, Bot Fight Mode) as a dashboard-only task.
+  Turnstile CAPTCHA (#79 on register/forgot, extended to login in #410, 2.6.0)
+  are done; what remains is Cloudflare edge config (WAF on `/api/auth/*`,
+  Bot Fight Mode) as a dashboard-only checklist (#412).
 - [ ] **Privacy policy / Terms of Service** pages (needed before public launch).
 - [ ] Final color palette / brand direction — **vivid v3 is live (#143)** and current;
   only a "final/locked brand" sign-off remains (placeholder coral `#D85A30` retired).
@@ -452,14 +472,13 @@ Rewritten in this sync — resolved items removed. Genuinely still open:
   #96); half-out PlayCard placement shipped (#211).** Still SVG icon art (advanced, not closed).
 - [ ] Flat-surface rule vs. depth — **#213 "spit & polish"** proposes card drop-shadows +
   button polish (would revise the flat "no shadows/borders" rule); triage / not adopted.
-- [ ] **#292 points integrity / anti-cheat** (filed 2026-07-30) — the scoring is
-  trivially gameable (fabricated tasks, inflated estimates, multiplier farming);
-  acceptable while points are private, must be designed BEFORE any leaderboard.
 - [ ] **#295 mobile phone-width pass** (filed 2026-07-30) — a real 360px-class
   design pass (row content, touch running-task UX, dvh/safe-areas), deferred
   post-#256.
   (Resolved & removed: the "Home secondary-link set" question — Home was retired, #191;
-  archived-projects visibility — #248, shipped in 2.0.0.)
+  archived-projects visibility — #248, shipped in 2.0.0; **#292 points
+  integrity — designed AND built as 2.5.0's #383/#385**, see §7's fair-play
+  section.)
 
 Resolved since the last sync: backend language (**PHP**, #77), hosting (**same
 Basic Plus Reseller as wptips**), SSH availability (**yes**), deploy (**#39**),
@@ -518,3 +537,36 @@ production email (**#65, live**).
   responsive pass (#270, rail drawer below 640px); archived projects resolved (#248).
   Newly filed, not built: **#292 points integrity** and **#295 mobile phone-width
   pass**. Post-release fix #301 (avatar menu) noted in the changelog [Unreleased].
+- **2026-08-11** — 2.6.0 sync (also back-fills the 2.5.0 §11 entry: the 2026-08-08
+  pass updated the header + §7 fair-play section for #383/#385/#324 but logged no
+  entry here). Folded in the seven-issue 2.6.0 batch: **"Overview" rename +
+  archived-visibility re-cut** (#406 — Overview/`counts.all` exclude archived,
+  project/category filters sort it last, §6); **login Turnstile** (#410, §10's
+  auth item); **shared `Loading` component** (#398); **overdue timers in danger
+  ink** (#402, `isOverdue` boundary = the speed-bonus zero); **calm zero-point
+  Completion** (#400); **two-stage overrun** (#403 — warn notification at 3×,
+  auto-return to Ready at 5× via the lazy sweep, per-run dedupe; the InProgress
+  copy counts down to it, thresholds served on `GET /api/points`); **global
+  cursor-pointer rule** (#408, Tailwind v4 preflight regression). §8's stale
+  deferred list corrected (categories #276 / notifications #366 shipped);
+  §10's #292 item moved to resolved. CLAUDE.md holds the authoritative detail.
+- **2026-08-14** — 2.7.0 sync. Folded in the five-issue refinement batch:
+  **friendly errors** (#415 — `isUnexpectedError`/`friendlyMessage` in
+  `lib/apiError`, the `useErrorReporter` hook putting unexpected 5xx/network
+  failures in a danger TOAST while the server's deliberate 4xx copy stays inline,
+  and the shared `ErrorBanner` card for surface-wide failures; a failed fetch may
+  no longer render as an empty state); **one clock per surface** (#419 — the
+  right-column mirror is the clock when visible, the header chip never mirrors the
+  InProgress task you're viewing, both return when the column is gone, §6);
+  **notification detail modal** (#421 — a row click opens the full text with OK +
+  "Go to task" instead of navigating); **overrun liveness** (#423 — the renderless
+  `OverrunWatcher` fires one timer per task/run/stage at the served 3×/5×
+  boundaries so the sweep's state change lands without a navigation, and the
+  InProgress screen flips in place to a "Sent back to Ready" card; tier 2
+  heartbeat deliberately unbuilt); **focused-Play entry points** (#397 — play
+  buttons on category rows and active project cards, `?category=`/`?project=`
+  pre-selection on Choice, and the `project` pin on `GET /api/tasks/next` which
+  scopes `focusProject` to one owned project WITHOUT changing the selection
+  algorithm, §5). Review rounds: the error card's placement/shape/centring, the
+  notification modal's date position, and the Dashboard's project column hidden on
+  the project's own filter view. CLAUDE.md holds the authoritative detail.
