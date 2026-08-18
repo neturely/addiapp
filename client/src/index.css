@@ -270,3 +270,25 @@
   background: rgb(0 0 0 / 0.22);
   border-radius: 5px;
 }
+
+/*
+ * Notes ruled paper (#405, user feedback): the scratchpad reads as a notepad,
+ * not a form field. The rules are a repeating gradient rather than real
+ * elements, so they cost nothing and can't desync from the text — but that
+ * only holds while the gradient's period EQUALS the line-height, so the two
+ * values below must change together. `background-attachment: local` is what
+ * makes the lines scroll with the content instead of staying pinned to the
+ * box. Unlayered, so it beats the Tailwind text-size utility's own
+ * line-height (same trick as .app-shell-content above).
+ */
+.notes-paper {
+  line-height: 28px;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 27px,
+    var(--color-field-hover) 27px,
+    var(--color-field-hover) 28px
+  );
+  background-attachment: local;
+}

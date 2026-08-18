@@ -51,8 +51,9 @@ const taskB = await seed(`e2e notify probe B ${stamp}`, { unit: 'day', interval:
 await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle0' })
 await page.waitForFunction(
   () =>
-    (document.querySelector('button[aria-label^="Account menu"]')?.getAttribute('aria-label') || '')
-      .includes('unread'),
+    (
+      document.querySelector('button[aria-label^="Account menu"]')?.getAttribute('aria-label') || ''
+    ).includes('unread'),
   { timeout: 5000 },
 )
 ok(
@@ -165,11 +166,16 @@ ok(serverUnread === 0, `#366: opening the view marked all read (server unread: $
 // next sweep must NOT resurrect it (soft delete anchors the dedupe).
 await page.evaluate(() =>
   [...document.querySelectorAll('button')]
-    .find((b) => /^Dismiss notification: e2e notify probe A/i.test(b.getAttribute('aria-label') || ''))
+    .find((b) =>
+      /^Dismiss notification: e2e notify probe A/i.test(b.getAttribute('aria-label') || ''),
+    )
     ?.click(),
 )
 await page.waitForFunction(
-  () => !/e2e notify probe A/i.test(document.querySelector('ul[aria-label="Notifications"]')?.textContent || ''),
+  () =>
+    !/e2e notify probe A/i.test(
+      document.querySelector('ul[aria-label="Notifications"]')?.textContent || '',
+    ),
   { timeout: 5000 },
 )
 const afterDismiss = await page.evaluate(async () => {
@@ -201,15 +207,18 @@ ok(afterComplete === false, "#366: completing the task removes the task's notifi
 
 // Cleanup: delete both probe tasks + the clone B's completion spawned (task
 // deletion cascades any remaining notification rows).
-await page.evaluate(async (ids) => {
-  for (const tid of ids) {
-    await fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' })
-  }
-  const { tasks } = await fetch('/api/tasks', { credentials: 'include' }).then((r) => r.json())
-  for (const t of tasks.filter((x) => /e2e notify probe/i.test(x.title))) {
-    await fetch(`/api/tasks/${t.id}`, { method: 'DELETE', credentials: 'include' })
-  }
-}, [taskA, taskB])
+await page.evaluate(
+  async (ids) => {
+    for (const tid of ids) {
+      await fetch(`/api/tasks/${tid}`, { method: 'DELETE', credentials: 'include' })
+    }
+    const { tasks } = await fetch('/api/tasks', { credentials: 'include' }).then((r) => r.json())
+    for (const t of tasks.filter((x) => /e2e notify probe/i.test(x.title))) {
+      await fetch(`/api/tasks/${t.id}`, { method: 'DELETE', credentials: 'include' })
+    }
+  },
+  [taskA, taskB],
+)
 
 // --- Overrun nudge + auto-return (#403) ---
 // A 10-min task running 3.5× over warns (and keeps running); dragged past 5×
@@ -230,14 +239,19 @@ const warned = await page.evaluate(async () => {
   const { notifications } = await fetch('/api/notifications', { credentials: 'include' }).then(
     (r) => r.json(),
   )
-  return notifications.find((n) => n.type === 'task_overrun' && /e2e overrun probe/i.test(n.data.title || ''))
+  return notifications.find(
+    (n) => n.type === 'task_overrun' && /e2e overrun probe/i.test(n.data.title || ''),
+  )
 })
 ok(!!warned, '#403: a 3×-over running task gets the task_overrun nudge')
 ok(
-  warned && (await page.evaluate(async (tid) => {
-    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) => r.json())
-    return task.status === 'in_progress'
-  }, overTask)),
+  warned &&
+    (await page.evaluate(async (tid) => {
+      const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) =>
+        r.json(),
+      )
+      return task.status === 'in_progress'
+    }, overTask)),
   '#403: the warned task keeps running (stage 1 never touches state)',
 )
 // The /notifications view renders the warn wording (incl. the served 5× threshold).
@@ -252,15 +266,21 @@ const returned = await page.evaluate(async () => {
     (r) => r.json(),
   )
   return {
-    returned: notifications.some((n) => n.type === 'task_returned' && /e2e overrun probe/i.test(n.data.title || '')),
-    warnGone: !notifications.some((n) => n.type === 'task_overrun' && /e2e overrun probe/i.test(n.data.title || '')),
+    returned: notifications.some(
+      (n) => n.type === 'task_returned' && /e2e overrun probe/i.test(n.data.title || ''),
+    ),
+    warnGone: !notifications.some(
+      (n) => n.type === 'task_overrun' && /e2e overrun probe/i.test(n.data.title || ''),
+    ),
   }
 })
 ok(returned.returned, '#403: past 5× the sweep files a task_returned notice')
 ok(returned.warnGone, '#403: the returned notice supersedes the earlier warn')
 ok(
   await page.evaluate(async (tid) => {
-    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) => r.json())
+    const { task } = await fetch(`/api/tasks/${tid}`, { credentials: 'include' }).then((r) =>
+      r.json(),
+    )
     return task.status === 'backlog' && task.startedAt === null
   }, overTask),
   '#403: the task is back in Ready with its run timing cleared',

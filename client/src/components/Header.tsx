@@ -4,6 +4,7 @@ import {
   BarChart3,
   LayoutGrid,
   Menu,
+  NotebookPen,
   PanelRight,
   Play,
   Search,
@@ -30,7 +31,15 @@ function initialsFor(user: AuthUser): string {
 /** Icon-only nav; a section stays active across its sub-routes. */
 const NAV: { to: string; label: string; Icon: LucideIcon; match: (p: string) => boolean }[] = [
   { to: '/play', label: 'Play', Icon: Play, match: (p) => p === '/' || p.startsWith('/play') },
-  { to: '/dashboard', label: 'Dashboard', Icon: LayoutGrid, match: (p) => p.startsWith('/dashboard') },
+  {
+    to: '/dashboard',
+    label: 'Dashboard',
+    Icon: LayoutGrid,
+    match: (p) => p.startsWith('/dashboard'),
+  },
+  // #405: notes sit in the nav, not the avatar menu — a scratchpad is a place
+  // you work, not an account setting.
+  { to: '/notes', label: 'Notes', Icon: NotebookPen, match: (p) => p.startsWith('/notes') },
   { to: '/settings', label: 'Settings', Icon: Settings, match: (p) => p.startsWith('/settings') },
 ]
 
@@ -160,7 +169,10 @@ export function Header() {
                 to={to}
                 aria-label={label}
                 aria-current={active ? 'page' : undefined}
-                className={`tap-44 inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
+                // h-8 below sm (#405): a fifth nav icon pushed the cluster past
+                // a 375px viewport. The tap-44 halo keeps the hit target at
+                // 44px, so only the painted box shrinks.
+                className={`tap-44 inline-flex h-8 w-8 items-center justify-center rounded-control transition sm:h-9 sm:w-9 ${
                   active ? 'bg-primary-tint text-primary-ink' : 'text-gray-700 hover:bg-page'
                 }`}
               >
@@ -173,7 +185,7 @@ export function Header() {
               to="/stats"
               aria-label="Your stats"
               aria-current={pathname.startsWith('/stats') ? 'page' : undefined}
-              className={`tap-44 inline-flex h-9 w-9 items-center justify-center rounded-control transition ${
+              className={`tap-44 inline-flex h-8 w-8 items-center justify-center rounded-control transition sm:h-9 sm:w-9 ${
                 pathname.startsWith('/stats')
                   ? 'bg-primary-tint text-primary-ink'
                   : 'text-gray-700 hover:bg-page'

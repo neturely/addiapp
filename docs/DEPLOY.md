@@ -38,9 +38,12 @@ mid-way is left partially applied and not recorded. To keep a re-run safe:
 
 - **One logical change (ideally one statement) per migration file** — a failure
   then can't leave a file half-applied.
-- **Idempotent DDL**: `CREATE TABLE/INDEX IF NOT EXISTS`, `ALTER TABLE … ADD
-  COLUMN IF NOT EXISTS` (MariaDB 10.11 supports these). `001`/`002` carry
-  `IF NOT EXISTS` so a fresh apply is re-runnable.
+- **Idempotent DDL**: `CREATE TABLE/INDEX IF NOT EXISTS` — both engines support
+  these, and `001`/`002` carry them so a fresh apply is re-runnable.
+- **Do NOT use `ALTER TABLE … ADD COLUMN IF NOT EXISTS`** (#184): it is
+  **MariaDB-only** and errors on the dev MySQL 8. For a single-statement ALTER,
+  plain `ADD COLUMN` is already safe — the `_migrations` tracker runs the file
+  exactly once, and one statement can't leave a partial state.
 
 On failure `migrate.php` prints which statement index failed and whether the file
 is partially applied.
@@ -127,6 +130,27 @@ DATABASE_URL="mysql://addiapp:addiapp@127.0.0.1:3306/addiapp_test" vendor/bin/ph
 
 Without `DATABASE_URL` the pure-math/selection unit tests still run; the DB-backed
 tests skip (they never touch dev/prod data).
+
+### Running the e2e suites locally — part of the release pass (#437)
+
+CI covers the backend and the build; it does **not** cover client behaviour. The
+`client/e2e/` suites are the only check that the UI actually behaves, and they
+can't run in CI (they need the whole dev stack). So they are a **manual step on
+the release pass** — run them on `develop` before opening the promotion PR, not
+after:
+
+```bash
+npm run e2e:setup -w client   # one-time per machine, no sudo
+npm run dev                   # dev stack up in another shell
+npm run e2e:all -w client     # all suites; non-zero exit if any failed
+```
+
+**Why this is written down.** The 2.7.0 promotion shipped a real failure-path bug
+(#436) past clean lint, a green build and a manual diff read. The e2e block that
+would have caught it existed — it just couldn't run on the dev box, and had been
+unable to for two releases, so the suites had quietly rotted. Provisioning is now
+one command (`scripts/e2e-setup.sh`); the remaining defence is running them.
+Details and the harness's own gotchas: `client/e2e/README.md`.
 
 ## One-time server setup
 

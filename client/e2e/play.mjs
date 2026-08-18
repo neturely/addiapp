@@ -122,7 +122,9 @@ await page.waitForFunction(
 )
 ok(true, '#264: right column mirrors the running task ("Working on")')
 ok(
-  await page.evaluate(() => /mirror probe/i.test(document.querySelector('aside')?.textContent || '')),
+  await page.evaluate(() =>
+    /mirror probe/i.test(document.querySelector('aside')?.textContent || ''),
+  ),
   '#264: mirror shows the task title',
 )
 const clock1 = await page.evaluate(
@@ -187,7 +189,9 @@ ok(
 ok(
   await page.evaluate(() =>
     [...document.querySelectorAll('a')].some(
-      (a) => a.getAttribute('href') === '/how-points-work' && /how points work/i.test(a.textContent || ''),
+      (a) =>
+        a.getAttribute('href') === '/how-points-work' &&
+        /how points work/i.test(a.textContent || ''),
     ),
   ),
   '#385: the zero-award panel links the guide',
@@ -197,7 +201,9 @@ ok(
 ok(
   await page.evaluate(() => {
     const h1 = document.querySelector('h1')
-    return /Done\./.test(h1?.textContent || '') && !/Nice work/i.test(document.body.textContent || '')
+    return (
+      /Done\./.test(h1?.textContent || '') && !/Nice work/i.test(document.body.textContent || '')
+    )
   }),
   '#400: zeroed Completion uses the calm "Done." heading, no cheer',
 )
@@ -250,14 +256,18 @@ ok(
 // a navigation; the header chip drops the task too.
 const overId = await seedTask(page, 'e2e overrun flip probe', 'low', 1)
 await page.evaluate(async (i) => {
-  await fetch(`/api/tasks/${i}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress' }) })
+  await fetch(`/api/tasks/${i}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'in_progress' }),
+  })
 }, overId)
 backdateTask(overId, 10)
 await page.goto(`${BASE}/play/progress/${overId}`, { waitUntil: 'networkidle0' })
-await page.waitForFunction(
-  () => /sent back to ready/i.test(document.body.textContent || ''),
-  { timeout: 10000 },
-)
+await page.waitForFunction(() => /sent back to ready/i.test(document.body.textContent || ''), {
+  timeout: 10000,
+})
 ok(true, '#423: InProgress flips to the "Sent back to Ready" card at the 5× boundary')
 ok(
   await page.evaluate(() => document.activeElement?.tagName === 'H1'),
@@ -265,54 +275,95 @@ ok(
 )
 await sleep(400)
 ok(
-  await page.evaluate((i) => !document.querySelector(`header a[href="/play/progress/${i}"]`), overId),
+  await page.evaluate(
+    (i) => !document.querySelector(`header a[href="/play/progress/${i}"]`),
+    overId,
+  ),
   '#423: the chip drops the returned task without a navigation',
 )
 const returnedRow = await page.evaluate(async () => {
-  const { notifications } = await fetch('/api/notifications', { credentials: 'include' }).then((r) => r.json())
-  return notifications.find((n) => n.type === 'task_returned' && /overrun flip probe/i.test(n.data.title || '')) ?? null
+  const { notifications } = await fetch('/api/notifications', { credentials: 'include' }).then(
+    (r) => r.json(),
+  )
+  return (
+    notifications.find(
+      (n) => n.type === 'task_returned' && /overrun flip probe/i.test(n.data.title || ''),
+    ) ?? null
+  )
 })
 ok(returnedRow !== null, '#423: the task_returned notification exists after the flip')
 
 // --- #397: manager-view play buttons land on Choice pre-focused ---
 const pin = await page.evaluate(async () => {
-  const pr = await fetch('/api/projects', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'e2e pin probe' }) }).then((r) => r.json())
+  const pr = await fetch('/api/projects', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'e2e pin probe' }),
+  }).then((r) => r.json())
   const pid = pr.project.id
   const tasks = []
   for (const title of ['e2e pin task old', 'e2e pin task new']) {
-    const t = await fetch('/api/tasks', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, complexity: 'low', estimatedMinutes: 5, projectId: pid }) }).then((r) => r.json())
+    const t = await fetch('/api/tasks', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, complexity: 'low', estimatedMinutes: 5, projectId: pid }),
+    }).then((r) => r.json())
     tasks.push(t.task.id)
   }
   return { pid, tasks }
 })
 await page.goto(`${BASE}/play?project=${pin.pid}`, { waitUntil: 'networkidle0' })
-await page.waitForFunction(() => /focus on e2e pin probe/i.test(document.body.textContent || ''), { timeout: 5000 })
+await page.waitForFunction(() => /focus on e2e pin probe/i.test(document.body.textContent || ''), {
+  timeout: 5000,
+})
 ok(true, '#397: /play?project=ID pre-selects Focus on projects, labelled to the project')
 ok(
   await page.evaluate(() => !!document.querySelector('button[aria-label^="Clear project"]')),
   '#397: the pin is clearable (× pill present)',
 )
 await page.evaluate(() =>
-  [...document.querySelectorAll('button')].find((b) => /focus on e2e pin probe/i.test(b.textContent || ''))?.click(),
+  [...document.querySelectorAll('button')]
+    .find((b) => /focus on e2e pin probe/i.test(b.textContent || ''))
+    ?.click(),
 )
 await page.waitForFunction(
-  (pid) => location.pathname === '/play/task' && location.search.includes('mode=projects') && location.search.includes(`project=${pid}`),
+  (pid) =>
+    location.pathname === '/play/task' &&
+    location.search.includes('mode=projects') &&
+    location.search.includes(`project=${pid}`),
   { timeout: 5000 },
   pin.pid,
 )
-await page.waitForFunction(() => /e2e pin task old/i.test(document.body.textContent || ''), { timeout: 5000 })
-ok(true, '#397: the pinned launch presents the project\'s OLDEST task (least-effort ranking skipped)')
+await page.waitForFunction(() => /e2e pin task old/i.test(document.body.textContent || ''), {
+  timeout: 5000,
+})
+ok(
+  true,
+  "#397: the pinned launch presents the project's OLDEST task (least-effort ranking skipped)",
+)
 // Cleanup: archive → delete the pin project; its tasks go Unassigned, delete them too.
 await page.evaluate(async ({ pid, tasks }) => {
-  await fetch(`/api/projects/${pid}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'archived' }) })
+  await fetch(`/api/projects/${pid}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'archived' }),
+  })
   await fetch(`/api/projects/${pid}`, { method: 'DELETE', credentials: 'include' })
-  for (const id of tasks) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
+  for (const id of tasks)
+    await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
 }, pin)
 
 // Cleanup the probes (done tasks would linger in the demo data).
-await page.evaluate(async (ids) => {
-  for (const id of ids) await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
-}, [fastId, slowId, overId])
+await page.evaluate(
+  async (ids) => {
+    for (const id of ids)
+      await fetch(`/api/tasks/${id}`, { method: 'DELETE', credentials: 'include' })
+  },
+  [fastId, slowId, overId],
+)
 
 await browser.close()
 process.exit(done())
