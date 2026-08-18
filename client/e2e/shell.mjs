@@ -105,7 +105,9 @@ ok(
   '#260: Escape closes the avatar menu',
 )
 ok(
-  await page.evaluate(() => document.activeElement?.getAttribute('aria-label')?.startsWith('Account menu')),
+  await page.evaluate(() =>
+    document.activeElement?.getAttribute('aria-label')?.startsWith('Account menu'),
+  ),
   '#260: focus returns to the avatar trigger on Escape',
 )
 

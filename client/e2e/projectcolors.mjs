@@ -5,9 +5,22 @@ import { launch, login, reporter, sleep, BASE } from './lib.mjs'
 
 // Slots 0–15 of client/src/lib/projectColors.ts — what Random may roll (#308).
 const SPECTRUM_HEXES = [
-  '#d11a1a', '#d1511a', '#d1881a', '#bfae18', '#9dbf18', '#66b616', '#16b656',
-  '#18bf8d', '#18bfbf', '#188dbf', '#1a63d1', '#3e1ad1', '#751ad1', '#ac1ad1',
-  '#d11a88', '#d11a51',
+  '#d11a1a',
+  '#d1511a',
+  '#d1881a',
+  '#bfae18',
+  '#9dbf18',
+  '#66b616',
+  '#16b656',
+  '#18bf8d',
+  '#18bfbf',
+  '#188dbf',
+  '#1a63d1',
+  '#3e1ad1',
+  '#751ad1',
+  '#ac1ad1',
+  '#d11a88',
+  '#d11a51',
 ]
 
 const { ok, done } = reporter()
@@ -21,14 +34,12 @@ await page.waitForSelector('[role="radiogroup"][aria-labelledby="project-color-l
   timeout: 5000,
 })
 
-const radios = await page.$$eval(
-  '[aria-labelledby="project-color-label"] [role="radio"]',
-  (els) =>
-    els.map((e) => ({
-      checked: e.getAttribute('aria-checked'),
-      tab: e.tabIndex,
-      label: e.getAttribute('aria-label'),
-    })),
+const radios = await page.$$eval('[aria-labelledby="project-color-label"] [role="radio"]', (els) =>
+  els.map((e) => ({
+    checked: e.getAttribute('aria-checked'),
+    tab: e.tabIndex,
+    label: e.getAttribute('aria-label'),
+  })),
 )
 ok(radios.length === 20, `#308: Random + 19 swatches = 20 radios (got ${radios.length})`)
 ok(radios.filter((r) => r.checked === 'true').length === 1, '#268: exactly one swatch checked')
@@ -83,7 +94,10 @@ const poleFor = (n) =>
     return link?.querySelector('svg.lucide-layers')?.style.color ?? ''
   }, n)
 const poleColor = await poleFor(name)
-ok(poleColor === rgbOf('#d11a1a'), `#268: rail project (Layers) icon carries slot-0 Red (got "${poleColor}")`)
+ok(
+  poleColor === rgbOf('#d11a1a'),
+  `#268: rail project (Layers) icon carries slot-0 Red (got "${poleColor}")`,
+)
 
 // #308: leaving Random selected rolls a concrete SPECTRUM hue at save time —
 // the stored colour is a real palette index, never a neutral.
@@ -103,7 +117,9 @@ ok(
 // categories, deep-linking the edit modal (with the in-modal Archive button)
 // onto the project's task list. Archiving doubles as the probe's cleanup.
 const probeId = await page.evaluate(async (n) => {
-  const { projects } = await fetch('/api/projects', { credentials: 'include' }).then((r) => r.json())
+  const { projects } = await fetch('/api/projects', { credentials: 'include' }).then((r) =>
+    r.json(),
+  )
   return projects.find((p) => p.name === n)?.id ?? null
 }, randomName)
 const editHref = await page.evaluate(
@@ -134,7 +150,9 @@ await page.waitForFunction(
 ok(true, '#336: in-modal Archive files the project (rail entry gone)')
 // Archive the first probe too so the runs don't accumulate active projects.
 await page.evaluate(async (n) => {
-  const { projects } = await fetch('/api/projects', { credentials: 'include' }).then((r) => r.json())
+  const { projects } = await fetch('/api/projects', { credentials: 'include' }).then((r) =>
+    r.json(),
+  )
   const p = projects.find((x) => x.name === n)
   if (p)
     await fetch(`/api/projects/${p.id}`, {
