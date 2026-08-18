@@ -1,2 +1,0 @@
-<!-- okffs:type=Changed -->
-- Internal: the browser-driven e2e suites run on Linux/WSL as well as macOS, provisioned by one no-sudo `npm run e2e:setup`, with npm scripts for every suite and an `e2e:all` runner. The suites had quietly rotted over two releases while they couldn't run here — they are green again, and running them is now a documented step of the release pass ([#437](https://github.com/neturely/addiapp/issues/437))

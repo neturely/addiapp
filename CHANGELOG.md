@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-08-18
+### Added
+- **Notes** — a personal scratchpad page for the jotting that doesn't belong on a task. One plain-text page per user at `/notes`, reached from a new notebook icon in the header nav, sitting on ruled paper. It has no Save button: it saves itself as you type, when you click away, and when you leave the page ([#405](https://github.com/neturely/addiapp/issues/405))
+### Fixed
+- A task that ran so far past its estimate that AddiApp sent it back to Ready **while its screen was open** now says so, on the same calm "Sent back to Ready" card the in-place hand-off already used. Opening such a task's link (for instance after leaving it running overnight) previously bounced you to the Play screen with no account of where the run had gone ([#423](https://github.com/neturely/addiapp/issues/423), found via [#437](https://github.com/neturely/addiapp/issues/437))
+### Changed
+- Internal: the browser-driven e2e suites run on Linux/WSL as well as macOS, provisioned by one no-sudo `npm run e2e:setup`, with npm scripts for every suite and an `e2e:all` runner. The suites had quietly rotted over two releases while they couldn't run here — they are green again, and running them is now a documented step of the release pass ([#437](https://github.com/neturely/addiapp/issues/437))
+
 ## [2.7.0] - 2026-08-14
 ### Added
 - Play buttons on category rows and project cards: one click starts a Play session focused on that category or project. It opens the usual choice screen with the focus pre-selected and clearable, so you still pick how much time you have; a pinned project keeps its own tasks for the rest of the session, including "Keep going" ([#397](https://github.com/neturely/addiapp/issues/397))
@@ -202,7 +210,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual refresh v2 (B) — Batch 4: retrofit Auth pages to tokens (closes #94) ([#141](https://github.com/neturely/addiapp/issues/141))
 - Mascot redesign v2 — icon-style, expression-driven (refine the existing single component) ([#96](https://github.com/neturely/addiapp/issues/96))
 
-[Unreleased]: https://github.com/neturely/addiapp/compare/v2.7.0...HEAD
+[Unreleased]: https://github.com/neturely/addiapp/compare/v2.8.0...HEAD
+[2.8.0]: https://github.com/neturely/addiapp/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/neturely/addiapp/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/neturely/addiapp/compare/v2.5.0...v2.6.0
 [2.5.0]: https://github.com/neturely/addiapp/compare/v2.4.0...v2.5.0
