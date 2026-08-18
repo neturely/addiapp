@@ -105,12 +105,13 @@ export function Notes() {
     }
   }, [flush])
 
-  // Fills the shell's scrolling content pane rather than a viewport
-  // calculation: the pane already has a definite height, so flex-1 + min-h-0
-  // keeps the field exactly as tall as the space available at any viewport,
-  // and the textarea scrolls inside it.
+  // Full width with the Dashboard's padding (user feedback) — a scratchpad
+  // wants the whole desk, not a reading column. Fills the shell's scrolling
+  // content pane rather than a viewport calculation: the pane already has a
+  // definite height, so flex-1 + min-h-0 keeps the field exactly as tall as
+  // the space available, and the textarea scrolls inside it.
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col p-4 sm:p-6">
+    <div className="flex min-h-0 w-full flex-1 flex-col p-4 sm:p-6">
       <h1 className="sr-only">Notes</h1>
       {loadError && <ErrorBanner message={loadError} />}
       {loading ? (
@@ -133,7 +134,7 @@ export function Notes() {
               maxLength={NOTE_MAX_LENGTH}
               aria-label="Notes"
               placeholder="Anything you want to keep — it saves itself."
-              className="min-h-0 flex-1 resize-none border-0 bg-transparent text-base leading-relaxed text-gray-800 outline-none placeholder:text-muted"
+              className="notes-paper min-h-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm text-gray-800 outline-none placeholder:text-muted"
             />
           </div>
         )
