@@ -14,9 +14,11 @@ by #437.
 ## How it works
 
 - Uses **`puppeteer-core`** driving a real Chrome — no bundled Chromium in the
-  repo. `lib.mjs` finds one automatically: `$CHROME` if set, else the pinned
-  Chrome for Testing that `scripts/e2e-setup.sh` provisions, else the system
-  Chrome for the platform.
+  repo. `lib.mjs` finds one automatically: `$CHROME` if set, else the Chrome for
+  Testing that `scripts/e2e-setup.sh` provisions, else the system Chrome for the
+  platform. The setup script installs **`chrome@stable`**, so the version tracks
+  upstream rather than being pinned; two machines can be on different builds. If
+  a version difference ever matters, pin it by setting `$CHROME`.
 - Logs in through the real login form as a dev user, then drives pages and asserts
   DOM/ARIA/focus and simulates real key events (Tab, Arrow keys, Enter, Escape).
 
@@ -27,7 +29,7 @@ npm run e2e:setup -w client
 ```
 
 Idempotent, and **needs no sudo**. On macOS it just checks for system Chrome. On
-Linux/WSL it downloads a pinned Chrome for Testing into `~/.cache/e2e-chrome/`
+Linux/WSL it downloads the current stable Chrome for Testing into `~/.cache/e2e-chrome/`
 and unpacks the five shared objects a bare Ubuntu lacks (`libnspr4`, `libnss3`,
 `libasound2t64` — ~2 MB) beside it, then proves the browser starts. Everything
 lands in `$HOME`, never `/tmp` (WSL wipes `/tmp` between restarts).
@@ -78,10 +80,10 @@ ignores them fails for reasons that look like product bugs:
 - **Daily limits are per user per day** (25 scored completions, 720 claimed
   minutes). One `e2e:all` pass completes well over a dozen tasks, so without
   `resetDailyStats()` the later suites silently start scoring 0.
-- **Ten suites means ten logins**, which trips the #80 login rate limiter on a
-  repeat run — suites then time out AT the login form. `e2e:all` clears the dev
-  `rate_limits` table itself; if you hit it running a single suite, clear that
-  table by hand.
+- **Every suite signs in**, so a full run is a burst of logins and trips the #80
+  login rate limiter on a repeat run — suites then time out AT the login form.
+  `e2e:all` clears the dev `rate_limits` table itself; if you hit it running a
+  single suite, clear that table by hand.
 
 These helpers talk straight to the docker MySQL and are harness-only — they
 never run in CI, and never touch anything but the dev database.

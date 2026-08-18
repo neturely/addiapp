@@ -45,14 +45,22 @@ final class NotesController
     public function save(Request $req, array $params): void
     {
         $content = $req->input('content');
-        if (!is_string($content) || mb_strlen($content) > self::MAX_LENGTH) {
+        if (!is_string($content)) {
             Response::error('Invalid input', 400);
             return;
         }
 
         // Normalise line endings so a CRLF client and an LF one round-trip the
         // same text — the client renders it in a plain textarea either way.
+        // BEFORE the length check, not after: a CRLF client's "\r\n" counts as
+        // two characters but stores as one, so validating first would reject a
+        // note that fits once stored.
         $content = str_replace("\r\n", "\n", $content);
+
+        if (mb_strlen($content) > self::MAX_LENGTH) {
+            Response::error('Invalid input', 400);
+            return;
+        }
 
         // ON DUPLICATE KEY on the unique user_id: one statement, no read-then-write
         // race between two tabs autosaving at once (last write wins, which is the

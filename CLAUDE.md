@@ -1102,7 +1102,8 @@ any text size) — the vivid-fill-with-white-number stat treatment is retired.
   gate only). See `client/e2e/README.md`.
   **Portable since #437 (2.8.0):** `npm run e2e:setup -w client`
   (`scripts/e2e-setup.sh`) provisions everything idempotently and **without
-  sudo** — on Linux/WSL a pinned Chrome for Testing plus the five shared objects
+  sudo** — on Linux/WSL Chrome for Testing (tracking `chrome@stable`, NOT a
+  pinned version — set `$CHROME` to force a build) plus the five shared objects
   Ubuntu lacks, unpacked via `apt-get download` + `dpkg-deb -x` into
   `~/.cache/e2e-chrome` (**never `/tmp`** — WSL wipes it); on macOS it just
   checks for system Chrome. `lib.mjs` then DISCOVERS the browser (`$CHROME` →

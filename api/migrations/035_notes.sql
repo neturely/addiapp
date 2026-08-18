@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS `notes` (
   `user_id` int NOT NULL,
   `content` mediumtext NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT (now()),
-  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE now(),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `notes_user_unique` (`user_id`),
   CONSTRAINT `notes_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
