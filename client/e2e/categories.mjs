@@ -138,7 +138,10 @@ const headHref = await page.evaluate(() => {
   )
   return a?.getAttribute('href') ?? null
 })
-ok(headHref === '/dashboard?view=categories', `#336: Categories head links the view (got ${headHref})`)
+ok(
+  headHref === '/dashboard?view=categories',
+  `#336: Categories head links the view (got ${headHref})`,
+)
 await page.goto(`${BASE}/dashboard?view=categories`, { waitUntil: 'networkidle0' })
 await page.waitForSelector('ul[aria-label="Categories"]', { timeout: 5000 })
 const catRow = await page.evaluate((name) => {
@@ -197,8 +200,7 @@ const filterRow = await page.evaluate((name) => {
   const mine = chips.find((c) => c.textContent?.trim() === name)
   return {
     defaultAny:
-      any?.textContent?.trim() === 'Any category' &&
-      any?.getAttribute('aria-checked') === 'true',
+      any?.textContent?.trim() === 'Any category' && any?.getAttribute('aria-checked') === 'true',
     tinted: !!mine && (mine.getAttribute('style') || '').includes('background'),
   }
 }, CAT_NAME)
@@ -257,17 +259,15 @@ ok(
 await page.goto(`${BASE}${editHref}`, { waitUntil: 'networkidle0' })
 await page.waitForSelector('[role=dialog] #category-name', { timeout: 5000 })
 ok(
-  await page.evaluate(
-    (name) => document.querySelector('#category-name')?.value === name,
-    CAT_NAME,
-  ),
+  await page.evaluate((name) => document.querySelector('#category-name')?.value === name, CAT_NAME),
   '#336: edit deep link opens the modal prefilled',
 )
 await page.evaluate(() =>
   document.querySelector('[role=dialog] button[aria-label="Delete this category"]')?.click(),
 )
 await page.waitForFunction(
-  () => /delete this category\?/i.test(document.querySelector('[role=dialog] h2')?.textContent || ''),
+  () =>
+    /delete this category\?/i.test(document.querySelector('[role=dialog] h2')?.textContent || ''),
   { timeout: 5000 },
 )
 ok(true, '#336: modal Delete hands off to the confirm step')
