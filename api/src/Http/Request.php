@@ -14,6 +14,21 @@ final class Request
      */
     private const MAX_BODY_BYTES = 64 * 1024;
 
+    /**
+     * The one exception (#405): the notes scratchpad posts a whole page of
+     * free text. Its 100,000-CHARACTER cap is up to 400 KB of UTF-8, so under
+     * the default limit a long note in any multi-byte script would be refused
+     * as abuse before the validator could give a real answer. Raised for that
+     * path only — every other endpoint keeps the tight default.
+     */
+    private const MAX_BODY_BYTES_NOTES = 512 * 1024;
+
+    /** The body cap that applies to this path (see the two constants above). */
+    private static function bodyLimit(string $path): int
+    {
+        return rtrim($path, '/') === '/api/notes' ? self::MAX_BODY_BYTES_NOTES : self::MAX_BODY_BYTES;
+    }
+
     public ?int $userId = null;
     /** @var array{id:int,email:string,displayName:?string}|null */
     public ?array $user = null;
@@ -58,16 +73,18 @@ final class Request
      */
     private static function readBody(): string
     {
+        $limit = self::bodyLimit(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+
         $declared = $_SERVER['CONTENT_LENGTH'] ?? null;
-        if (is_numeric($declared) && (int) $declared > self::MAX_BODY_BYTES) {
+        if (is_numeric($declared) && (int) $declared > $limit) {
             self::rejectTooLarge();
         }
 
-        $raw = file_get_contents('php://input', false, null, 0, self::MAX_BODY_BYTES + 1);
+        $raw = file_get_contents('php://input', false, null, 0, $limit + 1);
         if ($raw === false) {
             return '';
         }
-        if (strlen($raw) > self::MAX_BODY_BYTES) {
+        if (strlen($raw) > $limit) {
             self::rejectTooLarge();
         }
         return $raw;
