@@ -16,8 +16,9 @@ const suites = readdirSync(here)
   .filter((f) => f.endsWith('.mjs') && !skip.has(f))
   .sort()
 
-// Ten suites means ten logins; without this a back-to-back run trips the #80
-// limiter and every suite fails at the login form instead of at an assertion.
+// Every suite signs in, so a whole run is a burst of logins; without this a
+// back-to-back run trips the #80 limiter and each suite fails at the login form
+// instead of at an assertion.
 clearRateLimits()
 
 const failed = []

@@ -29,7 +29,10 @@ if [ "$(uname -s)" = "Darwin" ]; then
   exit 1
 fi
 
-# --- Linux (incl. WSL): a pinned Chrome for Testing + its missing shared objects.
+# --- Linux (incl. WSL): Chrome for Testing + its missing shared objects.
+# Tracks `chrome@stable` rather than pinning a version — the suites assert app
+# behaviour, not browser rendering, so a newer build is fine and a stale pin
+# would just rot. Set $CHROME to override with a specific binary.
 say "Cache: $E2E_CACHE"
 
 # 1. The browser itself. @puppeteer/browsers downloads AND extracts (no unzip

@@ -116,6 +116,15 @@ final class NotesTest extends DbTestCase
             'content' => str_repeat('ä', NotesController::MAX_LENGTH),
         ]);
         self::assertSame(200, $status);
+
+        // Length is measured on the NORMALISED text (Copilot, 2.8.0 promotion):
+        // a CRLF client's "\r\n" is two characters in and one character stored,
+        // so a note that fits once stored must not be rejected on the way in.
+        [$status, $body] = $this->dispatch('PUT', '/api/notes', $sid, [
+            'content' => str_repeat("a\r\n", NotesController::MAX_LENGTH / 2),
+        ]);
+        self::assertSame(200, $status);
+        self::assertSame(NotesController::MAX_LENGTH, mb_strlen($body['content']));
     }
 
     public function testNoteIsDeletedWithTheAccount(): void

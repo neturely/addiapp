@@ -12,7 +12,8 @@ const CACHE = process.env.E2E_CACHE || join(homedir(), '.cache', 'e2e-chrome')
 /**
  * Find a Chrome to drive (#437). Checked in order:
  *   1. $CHROME — always wins.
- *   2. The pinned Chrome for Testing from scripts/e2e-setup.sh.
+ *   2. The Chrome for Testing that scripts/e2e-setup.sh installs (tracking
+ *      stable, not a pinned version — set $CHROME to force a specific build).
  *   3. The platform's system Chrome.
  * Previously this was a hardcoded macOS path, which is why the suites looked
  * unrunnable on Linux/WSL.
